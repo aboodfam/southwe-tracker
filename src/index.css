@@ -1,0 +1,423 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sw-gradient: linear-gradient(90deg, rgb(34, 211, 238), rgb(59, 130, 246));
+  --sw-gradient-hover: linear-gradient(90deg, rgb(103, 232, 249), rgb(147, 197, 253));
+  --sw-glow: 0 0 24px rgba(34, 211, 238, 0.26), 0 0 54px rgba(59, 130, 246, 0.16);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #000;
+  color: #fff;
+  overflow-x: hidden;
+}
+
+/* Hide scrollbars for horizontal scrolling */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari and Chrome */
+}
+
+/* Smooth scrolling for horizontal containers */
+.scrollbar-hide {
+  scroll-behavior: smooth;
+}
+
+/* Safe area for mobile devices */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Animation keyframes */
+@keyframes float-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in-delayed {
+  0%, 20% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-up-delayed {
+  0%, 15% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes swap-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Page swap animations */
+@keyframes page-swap-left {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes page-swap-right {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scale-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(20px);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05) translateY(-5px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes soft-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Animation classes */
+.animate-float-in {
+  animation: float-in 0.6s ease-out forwards;
+  animation-delay: var(--delay, 0ms);
+  opacity: 0;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.8s ease-out forwards;
+}
+
+.animate-fade-in-delayed {
+  animation: fade-in-delayed 1.2s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.6s ease-out forwards;
+}
+
+.animate-slide-up-delayed {
+  animation: slide-up-delayed 0.8s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out forwards;
+}
+
+.animate-scale-out {
+  animation: scale-out 0.3s ease-out forwards;
+}
+
+.animate-pop-in {
+  animation: pop-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+.animate-soft-fade {
+  animation: soft-fade 0.4s ease-out forwards;
+}
+
+.animate-swap-in {
+  animation: swap-in 0.4s ease-out forwards;
+}
+
+.sw-page-swap-left {
+  animation: page-swap-left 0.3s ease-out forwards;
+}
+
+.sw-page-swap-right {
+  animation: page-swap-right 0.3s ease-out forwards;
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Focus styles */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.3);
+  outline-offset: 2px;
+}
+
+/* Touch improvements for mobile */
+@media (hover: none) and (pointer: coarse) {
+  button {
+    min-height: 44px;
+  }
+  
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Prevent text selection on buttons and interactive elements */
+button,
+.no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Improve tap targets on mobile */
+@media (max-width: 640px) {
+  button {
+    padding: 0.75rem 1rem;
+  }
+  
+  input,
+  select,
+  textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
+
+/* Additional utility classes */
+.force-ltr {
+  direction: ltr;
+}
+
+.font-arabic {
+  font-family: 'Amiri', 'Noto Sans Arabic', 'Arial Unicode MS', sans-serif;
+}
+
+/* Auth form styling */
+.auth-input-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.3);
+  color: white;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.auth-input-field:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.auth-input-field::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Form inputs and dropdowns - consistent dark styling for all themes */
+select,
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+textarea {
+  color-scheme: dark;
+}
+
+/* Force dark background for all form inputs in white theme */
+[data-theme="white"] select,
+[data-theme="white"] input[type="text"],
+[data-theme="white"] input[type="number"],
+[data-theme="white"] input[type="email"],
+[data-theme="white"] input[type="password"],
+[data-theme="white"] textarea {
+  background-color: #2a2a2a !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Force dark background for all form input placeholders in white theme */
+[data-theme="white"] input::placeholder,
+[data-theme="white"] textarea::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Force dark theme for select options in all themes */
+select option {
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+  padding: 8px 12px;
+}
+
+/* White theme specific select styling */
+[data-theme="white"] select option {
+  background-color: #2a2a2a !important;
+  color: #ffffff !important;
+}
+
+/* Make sure select text is visible in white theme */
+[data-theme="white"] select {
+  color: #ffffff !important;
+}
+
+/* Ensure all other themes keep proper text color */
+[data-theme="cyan"] select,
+[data-theme="black"] select,
+[data-theme="red"] select,
+[data-theme="purple"] select,
+[data-theme="green"] select {
+  color: #ffffff !important;
+}
+
+/* Holographic effects */
+.sw-holo {
+  position: relative;
+  overflow: hidden;
+}
+
+.sw-orbit-ring {
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(from 0deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  animation: spin 8s linear infinite;
+}
+
+.sw-scanline {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: scanline 3s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes scanline {
+  0%, 100% {
+    left: -100%;
+    opacity: 0;
+  }
+  50% {
+    left: 100%;
+    opacity: 1;
+  }
+}
