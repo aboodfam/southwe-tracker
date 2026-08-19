@@ -19,7 +19,7 @@
         "minHeight": 650,
         "center": true,
         "resizable": true,
-        "fullscreen": false,
+        "fullscreen": true,
         "decorations": true
       }
     ],
@@ -29,7 +29,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "category": "Productivity",
     "shortDescription": "Your personal operating system.",
     "longDescription": "Ceventic System is a personal operating system for routines, workouts, habits, progress, Athkar, and macros.",
