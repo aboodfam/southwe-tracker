@@ -147,6 +147,36 @@ const applicationTables = {
     category: v.string(),
     isCompleted: v.boolean(),
   }).index("by_user", ["userId"]),
+
+  // User-specific nutrition/macro calculator profile.
+  macroProfiles: defineTable({
+    userId: v.id("users"),
+    sex: v.string(),
+    age: v.string(),
+    heightCm: v.string(),
+    weightKg: v.string(),
+    activityId: v.string(),
+    goal: v.string(),
+    pace: v.string(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
+  // Weight history is keyed by user + calendar date so one entry can be
+  // updated in place instead of creating duplicate rows for the same day.
+  weightEntries: defineTable({
+    userId: v.id("users"),
+    date: v.string(),
+    weightKg: v.number(),
+    note: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_date", ["userId", "date"]),
+
+  userPreferences: defineTable({
+    userId: v.id("users"),
+    weightUnit: v.union(v.literal("kg"), v.literal("lbs")),
+  }).index("by_user", ["userId"]),
 };
 
 export default defineSchema({
