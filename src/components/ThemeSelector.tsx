@@ -172,7 +172,7 @@ export function ThemeSelector() {
     <div className="relative z-[100]">
       <button
         onClick={() => setIsOpen((value) => !value)}
-        className={`sw-theme-hover-border group flex shrink-0 items-center gap-2 rounded-xl border px-2.5 py-2 sm:px-3 ${colors.border} transition duration-200`}
+        className={`sw-theme-hover-border group relative z-[120] flex shrink-0 items-center gap-2 rounded-xl border px-2.5 py-2 sm:px-3 ${colors.border} transition duration-200`}
         style={{ background: "rgba(7, 10, 14, 0.94)", backdropFilter: "blur(18px) saturate(140%)" }}
         title="Appearance and sound settings"
         aria-expanded={isOpen}
@@ -189,7 +189,7 @@ export function ThemeSelector() {
         <>
           <button className="fixed inset-0 z-[90] cursor-default bg-black/45 backdrop-blur-[6px]" onClick={() => setIsOpen(false)} aria-label="Close settings" />
           <div
-            className={`absolute right-0 top-full z-[100] mt-2 w-[min(92vw,430px)] overflow-hidden rounded-3xl border ${colors.border} shadow-2xl`}
+            className={`absolute right-0 top-full z-[110] mt-2 w-[min(92vw,430px)] overflow-hidden rounded-3xl border ${colors.border} shadow-2xl`}
             style={{
               background: "#07090d",
               backdropFilter: "blur(36px) saturate(145%)",

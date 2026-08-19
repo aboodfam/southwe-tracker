@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -64,12 +64,12 @@ function clampPercent(value: number) {
   return Math.max(0, Math.min(100, value));
 }
 
-export function AthkarPage() {
+export function AthkarPage({ prefetchedAthkar }: { prefetchedAthkar?: Dhikr[] }) {
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const { play } = useSound();
 
-  const athkarRaw = useQuery(api.athkar.getAthkar);
+  const athkarRaw = prefetchedAthkar;
   const athkar = athkarRaw ?? [];
   const isLoading = athkarRaw === undefined;
 
@@ -279,14 +279,6 @@ export function AthkarPage() {
   };
 
   const slideClass = slideDirection === "next" ? "athkar-slide-next" : slideDirection === "prev" ? "athkar-slide-prev" : "";
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6 sm:space-y-8">
-        <div className="mx-auto mt-8 max-w-5xl rounded-3xl border border-white/10 bg-black/30 p-8 text-center text-sm text-white/50 backdrop-blur-xl animate-fade-in">Loading Athkar…</div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 sm:space-y-8">

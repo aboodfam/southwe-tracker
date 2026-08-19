@@ -534,6 +534,9 @@ function AppContent() {
 function Content({ currentPage }: { currentPage: Page }) {
   const loggedInUser = useQuery(api.auth.loggedInUser);
   const userProfile = useQuery(api.auth.getProfile);
+  // Keep Athkar subscribed while the user is in the app so opening the page
+  // does not wait for a brand-new query round trip.
+  const prefetchedAthkar = useQuery(api.athkar.getAthkar, loggedInUser ? {} : "skip");
   const setDisplayName = useMutation(api.auth.setDisplayName);
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
@@ -600,7 +603,7 @@ function Content({ currentPage }: { currentPage: Page }) {
         {currentPage === "workout" && <WorkoutPage />}
         {currentPage === "habits" && <HabitsPage />}
         {currentPage === "progress" && <ProgressPage />}
-        {currentPage === "athkar" && <AthkarPage />}
+        {currentPage === "athkar" && <AthkarPage prefetchedAthkar={prefetchedAthkar} />}
         {currentPage === "macros" && <MacrosPage />}
       </Authenticated>
 
