@@ -9,12 +9,13 @@ import { api } from "../../convex/_generated/api";
  * This removes the browser localStorage dependency and keeps reset state
  * consistent across devices.
  */
-export function useDailyReset() {
+export function useDailyReset(enabled = true) {
   const resetEverythingDaily = useMutation(api.daily.resetEverythingDaily);
 
   useEffect(() => {
+    if (!enabled) return;
     resetEverythingDaily({}).catch(() => {
       // silent (offline etc.)
     });
-  }, [resetEverythingDaily]);
+  }, [enabled, resetEverythingDaily]);
 }

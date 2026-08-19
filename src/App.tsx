@@ -1,4 +1,4 @@
-import { Authenticated, Unauthenticated, useQuery, useMutation } from "convex/react";
+import { Authenticated, Unauthenticated, useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { SignInForm } from "./SignInForm";
 import { SignOutButton } from "./SignOutButton";
@@ -73,7 +73,7 @@ function StarfieldBackground() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number | null>(null);
 
-  const { theme, getThemeColors } = useTheme();
+  const { theme, useCustomAccent, getThemeColors } = useTheme();
   const colors = getThemeColors();
 
   const makeVisible = (c: RGB): RGB => {
@@ -87,7 +87,7 @@ function StarfieldBackground() {
     const tint = makeVisible(parseColorToRgb(colors.primaryLight));
     const white: RGB = { r: 245, g: 245, b: 245 };
     return { tint, accent, white };
-  }, [theme, colors.primary, colors.primaryLight]);
+  }, [theme, useCustomAccent, colors.primary, colors.primaryLight]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -117,7 +117,7 @@ function StarfieldBackground() {
     window.addEventListener("resize", resize);
 
     const area = w * h;
-    const isWhite = theme === "white";
+    const isWhite = !useCustomAccent && theme === "white";
 
     const starCount = isWhite
       ? clamp(Math.floor(area / 6200), 260, 620)
@@ -219,7 +219,7 @@ function StarfieldBackground() {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       window.removeEventListener("resize", resize);
     };
-  }, [palette, theme]);
+  }, [palette, theme, useCustomAccent]);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-0">
@@ -438,9 +438,10 @@ function AppContent() {
   const [swapDir, setSwapDir] = useState<"left" | "right">("left");
   const { theme, getThemeColors } = useTheme();
   const colors = getThemeColors();
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
 
-  // Daily reset hook
-  useDailyReset();
+  // Only touch authenticated daily data after auth has resolved.
+  useDailyReset(isAuthenticated);
 
   const PAGE_ORDER: Page[] = ["routines", "workout", "habits", "progress", "athkar", "macros", "weight"];
 
@@ -467,7 +468,7 @@ function AppContent() {
   };
 
   const onTouchStart = (e: any) => {
-    if (shouldIgnoreSwipe(e.target)) return;
+    if (!isAuthenticated || shouldIgnoreSwipe(e.target)) return;
     const t = e.touches[0];
     swipeRef.current = { x: t.clientX, y: t.clientY, active: true, locked: false };
   };
@@ -508,19 +509,7 @@ function AppContent() {
       <StarfieldBackground key={theme} />
 
       <header className={`relative z-50 ${colors.backgroundSecondary} backdrop-blur-md border-b ${colors.border} shadow-2xl`}>
-        <div className="container mx-auto px-4 h-16 sm:h-20 flex justify-between items-center">
-          <div className="flex items-center gap-2 sm:gap-4">
-            <div className="relative">
-              <div className={`relative grid h-9 w-9 place-items-center overflow-hidden rounded-xl bg-[image:var(--sw-gradient)] shadow-lg sm:h-10 sm:w-10 ${colors.shadow}`}>
-                <span className="absolute inset-[1px] rounded-[11px] bg-black/20" />
-                <span className="relative text-sm font-black tracking-[-0.08em] text-black sm:text-base">SW</span>
-              </div>
-            </div>
-            <h2 className={`text-lg sm:text-2xl font-bold bg-[image:var(--sw-gradient)] bg-clip-text text-transparent`}>
-              SouthWe System
-            </h2>
-          </div>
-
+        <div className="container mx-auto px-4 h-16 sm:h-20 flex items-center justify-end">
           <div className="flex items-center gap-3">
             <ThemeSelector />
             <SignOutButton />
@@ -528,7 +517,9 @@ function AppContent() {
         </div>
       </header>
 
-      <Navigation currentPage={currentPage} onPageChange={setCurrentPage} />
+      {!authLoading && isAuthenticated && (
+        <Navigation currentPage={currentPage} onPageChange={setCurrentPage} />
+      )}
 
       <main className="relative z-10 container mx-auto px-4 py-4 sm:py-8 pb-safe" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
           <div key={swapKey} className={swapDir === "left" ? "sw-page-swap-left" : "sw-page-swap-right"}>

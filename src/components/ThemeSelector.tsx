@@ -14,8 +14,8 @@ type ThemeOption = {
 
 const themes: ThemeOption[] = [
   { id: "cyan", name: "Aurora", description: "Electric aqua", accent: "#22d3ee", accent2: "#3b82f6", surface: "#07111b" },
-  { id: "white", name: "Frost", description: "Clean silver", accent: "#f8fafc", accent2: "#bae6fd", surface: "#111827" },
-  { id: "black", name: "Obsidian", description: "Minimal graphite", accent: "#94a3b8", accent2: "#f8fafc", surface: "#090b0f" },
+  { id: "white", name: "Frost", description: "Clean silver", accent: "#f5f5f5", accent2: "#a3a3a3", surface: "#111827" },
+  { id: "black", name: "Obsidian", description: "Minimal graphite", accent: "#a3a3a3", accent2: "#e5e5e5", surface: "#090b0f" },
   { id: "red", name: "Crimson", description: "Deep ruby", accent: "#f43f5e", accent2: "#fb923c", surface: "#17060a" },
   { id: "purple", name: "Amethyst", description: "Dark violet", accent: "#a855f7", accent2: "#d946ef", surface: "#11091d" },
   { id: "green", name: "Emerald", description: "Focused green", accent: "#10b981", accent2: "#a3e635", surface: "#07150f" },
@@ -105,6 +105,7 @@ export function ThemeSelector() {
   const pendingSfxRef = useRef<SfxName | null>(null);
   const colors = getThemeColors();
   const currentTheme = themes.find((item) => item.id === theme) ?? themes[0];
+  const activeAccent = useCustomAccent ? customAccent : currentTheme.accent;
 
   useEffect(() => {
     setAccentDraft(customAccent);
@@ -113,8 +114,9 @@ export function ThemeSelector() {
   const commitAccentDraft = () => {
     const normalized = accentDraft.startsWith("#") ? accentDraft : `#${accentDraft}`;
     if (/^#[0-9a-fA-F]{6}$/.test(normalized)) {
-      setCustomAccent(normalized);
-      setAccentDraft(normalized);
+      const exact = normalized.toUpperCase();
+      setCustomAccent(exact);
+      setAccentDraft(exact);
     } else {
       setAccentDraft(customAccent);
     }
@@ -152,7 +154,7 @@ export function ThemeSelector() {
       >
         <span className="relative grid h-7 w-7 place-items-center rounded-lg border border-white/10 bg-white/[0.04]">
           <Icon name="settings" className="h-4 w-4 text-white/80 transition-transform duration-300 group-hover:rotate-45" />
-          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-black/60" style={{ background: currentTheme.accent }} />
+          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-black/60" style={{ background: activeAccent }} />
         </span>
         <span className={`hidden text-sm font-medium sm:inline ${colors.text}`}>Customize</span>
         <Icon name="chevronDown" className={`hidden h-4 w-4 sm:block ${colors.textSecondary} transition-transform ${isOpen ? "rotate-180" : ""}`} />
@@ -168,7 +170,7 @@ export function ThemeSelector() {
                   <p className={`text-base font-semibold ${colors.text}`}>Personalize SouthWe</p>
                   <p className={`mt-0.5 text-xs ${colors.textSecondary}`}>Appearance and reward feedback</p>
                 </div>
-                <div className="h-8 w-16 rounded-full border border-white/10 p-1" style={{ background: `linear-gradient(90deg, ${currentTheme.surface}, ${currentTheme.accent}35)` }}>
+                <div className="h-8 w-16 rounded-full border border-white/10 p-1" style={{ background: useCustomAccent ? "#090b0f" : `linear-gradient(90deg, ${currentTheme.surface}, ${currentTheme.accent}35)` }}>
                   <div className="h-full w-full rounded-full bg-[image:var(--sw-gradient)] opacity-80" />
                 </div>
               </div>
@@ -198,12 +200,12 @@ export function ThemeSelector() {
                     <div className="mb-3 flex items-end justify-between">
                       <div>
                         <h3 className={`text-sm font-semibold ${colors.text}`}>Theme preset</h3>
-                        <p className={`mt-1 text-xs ${colors.textSecondary}`}>Each preset now changes the atmosphere, surfaces, borders and accent.</p>
+                        <p className={`mt-1 text-xs ${colors.textSecondary}`}>Pick a preset for a complete look. Selecting one exits Custom mode so its colors always match the preview.</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       {themes.map((option) => {
-                        const selected = theme === option.id;
+                        const selected = !useCustomAccent && theme === option.id;
                         return (
                           <button
                             key={option.id}
@@ -224,11 +226,14 @@ export function ThemeSelector() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <div className={`rounded-2xl border p-4 transition ${useCustomAccent ? "border-white/30 bg-white/[0.06] shadow-lg" : "border-white/10 bg-black/20"}`}>
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <h4 className={`text-sm font-semibold ${colors.text}`}>Custom accent</h4>
-                        <p className={`mt-1 text-xs leading-5 ${colors.textSecondary}`}>Keep the preset surfaces, but replace its accent and glow with your own color.</p>
+                        <div className="flex items-center gap-2">
+                          <h4 className={`text-sm font-semibold ${colors.text}`}>Custom color</h4>
+                          {useCustomAccent && <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[10px] font-medium text-white/70">ACTIVE</span>}
+                        </div>
+                        <p className={`mt-1 text-xs leading-5 ${colors.textSecondary}`}>Uses neutral graphite surfaces so the exact color you choose stays accurate and never mixes with another preset.</p>
                       </div>
                       <button
                         onClick={() => setUseCustomAccent(!useCustomAccent)}
@@ -242,11 +247,16 @@ export function ThemeSelector() {
 
                     <div className={`mt-4 grid gap-3 transition-opacity ${useCustomAccent ? "opacity-100" : "opacity-45"}`}>
                       <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-2.5">
-                        <input type="color" value={customAccent} onChange={(e) => { setCustomAccent(e.target.value); setAccentDraft(e.target.value); }} disabled={!useCustomAccent} className="h-9 w-11 cursor-pointer rounded-lg border-0 bg-transparent p-0" aria-label="Pick custom accent" />
+                        <input type="color" value={customAccent} onChange={(e) => { const exact = e.target.value.toUpperCase(); setCustomAccent(exact); setAccentDraft(exact); }} disabled={!useCustomAccent} className="h-9 w-11 cursor-pointer rounded-lg border-0 bg-transparent p-0" aria-label="Pick exact custom color" />
                         <input
                           type="text"
                           value={accentDraft}
-                          onChange={(e) => setAccentDraft(e.target.value)}
+                          onChange={(e) => {
+                            const next = e.target.value.toUpperCase();
+                            setAccentDraft(next);
+                            const normalized = next.startsWith("#") ? next : `#${next}`;
+                            if (/^#[0-9A-F]{6}$/.test(normalized)) setCustomAccent(normalized);
+                          }}
                           onBlur={commitAccentDraft}
                           onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur(); }}
                           disabled={!useCustomAccent}
@@ -254,10 +264,10 @@ export function ThemeSelector() {
                           spellCheck={false}
                           maxLength={7}
                         />
-                        <div className="h-7 w-16 rounded-lg border border-white/10 bg-[image:var(--sw-gradient)]" />
+                        <div className="h-7 w-16 rounded-lg border border-white/10" style={{ background: customAccent, boxShadow: `0 0 16px ${customAccent}55` }} title={`Exact color ${customAccent}`} />
                       </div>
                       <button
-                        onClick={() => { const next = randomNeonHex(); setCustomAccent(next); setAccentDraft(next); setUseCustomAccent(true); play("notification"); }}
+                        onClick={() => { const next = randomNeonHex().toUpperCase(); setCustomAccent(next); setAccentDraft(next); setUseCustomAccent(true); play("notification"); }}
                         className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm font-medium text-white/80 transition hover:border-white/20 hover:bg-white/[0.07] hover:text-white"
                       >
                         <Icon name="shuffle" className="h-4 w-4" />

@@ -3,28 +3,17 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useTheme } from "./contexts/ThemeContext";
 
 export function SignInForm() {
   const { signIn } = useAuthActions();
-  const { getThemeColors } = useTheme();
-  const colors = getThemeColors();
-
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [submitting, setSubmitting] = useState(false);
-
-  const glow = colors.primary.replace("rgb(", "rgba(").replace(")", ",0.16)");
 
   const themedButton =
     `w-full px-4 py-3 rounded-lg font-semibold transition-all duration-300 ` +
     `bg-[image:var(--sw-gradient)] text-black ` +
     `hover:brightness-110 active:scale-[0.99] ` +
     `disabled:opacity-60 disabled:cursor-not-allowed`;
-
-  const anonButton =
-    `w-full px-4 py-3 rounded-lg font-semibold transition-all duration-300 ` +
-    `bg-[image:var(--sw-gradient)] text-black ` +
-    `hover:brightness-110 active:scale-[0.99]`;
 
   const inputClass = "auth-input-field";
 
@@ -89,21 +78,6 @@ export function SignInForm() {
           </button>
         </div>
       </form>
-
-      <div className="flex items-center justify-center my-3">
-        <hr className="my-4 grow border-gray-200/20" />
-        <span className="mx-4 text-secondary">or</span>
-        <hr className="my-4 grow border-gray-200/20" />
-      </div>
-
-      {/* ✅ Theme-aware anonymous button */}
-      <button
-        className={anonButton}
-        style={{ boxShadow: `0 0 22px ${glow}` }}
-        onClick={() => void signIn("anonymous")}
-      >
-        Sign in anonymously
-      </button>
     </div>
   );
 }
