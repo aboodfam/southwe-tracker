@@ -1,0 +1,47 @@
+name: Build Ceventic Windows App
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "desktop-v*"
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install JavaScript dependencies
+        run: npm install
+
+      - name: Build Ceventic System for Windows
+        run: npm run desktop:build
+
+      - name: Upload Windows app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ceventic-System-Windows-x64
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/ceventic-system.exe
+            src-tauri/target/release/bundle/nsis/*.exe

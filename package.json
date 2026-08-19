@@ -1,7 +1,7 @@
 {
-  "name": "southwe-tracker",
+  "name": "ceventic-system",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
@@ -11,7 +11,12 @@
     "build": "vite build",
     "deploy:backend": "convex deploy",
     "deploy": "convex deploy --cmd 'npm run build'",
-    "typecheck": "tsc -p convex --noEmit --pretty false && tsc -p . --noEmit --pretty false"
+    "typecheck": "tsc -p convex --noEmit --pretty false && tsc -p . --noEmit --pretty false",
+    "dev:desktop": "vite --mode desktop",
+    "build:desktop": "vite build --mode desktop",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build",
+    "desktop:build:nsis": "tauri build --bundles nsis"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.80",
@@ -41,6 +46,7 @@
     "tailwindcss": "~3",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.24.1",
-    "vite": "^6.2.0"
+    "vite": "^6.2.0",
+    "@tauri-apps/cli": "^2.0.0"
   }
 }
