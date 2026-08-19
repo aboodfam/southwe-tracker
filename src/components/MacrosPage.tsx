@@ -84,6 +84,55 @@ function isOneOf<T extends string>(v: any, allowed: readonly T[]): v is T {
   return typeof v === "string" && (allowed as readonly string[]).includes(v);
 }
 
+function MacroCard({
+  label,
+  grams,
+  kcal,
+  pct,
+  hint,
+}: {
+  label: string;
+  grams: number;
+  kcal: number;
+  pct: number;
+  hint: string;
+}) {
+  return (
+    <div
+      className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/30 p-4 sm:p-5 animate-float-in"
+      style={{ boxShadow: "0 14px 36px rgba(0,0,0,.22)" }}
+    >
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[image:var(--sw-gradient)] opacity-45" />
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-semibold text-white">{label}</div>
+          <div className="mt-1 text-xs text-white/[0.42]">{hint}</div>
+        </div>
+
+        <div className="shrink-0 rounded-xl border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs font-semibold text-[rgb(var(--sw-accent-rgb))]">
+          {round(pct)}%
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-end justify-between gap-3">
+        <div>
+          <div className="text-3xl font-extrabold leading-none text-white">{round(grams)}g</div>
+          <div className="mt-1 text-sm text-white/[0.42]">{round(kcal)} kcal</div>
+        </div>
+
+        <div className="w-28 sm:w-36">
+          <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.07]">
+            <div
+              className="h-full rounded-full bg-[image:var(--sw-gradient)] transition-[width] duration-700"
+              style={{ width: `${clamp(pct, 0, 100)}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 export function MacrosPage() {
   const { getThemeColors } = useTheme();
@@ -237,64 +286,7 @@ export function MacrosPage() {
     };
   }, [sex, weightKg, heightCm, age, activity.mult, goal, pace]);
 
-  const MacroCard = ({
-    label,
-    grams,
-    kcal,
-    pct,
-    hint,
-  }: {
-    label: string;
-    grams: number;
-    kcal: number;
-    pct: number;
-    hint: string;
-  }) => (
-    <div
-      className={`rounded-2xl border ${colors.border} ${colors.backgroundSecondary} p-4 sm:p-5 backdrop-blur-xl animate-float-in`}
-      style={{ 
-        boxShadow: `0 0 0 1px rgba(255,255,255,0.04), 0 0 40px ${colors.primary.replace('rgb(', 'rgba(').replace(')', ',0.12)')}` 
-      }}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className={`${colors.text} font-semibold`}>{label}</div>
-          <div className={`${colors.textSecondary} text-xs mt-1`}>{hint}</div>
-        </div>
 
-        <div
-          className="shrink-0 px-3 py-1.5 rounded-xl border text-xs font-semibold"
-          style={{
-            borderColor: colors.border,
-            background: `${colors.primary.replace('rgb(', 'rgba(').replace(')', ',0.12)')}`,
-            color: colors.text.replace('text-', ''),
-          }}
-        >
-          {round(pct)}%
-        </div>
-      </div>
-
-      <div className="mt-4 flex items-end justify-between gap-3">
-        <div>
-          <div className={`${colors.text} text-3xl font-extrabold leading-none`}>{round(grams)}g</div>
-          <div className={`${colors.textSecondary} text-sm mt-1`}>{round(kcal)} kcal</div>
-        </div>
-
-        <div className="w-28 sm:w-36">
-          <div className="h-2.5 rounded-full bg-white/10 overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-1000"
-              style={{
-                width: `${clamp(pct, 0, 100)}%`,
-                background: `linear-gradient(90deg, ${colors.primary}, ${colors.primaryLight})`,
-                boxShadow: `0 0 18px ${colors.primary.replace('rgb(', 'rgba(').replace(')', ',0.35)')}`,
-              }}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in">
@@ -302,19 +294,19 @@ export function MacrosPage() {
 
       {/* Main Panel */}
       <div className="max-w-5xl mx-auto">
-        <div className={`relative overflow-hidden rounded-3xl border ${colors.border} ${colors.backgroundSecondary} backdrop-blur-xl p-4 sm:p-5 animate-slide-up`}>
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/30 backdrop-blur-xl p-4 sm:p-5 animate-slide-up">
           <div
             className="absolute inset-0 opacity-60"
             style={{
-              background: `radial-gradient(900px 320px at 20% 10%, ${colors.primary.replace('rgb(', 'rgba(').replace(')', ',0.22)')}, transparent 60%),
-                           radial-gradient(700px 260px at 80% 20%, ${colors.primary.replace('rgb(', 'rgba(').replace(')', ',0.18)')}, transparent 60%)`,
+              background: `radial-gradient(900px 320px at 20% 10%, ${colors.primary.replace('rgb(', 'rgba(').replace(')', ',0.09)')}, transparent 60%),
+                           radial-gradient(700px 260px at 80% 20%, ${colors.primary.replace('rgb(', 'rgba(').replace(')', ',0.05)')}, transparent 60%)`,
             }}
           />
 
           <div className="relative z-10 space-y-5">
             {/* Inputs */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className={`rounded-2xl border ${colors.border} ${colors.backgroundTertiary} p-4 sm:p-5`}>
+              <div className={`rounded-2xl border border-white/10 bg-black/25 p-4 sm:p-5`}>
                 <div className={`${colors.text} font-semibold`}>Your Stats</div>
 
                 <div className="mt-4 grid grid-cols-2 gap-3">
@@ -323,7 +315,7 @@ export function MacrosPage() {
                     <select
                       value={sex}
                       onChange={(e) => setSex(e.target.value as Sex)}
-                      className={`w-full rounded-xl ${colors.backgroundTertiary} border ${colors.border} px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
+                      className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
                     >
                       <option value="male">Male</option>
                       <option value="female">Female</option>
@@ -339,7 +331,7 @@ export function MacrosPage() {
                       min={10}
                       max={90}
                       placeholder="e.g. 18"
-                      className={`w-full rounded-xl ${colors.backgroundTertiary} border ${colors.border} px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
+                      className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
                     />
                   </label>
 
@@ -352,7 +344,7 @@ export function MacrosPage() {
                       min={120}
                       max={230}
                       placeholder="e.g. 175"
-                      className={`w-full rounded-xl ${colors.backgroundTertiary} border ${colors.border} px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
+                      className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
                     />
                   </label>
 
@@ -365,7 +357,7 @@ export function MacrosPage() {
                       min={30}
                       max={250}
                       placeholder="e.g. 75"
-                      className={`w-full rounded-xl ${colors.backgroundTertiary} border ${colors.border} px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
+                      className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
                     />
                   </label>
 
@@ -374,7 +366,7 @@ export function MacrosPage() {
                     <select
                       value={goal}
                       onChange={(e) => setGoal(e.target.value as Goal)}
-                      className={`w-full rounded-xl ${colors.backgroundTertiary} border ${colors.border} px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
+                      className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
                     >
                       <option value="maintain">Maintain</option>
                       <option value="cut">Cut (fat loss)</option>
@@ -388,7 +380,7 @@ export function MacrosPage() {
                       value={pace}
                       onChange={(e) => setPace(e.target.value as Pace)}
                       disabled={goal === "maintain"}
-                      className={`w-full rounded-xl ${colors.backgroundTertiary} border ${colors.border} px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10 ${goal === "maintain" ? "opacity-60 cursor-not-allowed" : ""}`}
+                      className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10 ${goal === "maintain" ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
                       <option value="mild">Mild</option>
                       <option value="moderate">Moderate</option>
@@ -402,7 +394,7 @@ export function MacrosPage() {
                   <select
                     value={activityId}
                     onChange={(e) => setActivityId(e.target.value as any)}
-                    className={`w-full rounded-xl ${colors.backgroundTertiary} border ${colors.border} px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
+                    className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
                   >
                     {ACTIVITY.map((a) => (
                       <option key={a.id} value={a.id}>
@@ -413,7 +405,7 @@ export function MacrosPage() {
                 </label>
               </div>
 
-              <div className={`rounded-2xl border ${colors.border} ${colors.backgroundTertiary} p-4 sm:p-5`}>
+              <div className={`rounded-2xl border border-white/10 bg-black/25 p-4 sm:p-5`}>
                 <div className={`${colors.text} font-semibold`}>What do BMR & TDEE mean?</div>
                 <div className={`${colors.textSecondary} text-sm mt-2 leading-relaxed`}>
                   <div>
@@ -446,26 +438,23 @@ export function MacrosPage() {
             {/* Summary */}
             {results && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className={`rounded-2xl border ${colors.border} ${colors.backgroundTertiary} p-4 sm:p-5 animate-float-in`}>
+                <div className={`rounded-2xl border border-white/10 bg-black/30 p-4 sm:p-5 animate-float-in`}>
                   <div className={`${colors.textSecondary} text-xs`}>BMR</div>
                   <div className={`${colors.text} text-2xl font-extrabold mt-1`}>{round(results.bmr)} kcal</div>
                   <div className={`${colors.textSecondary} text-xs mt-2`}>Calories burned at rest</div>
                 </div>
 
-                <div className={`rounded-2xl border ${colors.border} ${colors.backgroundTertiary} p-4 sm:p-5 animate-float-in`}>
+                <div className={`rounded-2xl border border-white/10 bg-black/30 p-4 sm:p-5 animate-float-in`}>
                   <div className={`${colors.textSecondary} text-xs`}>TDEE</div>
                   <div className={`${colors.text} text-2xl font-extrabold mt-1`}>{round(results.tdee)} kcal</div>
                   <div className={`${colors.textSecondary} text-xs mt-2`}>Maintenance calories</div>
                 </div>
 
                 <div
-                  className="rounded-2xl border p-4 sm:p-5 animate-float-in"
-                  style={{
-                    borderColor: colors.border,
-                    background: `linear-gradient(180deg, ${colors.primary.replace('rgb(', 'rgba(').replace(')', ',0.20)')}, rgba(0,0,0,0.25))`,
-                    boxShadow: `0 0 0 1px ${colors.border}, 0 0 40px ${colors.primary.replace('rgb(', 'rgba(').replace(')', ',0.22)')}`,
-                  }}
+                  className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/30 p-4 sm:p-5 animate-float-in"
+                  style={{ boxShadow: `0 0 30px ${colors.primary.replace('rgb(', 'rgba(').replace(')', ',0.07)')}` }}
                 >
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[image:var(--sw-gradient)] opacity-55" />
                   <div className={`${colors.textSecondary} text-xs`}>
                     {results.goal === "maintain" ? "Daily Calories" : `${GOAL_LABEL[results.goal]} Calories`}
                   </div>

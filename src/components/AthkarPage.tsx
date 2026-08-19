@@ -182,8 +182,8 @@ export function AthkarPage({ prefetchedAthkar }: { prefetchedAthkar?: Dhikr[] })
     const end = event.changedTouches[0]?.clientX ?? null;
     touchStartX.current = null;
     if (start === null || end === null || Math.abs(start - end) < 55) return;
-    if (start > end) goNext();
-    else goPrevious();
+    if (start > end) goPrevious();
+    else goNext();
   };
 
   const handleIncrement = (dhikrId: string) => {
@@ -367,14 +367,14 @@ export function AthkarPage({ prefetchedAthkar }: { prefetchedAthkar?: Dhikr[] })
 
               <div className="relative border-b border-white/[0.08] p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <button onClick={goPrevious} disabled={currentIndex === 0} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-black/25 text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25" aria-label="Previous Athkar">
+                  <button onClick={goNext} disabled={currentIndex >= filteredAthkar.length - 1} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-black/25 text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25" aria-label="Next Athkar">
                     <Icon name="chevronLeft" className="h-4 w-4" />
                   </button>
                   <div className="min-w-0 flex-1 text-center">
                     <div className="text-xs font-semibold uppercase tracking-[0.1em] text-white/35">Item {currentIndex + 1} of {filteredAthkar.length}</div>
                     <div className="mt-1 text-sm font-semibold text-white/75">{selectedCategoryDef?.shortName}</div>
                   </div>
-                  <button onClick={goNext} disabled={currentIndex >= filteredAthkar.length - 1} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-black/25 text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25" aria-label="Next Athkar">
+                  <button onClick={goPrevious} disabled={currentIndex === 0} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-black/25 text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25" aria-label="Previous Athkar">
                     <Icon name="chevronRight" className="h-4 w-4" />
                   </button>
                 </div>

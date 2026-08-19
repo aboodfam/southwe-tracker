@@ -191,13 +191,11 @@ export function ThemeSelector() {
     isOpen && typeof document !== "undefined"
       ? createPortal(
           <>
-          <button className="fixed inset-x-0 bottom-0 top-16 z-[1000] cursor-default bg-black/45 backdrop-blur-[6px] sm:top-20" onClick={() => setIsOpen(false)} aria-label="Close settings" />
+          <button className="fixed inset-x-0 bottom-0 top-16 z-[1000] cursor-default bg-black/55 sm:top-20" onClick={() => setIsOpen(false)} aria-label="Close settings" />
           <div
             className={`fixed inset-x-2 bottom-2 top-[4.5rem] z-[1010] flex min-h-0 flex-col overflow-hidden rounded-3xl border ${colors.border} shadow-2xl sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-[5.5rem] sm:w-[430px] sm:max-h-[calc(100dvh-6.5rem)]`}
             style={{
               background: "#07090d",
-              backdropFilter: "blur(36px) saturate(145%)",
-              WebkitBackdropFilter: "blur(36px) saturate(145%)",
               boxShadow: "0 28px 90px rgba(0,0,0,.62), 0 0 0 1px rgba(255,255,255,.025) inset",
             }}
           >
@@ -404,7 +402,7 @@ export function ThemeSelector() {
       <button
         onClick={() => setIsOpen((value) => !value)}
         className={`sw-theme-hover-border group relative z-[120] flex shrink-0 items-center gap-2 rounded-xl border px-2.5 py-2 sm:px-3 ${colors.border} transition duration-200`}
-        style={{ background: "rgba(7, 10, 14, 0.94)", backdropFilter: "blur(18px) saturate(140%)" }}
+        style={{ background: "rgba(7, 10, 14, 0.98)" }}
         title="Appearance and sound settings"
         aria-expanded={isOpen}
       >

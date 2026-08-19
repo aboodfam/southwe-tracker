@@ -67,84 +67,96 @@ function metricValue(d: ProgressDay, metric: Metric) {
 }
 
 function rgbaFromRgbTriplet(triplet: string, a: number) {
-  // triplet: "r, g, b"
   return `rgba(${triplet}, ${a})`;
 }
 
-function Sparkline({
+function rgbTripletFromColor(value: string) {
+  const rgb = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+  if (rgb) return `${Number(rgb[1])}, ${Number(rgb[2])}, ${Number(rgb[3])}`;
+
+  const hex = value.trim().replace(/^#/, "");
+  if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+    return `${parseInt(hex.slice(0, 2), 16)}, ${parseInt(hex.slice(2, 4), 16)}, ${parseInt(hex.slice(4, 6), 16)}`;
+  }
+
+  return "163, 163, 163";
+}
+
+function TrendChart({
   points,
   accentTriplet,
 }: {
   points: number[];
-  accentTriplet: string; // "r, g, b"
+  accentTriplet: string;
 }) {
-  // Keep the box compact but "zoom in" on mobile
-  const w = 560;
-  const h = 220;
-  const pad = 18;
-
+  const w = 720;
+  const h = 250;
+  const padX = 38;
+  const padY = 24;
   const safe = points.length === 1 ? [points[0], points[0]] : points.length ? points : [0, 0];
 
-  const min = Math.min(...safe);
-  const max = Math.max(...safe);
-  const span = Math.max(1, max - min);
-
-  const xs = safe.map((_, i) => pad + (i * (w - pad * 2)) / Math.max(1, safe.length - 1));
-  const ys = safe.map((v) => {
-    const t = (v - min) / span;
-    return h - pad - t * (h - pad * 2);
+  const xs = safe.map((_, i) => padX + (i * (w - padX * 2)) / Math.max(1, safe.length - 1));
+  const ys = safe.map((value) => {
+    const clamped = clampPct(value);
+    return h - padY - (clamped / 100) * (h - padY * 2);
   });
 
-  const area = `M ${xs[0]} ${h - pad} ` + xs.map((x, i) => `L ${x} ${ys[i]}`).join(" ") + ` L ${xs[xs.length - 1]} ${h - pad} Z`;
-  const line = `M ${xs[0]} ${ys[0]} ` + xs.map((x, i) => `L ${x} ${ys[i]}`).join(" ");
-
-  const stroke = rgbaFromRgbTriplet(accentTriplet, 0.95);
-  const glow = rgbaFromRgbTriplet(accentTriplet, 0.18);
-
-  const isMobile = typeof window !== "undefined" ? window.innerWidth < 640 : false;
+  const line = `M ${xs[0]} ${ys[0]} ` + xs.slice(1).map((x, i) => `L ${x} ${ys[i + 1]}`).join(" ");
+  const area = `${line} L ${xs[xs.length - 1]} ${h - padY} L ${xs[0]} ${h - padY} Z`;
+  const gridValues = [100, 75, 50, 25, 0];
 
   return (
-    <div className="relative w-full h-[240px] sm:h-[280px] rounded-2xl overflow-hidden">
-      {/* soft glow */}
+    <div className="relative h-[220px] w-full overflow-hidden rounded-2xl border border-white/[0.07] bg-black/25 sm:h-[260px]">
       <div
-        className="absolute -inset-10 opacity-70 blur-2xl"
+        className="pointer-events-none absolute inset-0 opacity-70"
         style={{
-          background: `radial-gradient(circle at 25% 35%, ${rgbaFromRgbTriplet(accentTriplet, 0.22)}, transparent 55%)`,
+          background: `radial-gradient(circle at 72% 8%, ${rgbaFromRgbTriplet(accentTriplet, 0.12)}, transparent 46%)`,
         }}
       />
-
-      <svg
-        viewBox={`0 0 ${w} ${h}`}
-        className="relative w-full h-full"
-        preserveAspectRatio="xMidYMid meet"
-        style={isMobile ? { transform: "scale(1.65)", transformOrigin: "50% 55%" } : undefined}
-      >
+      <svg viewBox={`0 0 ${w} ${h}`} className="relative h-full w-full" preserveAspectRatio="none" aria-label="Progress trend chart">
         <defs>
-          <linearGradient id="swLine" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor={rgbaFromRgbTriplet(accentTriplet, 0.15)} />
-            <stop offset="35%" stopColor={rgbaFromRgbTriplet(accentTriplet, 0.95)} />
-            <stop offset="100%" stopColor={rgbaFromRgbTriplet(accentTriplet, 0.25)} />
+          <linearGradient id="ceventicTrendLine" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor={rgbaFromRgbTriplet(accentTriplet, 0.45)} />
+            <stop offset="55%" stopColor={rgbaFromRgbTriplet(accentTriplet, 1)} />
+            <stop offset="100%" stopColor={rgbaFromRgbTriplet(accentTriplet, 0.72)} />
           </linearGradient>
-          <linearGradient id="swArea" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={rgbaFromRgbTriplet(accentTriplet, 0.22)} />
-            <stop offset="100%" stopColor={rgbaFromRgbTriplet(accentTriplet, 0.02)} />
+          <linearGradient id="ceventicTrendArea" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={rgbaFromRgbTriplet(accentTriplet, 0.20)} />
+            <stop offset="100%" stopColor={rgbaFromRgbTriplet(accentTriplet, 0.01)} />
           </linearGradient>
-          <filter id="swGlow" x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation="3.2" result="b" />
+          <filter id="ceventicTrendGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
             <feMerge>
-              <feMergeNode in="b" />
+              <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
         </defs>
 
-        <path d={area} fill="url(#swArea)" />
-        <path d={line} fill="none" stroke={glow} strokeWidth={6} filter="url(#swGlow)" />
-        <path d={line} fill="none" stroke="url(#swLine)" strokeWidth={2.6} />
-      </svg>
+        {gridValues.map((value) => {
+          const y = h - padY - (value / 100) * (h - padY * 2);
+          return (
+            <g key={value}>
+              <line x1={padX} x2={w - padX} y1={y} y2={y} stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
+              <text x="8" y={y + 4} fill="rgba(255,255,255,0.28)" fontSize="12">{value}</text>
+            </g>
+          );
+        })}
 
-      {/* baseline */}
-      <div className="absolute left-4 right-4 bottom-6 h-px bg-white/10" />
+        <path d={area} fill="url(#ceventicTrendArea)" />
+        <path d={line} fill="none" stroke={rgbaFromRgbTriplet(accentTriplet, 0.16)} strokeWidth="8" filter="url(#ceventicTrendGlow)" />
+        <path d={line} fill="none" stroke="url(#ceventicTrendLine)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+
+        {safe.map((value, index) => {
+          const isLast = index === safe.length - 1;
+          return (
+            <g key={`${index}-${value}`}>
+              <circle cx={xs[index]} cy={ys[index]} r={isLast ? 7 : 4} fill="rgba(4,6,9,0.95)" stroke={rgbaFromRgbTriplet(accentTriplet, isLast ? 1 : 0.72)} strokeWidth={isLast ? 3 : 2} />
+              {isLast && <circle cx={xs[index]} cy={ys[index]} r="12" fill="none" stroke={rgbaFromRgbTriplet(accentTriplet, 0.18)} strokeWidth="5" />}
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 }
@@ -157,214 +169,90 @@ function formatCompact(n: number) {
   return String(Math.round(n));
 }
 
-function AchievementCard({ a }: { a: Achievement }) {
+function AchievementCard({ a, accentTriplet }: { a: Achievement; accentTriplet: string }) {
   const pct = Math.max(0, Math.min(1, a.target <= 0 ? 0 : a.current / a.target));
-
-  const RARITY: Record<Rarity, { label: string; rgb: string; pillBg: string; border: string; }> = {
-    common: {
-      label: "COMMON",
-      rgb: "34,197,94", // green
-      pillBg: "rgba(34,197,94,0.14)",
-      border: "rgba(34,197,94,0.25)",
-    },
-    uncommon: {
-      label: "UNCOMMON",
-      rgb: "255,255,255", // white
-      pillBg: "rgba(255,255,255,0.10)",
-      border: "rgba(255,255,255,0.22)",
-    },
-    rare: {
-      label: "RARE",
-      rgb: "59,130,246", // blue
-      pillBg: "rgba(59,130,246,0.14)",
-      border: "rgba(59,130,246,0.25)",
-    },
-    epic: {
-      label: "EPIC",
-      rgb: "168,85,247", // purple
-      pillBg: "rgba(168,85,247,0.16)",
-      border: "rgba(168,85,247,0.28)",
-    },
-    legendary: {
-      label: "LEGENDARY",
-      rgb: "147,197,253", // sky-ish base
-      pillBg: "rgba(255,255,255,0.12)",
-      border: "rgba(255,255,255,0.35)",
-    },
+  const rarityLabel: Record<Rarity, string> = {
+    common: "Common",
+    uncommon: "Uncommon",
+    rare: "Rare",
+    epic: "Epic",
+    legendary: "Legendary",
   };
-
-  const meta = RARITY[a.rarity];
-
-  const isLocked = !a.unlocked;
-
-  const boxShadow =
-    a.rarity === "legendary"
-      ? `0 0 0 1px rgba(255,255,255,0.16), 0 0 24px rgba(255,255,255,0.18), 0 0 70px rgba(59,130,246,0.24)`
-      : a.rarity === "epic"
-        ? `0 0 22px rgba(168,85,247,0.22)`
-        : a.rarity === "rare"
-          ? `0 0 18px rgba(59,130,246,0.24)`
-          : a.rarity === "uncommon"
-            ? `0 0 16px rgba(255,255,255,0.10)`
-            : `0 0 14px rgba(34,197,94,0.14)`;
-
-  const lockedFade = isLocked ? "opacity-80" : "opacity-100";
-
-  const barBg = isLocked ? "rgba(255,255,255,0.08)" : `rgba(${meta.rgb}, 0.14)`;
-  const barFill =
-    a.rarity === "legendary"
-      ? "linear-gradient(90deg, rgba(255,255,255,0.95), rgba(59,130,246,0.75), rgba(255,255,255,0.55))"
-      : `linear-gradient(90deg, rgba(${meta.rgb},0.95), rgba(${meta.rgb},0.55))`;
-
-  // Legendary "Ultra Instinct" aura (soft, upward, not annoying)
-  const legendaryOverlay =
-    a.rarity === "legendary"
-      ? "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(59,130,246,0.08), rgba(255,255,255,0.02))"
-      : `linear-gradient(180deg, rgba(${meta.rgb},0.10), rgba(255,255,255,0.02))`;
+  const unlocked = a.unlocked;
+  const progressColor = unlocked
+    ? `linear-gradient(90deg, ${rgbaFromRgbTriplet(accentTriplet, 1)}, ${rgbaFromRgbTriplet(accentTriplet, 0.58)})`
+    : "linear-gradient(90deg, rgba(255,255,255,0.36), rgba(255,255,255,0.16))";
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border bg-white/[0.03] backdrop-blur-xl ${lockedFade}`}
+      className="group relative overflow-hidden rounded-2xl border bg-black/30 p-4 transition duration-300 hover:-translate-y-0.5 hover:bg-black/40"
       style={{
-        borderColor: meta.border,
-        boxShadow: isLocked ? `0 0 0 1px ${meta.border}, 0 0 18px rgba(${meta.rgb},0.10)` : boxShadow,
+        borderColor: unlocked ? rgbaFromRgbTriplet(accentTriplet, 0.26) : "rgba(255,255,255,0.09)",
+        boxShadow: unlocked ? `0 14px 40px rgba(0,0,0,.28), 0 0 28px ${rgbaFromRgbTriplet(accentTriplet, 0.08)}` : "0 14px 34px rgba(0,0,0,.20)",
       }}
     >
-      <style>
-        {`@keyframes uiRise {
-          0% { transform: translateY(28px); opacity: 0; }
-          18% { opacity: 0.42; }
-          60% { opacity: 0.20; }
-          100% { transform: translateY(-64px); opacity: 0; }
-        }
-        @keyframes uiShimmer {
-          0% { transform: translateY(56px); opacity: 0; }
-          25% { opacity: 0.18; }
-          55% { opacity: 0.10; }
-          100% { transform: translateY(-56px); opacity: 0; }
-        }`}
-      </style>
-
-      {/* rarity tint */}
-      <div className="pointer-events-none absolute inset-0" style={{ background: legendaryOverlay, opacity: isLocked ? 0.35 : 0.65 }} />
-
-      {/* Legendary aura (Ultra Instinct) */}
-      {a.rarity === "legendary" && (
-        <>
-          
-          {/* Edge glow */}
-          <div
-            className="pointer-events-none absolute inset-0 rounded-2xl"
-            style={{
-              boxShadow:
-                "inset 0 0 0 1px rgba(255,255,255,0.20), 0 0 40px rgba(255,255,255,0.12), 0 0 90px rgba(59,130,246,0.14)",
-              opacity: isLocked ? 0.35 : 1,
-            }}
-          />
-
-          {/* Side aura (Ultra Instinct style) */}
-          <div
-            className="pointer-events-none absolute -left-12 top-6 bottom-6 w-28 rounded-full blur-2xl"
-            style={{
-              background:
-                "radial-gradient(closest-side, rgba(255,255,255,0.46), rgba(59,130,246,0.24), transparent 72%)",
-              animation: isLocked ? "none" : "uiRise 3.0s ease-in-out infinite",
-            }}
-          />
-          <div
-            className="pointer-events-none absolute -right-12 top-6 bottom-6 w-28 rounded-full blur-2xl"
-            style={{
-              background:
-                "radial-gradient(closest-side, rgba(255,255,255,0.46), rgba(59,130,246,0.24), transparent 72%)",
-              animation: isLocked ? "none" : "uiRise 3.0s ease-in-out infinite",
-              animationDelay: "0.9s",
-            }}
-          />
-
-          {/* Upward shimmer streaks */}
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.10) 45%, transparent 100%)",
-              mixBlendMode: "screen",
-              animation: isLocked ? "none" : "uiShimmer 4.2s ease-in-out infinite",
-            }}
-          />
-<div
-            className="pointer-events-none absolute -bottom-20 left-1/2 h-72 w-[520px] -translate-x-1/2 rounded-full blur-3xl"
-            style={{
-              background: "radial-gradient(circle, rgba(255,255,255,0.22), rgba(59,130,246,0.12), transparent 70%)",
-              animation: isLocked ? "none" : "uiRise 3.6s ease-in-out infinite",
-            }}
-          />
-          <div
-            className="pointer-events-none absolute -bottom-24 left-1/2 h-72 w-[520px] -translate-x-1/2 rounded-full blur-3xl"
-            style={{
-              background: "radial-gradient(circle, rgba(255,255,255,0.18), rgba(59,130,246,0.10), transparent 70%)",
-              animation: isLocked ? "none" : "uiRise 3.6s ease-in-out infinite",
-              animationDelay: "1.6s",
-            }}
-          />
-        </>
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        style={{ background: unlocked ? `linear-gradient(90deg, transparent, ${rgbaFromRgbTriplet(accentTriplet, 0.7)}, transparent)` : "linear-gradient(90deg, transparent, rgba(255,255,255,.14), transparent)" }}
+      />
+      {unlocked && (
+        <div
+          className="pointer-events-none absolute -right-16 -top-20 h-40 w-40 rounded-full blur-3xl"
+          style={{ background: rgbaFromRgbTriplet(accentTriplet, 0.10) }}
+        />
       )}
 
-      <div className="relative p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-black/20">
-              <Icon name={a.icon} className="h-5 w-5 text-white/80" />
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="text-white font-extrabold leading-tight">{a.title}</div>
-                <span
-                  className="text-[10px] font-black tracking-wider px-2 py-1 rounded-full border"
-                  style={{
-                    borderColor: meta.border,
-                    background: meta.pillBg,
-                    color: a.rarity === "uncommon" ? "rgba(255,255,255,0.90)" : "rgba(255,255,255,0.88)",
-                  }}
-                >
-                  {meta.label}
-                </span>
-              </div>
-              <div className="mt-0.5 text-white/70 text-sm leading-snug">{a.description}</div>
-            </div>
-          </div>
-
-          <div className="text-right">
-            <div className={`text-[11px] font-bold ${a.unlocked ? "text-white/80" : "text-white/50"}`}>
-              {a.unlocked ? "UNLOCKED" : "LOCKED"}
-            </div>
-            <div className="mt-1 text-xs text-white/55">
-              {Math.min(a.current, a.target)}/{a.target} {a.unit ?? ""}
-            </div>
-          </div>
+      <div className="relative flex items-start gap-3">
+        <div
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border"
+          style={{
+            borderColor: unlocked ? rgbaFromRgbTriplet(accentTriplet, 0.28) : "rgba(255,255,255,0.10)",
+            background: unlocked ? rgbaFromRgbTriplet(accentTriplet, 0.10) : "rgba(255,255,255,0.035)",
+          }}
+        >
+          <Icon name={a.icon} className={unlocked ? "h-5 w-5 text-[rgb(var(--sw-accent-rgb))]" : "h-5 w-5 text-white/[0.46]"} />
         </div>
 
-        <div className="mt-4">
-          <div className="flex items-center justify-between text-[11px] text-white/55">
-            <span>{Math.round(pct * 100)}%</span>
-            <span className="text-white/40">{a.unlocked ? "Nice." : "Keep going"}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className={`truncate font-bold ${unlocked ? "text-white" : "text-white/[0.72]"}`}>{a.title}</h3>
+              <p className="mt-1 text-xs leading-5 text-white/[0.43]">{a.description}</p>
+            </div>
+            <span
+              className="shrink-0 rounded-lg border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em]"
+              style={{
+                borderColor: unlocked ? rgbaFromRgbTriplet(accentTriplet, 0.20) : "rgba(255,255,255,0.08)",
+                background: unlocked ? rgbaFromRgbTriplet(accentTriplet, 0.07) : "rgba(255,255,255,0.025)",
+                color: unlocked ? "rgba(255,255,255,0.76)" : "rgba(255,255,255,0.34)",
+              }}
+            >
+              {rarityLabel[a.rarity]}
+            </span>
           </div>
 
-          <div className="mt-2 h-2 w-full overflow-hidden rounded-full border border-white/10 bg-black/30">
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: `${pct * 100}%`,
-                background: barFill,
-                boxShadow: a.unlocked ? `0 0 16px rgba(${meta.rgb},0.18)` : "none",
-              }}
-            />
-            <div className="pointer-events-none -mt-2 h-2 w-full" style={{ background: barBg, opacity: 0.35 }} />
+          <div className="mt-4 flex items-end justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/30">Progress</div>
+              <div className="mt-0.5 text-sm font-bold text-white/[0.78]">
+                {formatCompact(Math.min(a.current, a.target))}
+                <span className="text-white/[0.28]"> / {formatCompact(a.target)} {a.unit ?? ""}</span>
+              </div>
+            </div>
+            <div className={`text-xs font-semibold ${unlocked ? "text-[rgb(var(--sw-accent-rgb))]" : "text-white/[0.38]"}`}>
+              {unlocked ? "Unlocked" : `${Math.round(pct * 100)}%`}
+            </div>
+          </div>
+
+          <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/[0.055]">
+            <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${pct * 100}%`, background: progressColor }} />
           </div>
         </div>
       </div>
     </div>
   );
 }
+
 
 export function ProgressPage() {
   const { getThemeColors } = useTheme();
@@ -408,14 +296,7 @@ export function ProgressPage() {
   const best = useMemo(() => (points.length ? Math.max(...points) : 0), [points]);
   const delta = useMemo(() => (points.length >= 2 ? points[points.length - 1] - points[0] : 0), [points]);
 
-  const accentTriplet = useMemo(() => {
-    // convert "#RRGGBB" -> "r, g, b"
-    const hex = (colors.primary || "#00ccff").replace("#", "");
-    const r = parseInt(hex.slice(0, 2), 16) || 0;
-    const g = parseInt(hex.slice(2, 4), 16) || 0;
-    const b = parseInt(hex.slice(4, 6), 16) || 0;
-    return `${r}, ${g}, ${b}`;
-  }, [colors.primary]);
+  const accentTriplet = useMemo(() => rgbTripletFromColor(colors.primary), [colors.primary]);
 
 
 // -------------------- Achievements --------------------
@@ -578,22 +459,22 @@ const achievementsSorted = useMemo(() => {
               </div>
 
               <div className="text-right">
-                <div className="text-white/35 text-xs">{latest ? latest.date : "—"}</div>
-                <div className="mt-1 text-white/35 text-xs">{ordered.length ? `${ordered.length} checkpoints` : "No data yet"}</div>
+                <div className="text-white/[0.35] text-xs">{latest ? latest.date : "—"}</div>
+                <div className="mt-1 text-white/[0.35] text-xs">{ordered.length ? `${ordered.length} checkpoints` : "No data yet"}</div>
               </div>
             </div>
 
             <div className="mt-3 grid grid-cols-3 gap-2">
               <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                <div className="text-white/55 text-[11px] font-semibold">Average</div>
+                <div className="text-white/[0.55] text-[11px] font-semibold">Average</div>
                 <div className="mt-0.5 text-white font-black">{formatPct(avg)}%</div>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                <div className="text-white/55 text-[11px] font-semibold">Best</div>
+                <div className="text-white/[0.55] text-[11px] font-semibold">Best</div>
                 <div className="mt-0.5 text-white font-black">{formatPct(best)}%</div>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                <div className="text-white/55 text-[11px] font-semibold">Change</div>
+                <div className="text-white/[0.55] text-[11px] font-semibold">Change</div>
                 <div className="mt-0.5 text-white font-black">
                   {delta >= 0 ? "+" : ""}
                   {Math.round(delta)}%
@@ -612,80 +493,93 @@ const achievementsSorted = useMemo(() => {
         />
       </div>
 
-      {/* TIMELINE (simple) */}
-      <div className="rounded-3xl border border-white/10 bg-black/30 backdrop-blur-xl p-4 sm:p-5 animate-float-in max-w-5xl mx-auto">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-white font-bold">Timeline</div>
-          <div className="text-white/35 text-xs">
-            {ordered.length ? `${prettyDate(ordered[0].date)} → ${prettyDate(ordered[ordered.length - 1].date)}` : "—"}
-          </div>
-        </div>
-
-        <div className="mt-3 force-ltr">
-          <Sparkline points={points} accentTriplet={accentTriplet} />
-        </div>
-
-        <div className="mt-2 flex items-center justify-between text-white/35 text-xs force-ltr">
-          <div>{ordered.length ? prettyDate(ordered[0].date) : "—"}</div>
-          <div>{ordered.length ? prettyDate(ordered[ordered.length - 1].date) : "—"}</div>
-        </div>
-      </div>
-
-      {/* ACHIEVEMENTS */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5 overflow-hidden relative">
+      {/* TIMELINE */}
+      <section className="relative mx-auto max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-black/30 p-4 sm:p-5 animate-float-in">
         <div
-          className="absolute -inset-10 blur-2xl opacity-50"
-          style={{
-            background: `radial-gradient(circle at 15% 30%, rgba(${accentTriplet}, 0.18), transparent 60%)`,
-          }}
+          className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full blur-3xl"
+          style={{ background: rgbaFromRgbTriplet(accentTriplet, 0.08) }}
         />
-        <div className="relative flex items-start justify-between gap-4">
-          <div>
-            <div className="text-white font-black text-lg">Achievements</div>
-            <div className="mt-1 text-white/55 text-sm">
-              Reward badges for consistency. These update automatically from your real stats.
+        <div className="relative">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[0.035]">
+                <Icon name="chart" className="h-5 w-5 text-[rgb(var(--sw-accent-rgb))]" />
+              </div>
+              <div>
+                <h2 className="font-bold text-white">Timeline</h2>
+                <p className="mt-1 text-xs text-white/[0.42]">Your {metricLabel[metric].toLowerCase()} completion across this {timeframeLabel[activeTimeFrame].toLowerCase()} view.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 sm:min-w-[310px]">
+              {[
+                ["Average", `${formatPct(avg)}%`],
+                ["Best", `${formatPct(best)}%`],
+                ["Change", `${delta >= 0 ? "+" : ""}${Math.round(delta)}%`],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 py-2.5 text-center">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/30">{label}</div>
+                  <div className="mt-1 text-sm font-bold text-white/[0.82]">{value}</div>
+                </div>
+              ))}
             </div>
           </div>
-          <div className="shrink-0 text-right">
-            <div className="text-white/45 text-xs font-semibold">Unlocked</div>
-            <div className="text-white font-extrabold">{unlockedCount}/{achievements.length}</div>
+
+          <div className="mt-4 force-ltr">
+            <TrendChart points={points} accentTriplet={accentTriplet} />
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-3 text-xs text-white/[0.34] force-ltr">
+            <span>{ordered.length ? prettyDate(ordered[0].date) : "No history yet"}</span>
+            <span className="rounded-full border border-white/[0.07] bg-white/[0.025] px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] text-white/30">
+              {ordered.length ? `${ordered.length} checkpoints` : "Waiting for data"}
+            </span>
+            <span>{ordered.length ? prettyDate(ordered[ordered.length - 1].date) : "—"}</span>
           </div>
         </div>
+      </section>
 
-        
-<div className="mt-3 flex flex-wrap gap-2">
-  <span className="text-[10px] font-black tracking-wider px-2 py-1 rounded-full border"
-        style={{ borderColor: "rgba(34,197,94,0.30)", background: "rgba(34,197,94,0.14)" }}>
-    COMMON
-  </span>
-  <span className="text-[10px] font-black tracking-wider px-2 py-1 rounded-full border"
-        style={{ borderColor: "rgba(255,255,255,0.25)", background: "rgba(255,255,255,0.10)" }}>
-    UNCOMMON
-  </span>
-  <span className="text-[10px] font-black tracking-wider px-2 py-1 rounded-full border"
-        style={{ borderColor: "rgba(59,130,246,0.30)", background: "rgba(59,130,246,0.14)" }}>
-    RARE
-  </span>
-  <span className="text-[10px] font-black tracking-wider px-2 py-1 rounded-full border"
-        style={{ borderColor: "rgba(168,85,247,0.35)", background: "rgba(168,85,247,0.16)" }}>
-    EPIC
-  </span>
-  <span className="text-[10px] font-black tracking-wider px-2 py-1 rounded-full border"
-        style={{
-          borderColor: "rgba(255,255,255,0.38)",
-          background: "rgba(255,255,255,0.12)",
-          boxShadow: "0 0 18px rgba(255,255,255,0.14), 0 0 50px rgba(59,130,246,0.24)"
-        }}>
-    LEGENDARY
-  </span>
-</div>
+      {/* ACHIEVEMENTS */}
+      <section className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl border border-white/10 bg-black/30 p-4 sm:p-5">
+        <div
+          className="pointer-events-none absolute -left-28 -top-28 h-72 w-72 rounded-full blur-3xl"
+          style={{ background: rgbaFromRgbTriplet(accentTriplet, 0.07) }}
+        />
+        <div className="relative">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-white/[0.035]">
+                <Icon name="trophy" className="h-5 w-5 text-[rgb(var(--sw-accent-rgb))]" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black text-white">Achievements</h2>
+                <p className="mt-1 max-w-xl text-sm text-white/[0.43]">Milestones earned from real routines, workouts, habits and streaks.</p>
+              </div>
+            </div>
 
-<div className="relative mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">{achievementsSorted.map((a) => (
-            <AchievementCard key={a.id} a={a} />
-          ))}
+            <div className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-3 py-2.5 sm:min-w-[210px]">
+              <div
+                className="grid h-12 w-12 shrink-0 place-items-center rounded-full p-[3px]"
+                style={{ background: `conic-gradient(rgb(var(--sw-accent-rgb)) ${(unlockedCount / Math.max(1, achievements.length)) * 360}deg, rgba(255,255,255,0.07) 0deg)` }}
+              >
+                <div className="grid h-full w-full place-items-center rounded-full bg-[#080a0d] text-xs font-black text-white">
+                  {Math.round((unlockedCount / Math.max(1, achievements.length)) * 100)}%
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/30">Unlocked</div>
+                <div className="mt-0.5 text-lg font-black text-white">{unlockedCount}<span className="text-white/25">/{achievements.length}</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {achievementsSorted.map((a) => (
+              <AchievementCard key={a.id} a={a} accentTriplet={accentTriplet} />
+            ))}
+          </div>
         </div>
-      </div>
-
+      </section>
     </div>
   );
 }
