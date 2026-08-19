@@ -2,6 +2,7 @@ import { Authenticated, Unauthenticated, useConvexAuth, useQuery, useMutation } 
 import { api } from "../convex/_generated/api";
 import { SignInForm } from "./SignInForm";
 import { SignOutButton } from "./SignOutButton";
+import { DesktopFullscreenButton } from "./DesktopFullscreenButton";
 import { Toaster, toast } from "sonner";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { RoutineCard } from "./components/RoutineCard";
@@ -531,6 +532,7 @@ function AppContent() {
         <div className="container mx-auto flex h-16 items-center justify-end px-3 sm:h-20 sm:px-4">
           <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
             <ThemeSelector />
+            <DesktopFullscreenButton />
             <SignOutButton />
           </div>
         </div>

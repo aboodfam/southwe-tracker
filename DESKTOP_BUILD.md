@@ -63,3 +63,12 @@ npm run desktop:dev         # Windows desktop development window
 npm run desktop:build       # Build executable + configured installer
 npm run desktop:build:nsis  # Explicitly build the NSIS installer
 ```
+
+## Fullscreen controls
+
+The Windows app starts maximized but not locked in fullscreen.
+
+- Click the fullscreen icon in the app header to enter/exit true fullscreen.
+- Press `F11` to toggle fullscreen.
+- Press `Esc` to leave fullscreen.
+- Outside fullscreen, the normal Windows maximize/restore controls still work.
