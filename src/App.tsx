@@ -241,7 +241,7 @@ function CreateRoutineCard() {
   const [open, setOpen] = useState(false);
   const [entered, setEntered] = useState(false);
 
-  const [name, setName] = useState(initialName);
+  const [name, setName] = useState("");
   const [timeSlot, setTimeSlot] = useState("");
 
   useEffect(() => {
@@ -605,7 +605,7 @@ function Content({ currentPage }: { currentPage: Page }) {
   <h1
     className={`text-4xl sm:text-5xl md:text-7xl font-bold bg-[image:var(--sw-gradient)] bg-clip-text text-transparent`}
   >
-    Personal Tracker
+    Ceventic System
   </h1>
 </div>
 
