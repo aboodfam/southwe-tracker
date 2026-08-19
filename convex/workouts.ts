@@ -1,9 +1,7 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { assertDateKey, getUtcDateKey } from "./date";
-
-const todayKey = () => getUtcDateKey();
+import { LIMITS, assertCurrentLocalDate, assertIntegerInRange, assertShortId, cleanLongText, cleanText, enforceRateLimit } from "./security";
 
 const uid = () =>
   `${Date.now().toString(36)}-${Math.random().toString(16).slice(2)}`;
@@ -16,11 +14,18 @@ function assertExists<T>(
   if (value === null || value === undefined) throw new Error(msg);
 }
 
+async function assertWorkoutProgressQuota(ctx: any, userId: any, dateKey: string) {
+  const rows = await ctx.db
+    .query("workoutProgress")
+    .withIndex("by_user_date", (q: any) => q.eq("userId", userId).eq("date", dateKey))
+    .take(LIMITS.workoutDays + 1);
+  if (rows.length >= LIMITS.workoutDays) {
+    throw new Error("Workout progress limit reached for today");
+  }
+}
+
 function safeCompleted(p: any): string[] {
   return Array.isArray(p?.completedExercises) ? p.completedExercises : [];
-}
-function safeNumber(n: any, fallback = 0): number {
-  return typeof n === "number" && Number.isFinite(n) ? n : fallback;
 }
 
 
@@ -28,47 +33,6 @@ function getPreviousDateString(dateString: string) {
   const date = new Date(`${dateString}T00:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() - 1);
   return date.toISOString().split("T")[0];
-}
-
-function calculateWorkoutStreaks(completedDates: string[], today = todayKey()) {
-  const uniqueDates = Array.from(new Set(completedDates)).sort();
-
-  if (uniqueDates.length === 0) {
-    return { currentStreak: 0, longestStreak: 0 };
-  }
-
-  let longestStreak = 0;
-  let runningStreak = 0;
-  let previousDate: string | null = null;
-
-  for (const date of uniqueDates) {
-    if (previousDate && getPreviousDateString(date) === previousDate) {
-      runningStreak += 1;
-    } else {
-      runningStreak = 1;
-    }
-
-    longestStreak = Math.max(longestStreak, runningStreak);
-    previousDate = date;
-  }
-
-  let currentStreak = 0;
-
-  if (uniqueDates[uniqueDates.length - 1] === today) {
-    currentStreak = 1;
-    let cursor = today;
-
-    for (let i = uniqueDates.length - 2; i >= 0; i -= 1) {
-      const expectedPreviousDate = getPreviousDateString(cursor);
-      if (uniqueDates[i] !== expectedPreviousDate) {
-        break;
-      }
-      currentStreak += 1;
-      cursor = uniqueDates[i];
-    }
-  }
-
-  return { currentStreak, longestStreak };
 }
 
 export const getWorkoutDays = query({
@@ -79,9 +43,8 @@ export const getWorkoutDays = query({
 
     const days = await ctx.db
       .query("workoutDays")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .collect();
+      .withIndex("by_user_active", (q) => q.eq("userId", userId).eq("isActive", true))
+      .take(LIMITS.workoutDays);
 
     return days.sort((a, b) => a.order - b.order);
   },
@@ -96,20 +59,22 @@ export const createWorkoutDay = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    const name = args.name.trim();
-    if (!name) throw new Error("Day name is required");
-
+    await enforceRateLimit(ctx, userId, "workouts:structure", 30, 60_000);
+    const name = cleanText(args.name, "Workout day name", LIMITS.workoutDayName);
+    const warmupNotes = args.warmupNotes === undefined ? undefined : cleanLongText(args.warmupNotes, "Warmup notes", LIMITS.warmupNotes, { optional: true });
     const existing = await ctx.db
       .query("workoutDays")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-
+      .withIndex("by_user_active", (q) => q.eq("userId", userId).eq("isActive", true))
+      .take(LIMITS.workoutDays);
+    if (existing.length >= LIMITS.workoutDays) {
+      throw new Error(`You can have up to ${LIMITS.workoutDays} workout days`);
+    }
     const maxOrder = existing.reduce((m, d) => Math.max(m, d.order), 0);
 
     await ctx.db.insert("workoutDays", {
       userId,
       name,
-      warmupNotes: args.warmupNotes?.trim() || undefined,
+      warmupNotes,
       order: maxOrder + 1,
       exercises: [],
       isActive: true,
@@ -130,13 +95,10 @@ export const updateWorkoutDay = mutation({
     const day = await ctx.db.get(args.dayId);
     if (!day || day.userId !== userId) throw new Error("Workout day not found");
 
-    const name = args.name.trim();
-    if (!name) throw new Error("Day name is required");
-
-    await ctx.db.patch(args.dayId, {
-      name,
-      warmupNotes: args.warmupNotes?.trim() || undefined,
-    });
+    await enforceRateLimit(ctx, userId, "workouts:structure", 30, 60_000);
+    const name = cleanText(args.name, "Workout day name", LIMITS.workoutDayName);
+    const warmupNotes = args.warmupNotes === undefined ? undefined : cleanLongText(args.warmupNotes, "Warmup notes", LIMITS.warmupNotes, { optional: true });
+    await ctx.db.patch(args.dayId, { name, warmupNotes });
   },
 });
 
@@ -149,7 +111,8 @@ export const deleteWorkoutDay = mutation({
     const day = await ctx.db.get(args.dayId);
     if (!day || day.userId !== userId) throw new Error("Workout day not found");
 
-    await ctx.db.patch(args.dayId, { isActive: false });
+    await enforceRateLimit(ctx, userId, "workouts:structure", 30, 60_000);
+    await ctx.db.delete(args.dayId);
   },
 });
 
@@ -170,34 +133,37 @@ export const addExercise = mutation({
     const day = await ctx.db.get(args.dayId);
     if (!day || day.userId !== userId) throw new Error("Workout day not found");
 
-    const name = args.name.trim();
-    const reps = args.reps.trim();
-    const muscles = args.muscles.trim();
-    if (!name) throw new Error("Exercise name is required");
-    if (!reps) throw new Error("Reps is required");
-    if (!muscles) throw new Error("Muscles is required");
+    await enforceRateLimit(ctx, userId, "workouts:structure", 30, 60_000);
+    const name = cleanText(args.name, "Exercise name", LIMITS.exerciseName);
+    const reps = cleanText(args.reps, "Reps", LIMITS.reps);
+    const muscles = cleanText(args.muscles, "Muscles", LIMITS.muscles);
+    const notes =
+      args.notes === undefined
+        ? undefined
+        : cleanLongText(args.notes, "Notes", LIMITS.exerciseNotes, { optional: true });
+    const sets = assertIntegerInRange(args.sets, "Sets", 1, 100);
 
-    
-const existing = Array.isArray((day as any).exercises) ? (day as any).exercises : [];
-const nextOrder = existing.length + 1;
+    const existing = Array.isArray(day.exercises) ? day.exercises : [];
+    if (existing.length >= LIMITS.exercisesPerWorkoutDay) {
+      throw new Error(`A workout day can have up to ${LIMITS.exercisesPerWorkoutDay} exercises`);
+    }
 
-const ex = {
-  id: uid(),
-  name,
-  sets: args.sets,
-  reps,
-  muscles,
-  notes: args.notes?.trim() || undefined,
-  isWarmup: args.isWarmup ?? false,
-  order: nextOrder,
-};
+    const ex = {
+      id: uid(),
+      name,
+      sets,
+      reps,
+      muscles,
+      notes,
+      isWarmup: args.isWarmup ?? false,
+      order: existing.length + 1,
+    };
 
-await ctx.db.patch(args.dayId, {
-  exercises: [...existing, ex],
-});
+    await ctx.db.patch(args.dayId, {
+      exercises: [...existing, ex],
+    });
 
-return ex;
-
+    return ex;
   },
 });
 
@@ -219,23 +185,25 @@ export const updateExercise = mutation({
     const day = await ctx.db.get(args.dayId);
     if (!day || day.userId !== userId) throw new Error("Workout day not found");
 
-    const name = args.name.trim();
-    const reps = args.reps.trim();
-    const muscles = args.muscles.trim();
-    if (!name) throw new Error("Exercise name is required");
-    if (!reps) throw new Error("Reps is required");
-    if (!muscles) throw new Error("Muscles is required");
+    await enforceRateLimit(ctx, userId, "workouts:structure", 30, 60_000);
+    const exerciseId = assertShortId(args.exerciseId, "Exercise id", 100);
+    if (!day.exercises.some((ex) => ex.id === exerciseId)) throw new Error("Exercise not found");
+    const name = cleanText(args.name, "Exercise name", LIMITS.exerciseName);
+    const reps = cleanText(args.reps, "Reps", LIMITS.reps);
+    const muscles = cleanText(args.muscles, "Muscles", LIMITS.muscles);
+    const notes = args.notes === undefined ? undefined : cleanLongText(args.notes, "Notes", LIMITS.exerciseNotes, { optional: true });
+    const sets = assertIntegerInRange(args.sets, "Sets", 1, 100);
 
     const updated = day.exercises.map((ex) =>
-      ex.id === args.exerciseId
+      ex.id === exerciseId
         ? {
             ...ex,
             name,
-            sets: args.sets,
+            sets,
             reps,
             muscles,
             isWarmup: args.isWarmup,
-            notes: args.notes?.trim() || undefined,
+            notes,
           }
         : ex
     );
@@ -253,7 +221,10 @@ export const deleteExercise = mutation({
     const day = await ctx.db.get(args.dayId);
     if (!day || day.userId !== userId) throw new Error("Workout day not found");
 
-    const updated = day.exercises.filter((ex) => ex.id !== args.exerciseId);
+    await enforceRateLimit(ctx, userId, "workouts:structure", 30, 60_000);
+    const exerciseId = assertShortId(args.exerciseId, "Exercise id", 100);
+    if (!day.exercises.some((ex) => ex.id === exerciseId)) throw new Error("Exercise not found");
+    const updated = day.exercises.filter((ex) => ex.id !== exerciseId);
     await ctx.db.patch(args.dayId, { exercises: updated });
   },
 });
@@ -267,7 +238,7 @@ export const getTodayWorkoutProgress = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
 
-    const today = assertDateKey(args.dateKey);
+    const today = assertCurrentLocalDate(args.dateKey);
 
     if (args.dayId) {
       return await ctx.db
@@ -297,8 +268,10 @@ export const toggleExerciseComplete = mutation({
 
     const day = await ctx.db.get(args.dayId);
     if (!day || day.userId !== userId) throw new Error("Workout day not found");
+    const exerciseId = assertShortId(args.exerciseId, "Exercise id", 100);
+    if (!day.exercises.some((ex) => ex.id === exerciseId)) throw new Error("Exercise not found");
 
-    const today = assertDateKey(args.dateKey);
+    const today = assertCurrentLocalDate(args.dateKey);
     const totalExercises = day.exercises.length;
 
     const existing = await ctx.db
@@ -316,6 +289,7 @@ export const toggleExerciseComplete = mutation({
 
     // create if none
     if (!progress) {
+      await assertWorkoutProgressQuota(ctx, userId, today);
       const insertedId = await ctx.db.insert("workoutProgress", {
         userId,
         date: today,
@@ -333,11 +307,11 @@ export const toggleExerciseComplete = mutation({
     }
 
     const nowCompleted = safeCompleted(progress);
-    const exists = nowCompleted.includes(args.exerciseId);
+    const exists = nowCompleted.includes(exerciseId);
 
     const nextCompleted = exists
-      ? nowCompleted.filter((id) => id !== args.exerciseId)
-      : [...nowCompleted, args.exerciseId];
+      ? nowCompleted.filter((id) => id !== exerciseId)
+      : [...nowCompleted, exerciseId];
 
     const completionRate =
       totalExercises > 0 ? (nextCompleted.length / totalExercises) * 100 : 0;
@@ -365,7 +339,7 @@ export const completeWorkout = mutation({
     const day = await ctx.db.get(args.dayId);
     if (!day || day.userId !== userId) throw new Error("Workout day not found");
 
-    const today = assertDateKey(args.dateKey);
+    const today = assertCurrentLocalDate(args.dateKey);
     const totalExercises = day.exercises.length;
 
     const existing = await ctx.db
@@ -378,6 +352,7 @@ export const completeWorkout = mutation({
     let progress = existing;
 
     if (!progress) {
+      await assertWorkoutProgressQuota(ctx, userId, today);
       const insertedId = await ctx.db.insert("workoutProgress", {
         userId,
         date: today,
@@ -414,22 +389,19 @@ export const completeWorkout = mutation({
       throw new Error("Complete at least 70% of exercises to finish the workout.");
     }
 
-    await ctx.db.patch(progress._id, { completedWorkout: true });
+    await enforceRateLimit(ctx, userId, "workouts:complete", 12, 60_000);
 
-    const completedProgress = await ctx.db
+    // Determine streak state from only today/yesterday instead of scanning the
+    // user's entire workout history on every completion.
+    const sameDayEntries = await ctx.db
       .query("workoutProgress")
-      .withIndex("by_user_date", (q) => q.eq("userId", userId))
-      .collect();
+      .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", today))
+      .take(LIMITS.workoutDays);
+    const hadCompletedToday = sameDayEntries.some(
+      (entry) => entry._id !== progress._id && entry.completedWorkout,
+    );
 
-    const completedDates = completedProgress
-      .filter((entry) => entry.completedWorkout)
-      .map((entry) => entry.date);
-
-    if (!completedDates.includes(today)) {
-      completedDates.push(today);
-    }
-
-    const { currentStreak, longestStreak } = calculateWorkoutStreaks(completedDates, today);
+    await ctx.db.patch(progress._id, { completedWorkout: true });
 
     const stats = await ctx.db
       .query("workoutStats")
@@ -440,21 +412,40 @@ export const completeWorkout = mutation({
       await ctx.db.insert("workoutStats", {
         userId,
         totalWorkouts: 1,
-        currentStreak,
-        longestStreak,
+        currentStreak: 1,
+        longestStreak: 1,
         averageCompletionRate: completionRate,
+        lastCompletionDate: today,
       });
     } else {
+      let currentStreak = Math.max(1, stats.currentStreak);
+      if (!hadCompletedToday) {
+        const previousDate = getPreviousDateString(today);
+        let continued = stats.lastCompletionDate === previousDate;
+
+        // Legacy stats may not have lastCompletionDate yet. Check only the
+        // previous calendar day, which is bounded by the workout-day quota.
+        if (!stats.lastCompletionDate) {
+          const yesterdayEntries = await ctx.db
+            .query("workoutProgress")
+            .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", previousDate))
+            .take(LIMITS.workoutDays);
+          continued = yesterdayEntries.some((entry) => entry.completedWorkout);
+        }
+
+        currentStreak = continued ? Math.max(1, stats.currentStreak) + 1 : 1;
+      }
+
       const newTotal = stats.totalWorkouts + 1;
       const newAvg =
-        (stats.averageCompletionRate * stats.totalWorkouts + completionRate) /
-        newTotal;
+        (stats.averageCompletionRate * stats.totalWorkouts + completionRate) / newTotal;
 
       await ctx.db.patch(stats._id, {
         totalWorkouts: newTotal,
         currentStreak,
-        longestStreak: Math.max(stats.longestStreak, longestStreak),
+        longestStreak: Math.max(stats.longestStreak, currentStreak),
         averageCompletionRate: newAvg,
+        lastCompletionDate: today,
       });
     }
 
@@ -479,7 +470,7 @@ export const getWorkoutStats = query({
  * Optional cleanup: fills missing fields for old docs.
  * (You can run it later from Convex dashboard -> Functions -> Run)
  */
-export const backfillWorkoutProgress = mutation({
+export const backfillWorkoutProgress = internalMutation({
   args: {},
   handler: async (ctx) => {
     const docs = await ctx.db.query("workoutProgress").collect();

@@ -8,15 +8,16 @@
     "dev:frontend": "vite",
     "dev:backend": "convex dev",
     "setup": "convex dev --once && npx @convex-dev/auth --skip-git-check",
-    "build": "vite build",
+    "build": "npm run security:audit && vite build",
     "deploy:backend": "convex deploy",
     "deploy": "convex deploy --cmd 'npm run build'",
-    "typecheck": "tsc -p convex --noEmit --pretty false && tsc -p . --noEmit --pretty false",
+    "typecheck": "tsc -p convex --noEmit --pretty false && tsc -p tsconfig.app.json --noEmit --pretty false && tsc -p tsconfig.node.json --noEmit --pretty false",
     "dev:desktop": "vite --mode desktop",
-    "build:desktop": "vite build --mode desktop",
+    "build:desktop": "npm run security:audit && vite build --mode desktop",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
-    "desktop:build:nsis": "tauri build --bundles nsis"
+    "desktop:build:nsis": "tauri build --bundles nsis",
+    "security:audit": "node scripts/security-audit.mjs"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.80",

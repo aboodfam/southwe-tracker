@@ -3,14 +3,7 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
 import { assertDateKey } from "./date";
-
-// Matches the `routines.tasks` object schema in `convex/schema.ts`.
-type RoutineTask = {
-  id: string;
-  name: string;
-  completed: boolean;
-  order: number;
-};
+import { LIMITS, assertCurrentLocalDate, assertShortId, cleanText, enforceRateLimit } from "./security";
 
 export const getRoutines = query({
   args: {},
@@ -20,127 +13,13 @@ export const getRoutines = query({
 
     return await ctx.db
       .query("routines")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .collect();
-  },
-});
-
-export const resetDailyTasks = mutation({
-  args: { dateKey: v.string() },
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const today = assertDateKey(args.dateKey);
-    
-    // Check if user has completed today already
-    const todayProgress = await ctx.db
-      .query("dailyProgress")
-      .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", today))
-      .first();
-
-    // If no progress for today, reset all tasks
-    if (!todayProgress) {
-      const userRoutines = await ctx.db
-        .query("routines")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .filter((q) => q.eq(q.field("isActive"), true))
-        .collect();
-
-      for (const routine of userRoutines) {
-        const resetTasks = routine.tasks.map((task: RoutineTask) => ({ ...task, completed: false }));
-        await ctx.db.patch(routine._id, { tasks: resetTasks });
-      }
-    }
-  },
-});
-
-export const createDefaultRoutines = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    // Check if routines already exist
-    const existing = await ctx.db
-      .query("routines")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .first();
-
-    if (existing) return;
-
-    const defaultRoutines = [
-      {
-        name: "Morning Routine",
-        timeSlot: "5:00AM",
-        tasks: [
-          { id: "1", name: "Pre workout", completed: false, order: 1 },
-          { id: "2", name: "Workout", completed: false, order: 2 },
-          { id: "3", name: "Meal", completed: false, order: 3 },
-          { id: "4", name: "Creatine", completed: false, order: 4 },
-          { id: "5", name: "School", completed: false, order: 5 },
-          { id: "6", name: "Athkar while in way to school", completed: false, order: 6 },
-          { id: "7", name: "Drink 1.5L Water + Athkar omw home", completed: false, order: 7 },
-        ],
-      },
-      {
-        name: "Afternoon Routine",
-        timeSlot: "Afternoon",
-        tasks: [
-          { id: "8", name: "Meditation + Reflex ball + stretches", completed: false, order: 1 },
-          { id: "9", name: "Work on Website", completed: false, order: 2 },
-        ],
-      },
-      {
-        name: "Evening Routine",
-        timeSlot: "Evening",
-        tasks: [
-          { id: "10", name: "Play", completed: false, order: 1 },
-          { id: "11", name: "Chess Learning (Tactics Masterclass + puzzles) 1h", completed: false, order: 2 },
-          { id: "12", name: "Pray", completed: false, order: 3 },
-          { id: "13", name: "Learn/cyber/investments/islam (one of this) 1h", completed: false, order: 4 },
-        ],
-      },
-      {
-        name: "Night Routine",
-        timeSlot: "9:00PM",
-        tasks: [
-          { id: "14", name: "Any Homework + study + eat meal", completed: false, order: 1 },
-          { id: "15", name: "Oil pulling", completed: false, order: 2 },
-          { id: "16", name: "Facial care", completed: false, order: 3 },
-          { id: "17", name: "Brush teeth", completed: false, order: 4 },
-          { id: "18", name: "Sleep", completed: false, order: 5 },
-        ],
-      },
-    ];
-
-    for (const routine of defaultRoutines) {
-      await ctx.db.insert("routines", {
-        userId,
-        ...routine,
-        isActive: true,
-      });
-    }
-
-    // Initialize user stats
-    await ctx.db.insert("userStats", {
-      userId,
-      totalDaysCompleted: 0,
-      currentStreak: 0,
-      longestStreak: 0,
-      totalTasksCompleted: 0,
-      averageCompletionRate: 0,
-    });
+      .withIndex("by_user_active", (q) => q.eq("userId", userId).eq("isActive", true))
+      .take(LIMITS.routines);
   },
 });
 
 
 // --- Helpers for daily progress & achievements counting ---
-function isoDate(d: Date) {
-  return d.toISOString().split("T")[0];
-}
-
 function diffDays(a: string, b: string) {
   // returns whole-day difference between ISO dates (b - a)
   const msPerDay = 24 * 60 * 60 * 1000;
@@ -154,9 +33,8 @@ async function computeRoutineStats(ctx: any, userId: any, dateKey: string) {
 
   const routines = await ctx.db
     .query("routines")
-    .withIndex("by_user", (q: any) => q.eq("userId", userId))
-    .filter((q: any) => q.eq(q.field("isActive"), true))
-    .collect();
+    .withIndex("by_user_active", (q: any) => q.eq("userId", userId).eq("isActive", true))
+    .take(LIMITS.routines);
 
   let totalTasks = 0;
   let completedTasks = 0;
@@ -268,7 +146,7 @@ export const toggleTask = mutation({
       throw new Error("Routine not found");
     }
 
-    const today = assertDateKey(args.dateKey);
+    const today = assertCurrentLocalDate(args.dateKey);
     const savedDay = await ctx.db
       .query("dailyProgress")
       .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", today))
@@ -277,8 +155,12 @@ export const toggleTask = mutation({
       throw new Error("Today is already completed.");
     }
 
+    const taskId = assertShortId(args.taskId, "Task id", 100);
+    const taskExists = routine.tasks.some((task) => task.id === taskId);
+    if (!taskExists) throw new Error("Task not found");
+
     const updatedTasks = routine.tasks.map((task) =>
-      task.id === args.taskId ? { ...task, completed: !task.completed } : task
+      task.id === taskId ? { ...task, completed: !task.completed } : task
     );
 
     await ctx.db.patch(args.routineId, { tasks: updatedTasks });
@@ -305,8 +187,12 @@ export const updateTask = mutation({
       throw new Error("Routine not found");
     }
 
+    await enforceRateLimit(ctx, userId, "routines:structure", 30, 60_000);
+    const taskId = assertShortId(args.taskId, "Task id", 100);
+    const name = cleanText(args.name, "Task name", LIMITS.taskName);
+    if (!routine.tasks.some((task) => task.id === taskId)) throw new Error("Task not found");
     const updatedTasks = routine.tasks.map((task) =>
-      task.id === args.taskId ? { ...task, name: args.name } : task
+      task.id === taskId ? { ...task, name } : task
     );
 
     await ctx.db.patch(args.routineId, { tasks: updatedTasks });
@@ -327,9 +213,14 @@ export const addTask = mutation({
       throw new Error("Routine not found");
     }
 
+    await enforceRateLimit(ctx, userId, "routines:structure", 30, 60_000);
+    if (routine.tasks.length >= LIMITS.tasksPerRoutine) {
+      throw new Error(`A routine can have up to ${LIMITS.tasksPerRoutine} tasks`);
+    }
+    const name = cleanText(args.name, "Task name", LIMITS.taskName);
     const newTask = {
-      id: Date.now().toString(),
-      name: args.name,
+      id: `${Date.now().toString(36)}-${Math.random().toString(16).slice(2)}`,
+      name,
       completed: false,
       order: routine.tasks.length + 1,
     };
@@ -354,8 +245,10 @@ export const deleteTask = mutation({
       throw new Error("Routine not found");
     }
 
-    const updatedTasks = routine.tasks.filter((task) => task.id !== args.taskId);
-
+    await enforceRateLimit(ctx, userId, "routines:structure", 30, 60_000);
+    const taskId = assertShortId(args.taskId, "Task id", 100);
+    if (!routine.tasks.some((task) => task.id === taskId)) throw new Error("Task not found");
+    const updatedTasks = routine.tasks.filter((task) => task.id !== taskId);
     await ctx.db.patch(args.routineId, { tasks: updatedTasks });
   },
 });
@@ -378,15 +271,19 @@ export const reorderTasks = mutation({
       throw new Error("Routine not found");
     }
 
+    await enforceRateLimit(ctx, userId, "routines:reorder", 60, 60_000);
+    if (args.orderedTaskIds.length > LIMITS.tasksPerRoutine) throw new Error("Too many tasks");
+    const orderedTaskIds = args.orderedTaskIds.map((id) => assertShortId(id, "Task id", 100));
+    if (new Set(orderedTaskIds).size !== orderedTaskIds.length) throw new Error("Invalid task order");
     const byId = new Map(routine.tasks.map((t) => [t.id, t]));
 
     const reordered: typeof routine.tasks = [];
-    for (const id of args.orderedTaskIds) {
+    for (const id of orderedTaskIds) {
       const t = byId.get(id);
       if (t) reordered.push(t);
     }
     for (const t of routine.tasks) {
-      if (!args.orderedTaskIds.includes(t.id)) reordered.push(t);
+      if (!orderedTaskIds.includes(t.id)) reordered.push(t);
     }
 
     const finalTasks = reordered.map((t, index) => ({
@@ -406,8 +303,10 @@ export const completeDay = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
+    const today = assertCurrentLocalDate(args.dateKey);
+    await enforceRateLimit(ctx, userId, "routines:complete-day", 10, 60_000);
     // Update (or create) today's dailyProgress snapshot.
-    const stats = await computeRoutineStats(ctx, userId, args.dateKey);
+    const stats = await computeRoutineStats(ctx, userId, today);
     if (stats.completionRate < 80) {
       throw new Error("Reach at least 80% before completing the day.");
     }
@@ -439,7 +338,7 @@ export const getTodayProgress = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
 
-    const today = assertDateKey(args.dateKey);
+    const today = assertCurrentLocalDate(args.dateKey);
     
     return await ctx.db
       .query("dailyProgress")
@@ -481,11 +380,14 @@ export const createRoutine = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    const name = args.name.trim();
-    const timeSlot = args.timeSlot.trim();
-
-    if (!name) throw new Error("Routine name is required");
-    if (!timeSlot) throw new Error("Time is required");
+    await enforceRateLimit(ctx, userId, "routines:structure", 30, 60_000);
+    const name = cleanText(args.name, "Routine name", LIMITS.routineName);
+    const timeSlot = cleanText(args.timeSlot, "Time", LIMITS.timeSlot);
+    const active = await ctx.db
+      .query("routines")
+      .withIndex("by_user_active", (q) => q.eq("userId", userId).eq("isActive", true))
+      .take(LIMITS.routines);
+    if (active.length >= LIMITS.routines) throw new Error(`You can have up to ${LIMITS.routines} routines`);
 
     await ctx.db.insert("routines", {
       userId,
@@ -508,8 +410,8 @@ export const deleteRoutine = mutation({
     const routine = await ctx.db.get(args.routineId);
     if (!routine || routine.userId !== userId) throw new Error("Routine not found");
 
-    // safer than delete: keeps old progress references stable
-    await ctx.db.patch(args.routineId, { isActive: false });
+    await enforceRateLimit(ctx, userId, "routines:structure", 30, 60_000);
+    await ctx.db.delete(args.routineId);
   },
 });
 
@@ -526,9 +428,9 @@ export const updateRoutine = mutation({
     const routine = await ctx.db.get(args.routineId);
     if (!routine || routine.userId !== userId) throw new Error("Routine not found");
 
-    await ctx.db.patch(args.routineId, {
-      name: args.name.trim(),
-      timeSlot: args.timeSlot.trim(),
-    });
+    await enforceRateLimit(ctx, userId, "routines:structure", 30, 60_000);
+    const name = cleanText(args.name, "Routine name", LIMITS.routineName);
+    const timeSlot = cleanText(args.timeSlot, "Time", LIMITS.timeSlot);
+    await ctx.db.patch(args.routineId, { name, timeSlot });
   },
 });

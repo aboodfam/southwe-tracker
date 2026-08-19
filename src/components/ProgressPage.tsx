@@ -268,8 +268,14 @@ export function ProgressPage() {
   const workoutStats = useQuery(api.workouts.getWorkoutStats);
   const habitStats = useQuery(api.habits.getHabitStats, { dateKey });
 
-  // Separate daily series for achievements like "Perfect Day"
-  const dailyDataRaw = useQuery(api.progress.getProgressData, { timeFrame: "daily", dateKey }) as ProgressDay[] | undefined;
+  // Separate daily series for achievements like "Perfect Day". When the main
+  // chart is already on Daily, reuse that subscription instead of opening a
+  // second identical Convex query.
+  const dailyDataExtra = useQuery(
+    api.progress.getProgressData,
+    activeTimeFrame === "daily" ? "skip" : { timeFrame: "daily", dateKey },
+  ) as ProgressDay[] | undefined;
+  const dailyDataRaw = activeTimeFrame === "daily" ? progressData : dailyDataExtra;
   const dailyLastRef = useRef<ProgressDay[] | null>(null);
   if (dailyDataRaw && dailyDataRaw.length) dailyLastRef.current = dailyDataRaw;
   const dailySafe = (dailyDataRaw ?? dailyLastRef.current ?? []) as ProgressDay[];

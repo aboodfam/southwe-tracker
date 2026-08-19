@@ -1,7 +1,16 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { assertDateKey } from "./date";
+import { cleanText, enforceRateLimit } from "./security";
+
+function cleanNumericString(value: string, label: string, min: number, max: number) {
+  const text = cleanText(value, label, 16);
+  const number = Number(text);
+  if (!Number.isFinite(number) || number < min || number > max) {
+    throw new Error(`${label} must be between ${min} and ${max}`);
+  }
+  return text;
+}
 
 export const getMacroProfile = query({
   args: {},
@@ -18,124 +27,59 @@ export const getMacroProfile = query({
 
 export const saveMacroProfile = mutation({
   args: {
-    sex: v.string(),
+    sex: v.union(v.literal("male"), v.literal("female")),
     age: v.string(),
     heightCm: v.string(),
     weightKg: v.string(),
-    activityId: v.string(),
-    goal: v.string(),
-    pace: v.string(),
+    activityId: v.union(
+      v.literal("sedentary"),
+      v.literal("light"),
+      v.literal("moderate"),
+      v.literal("active"),
+      v.literal("athlete"),
+    ),
+    goal: v.union(v.literal("maintain"), v.literal("cut"), v.literal("bulk")),
+    pace: v.union(v.literal("mild"), v.literal("moderate"), v.literal("aggressive")),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+
+    await enforceRateLimit(ctx, userId, "macros:save", 40, 60_000);
+
+    const payload = {
+      sex: args.sex,
+      age: cleanNumericString(args.age, "Age", 13, 120),
+      heightCm: cleanNumericString(args.heightCm, "Height", 80, 260),
+      weightKg: cleanNumericString(args.weightKg, "Weight", 20, 500),
+      activityId: args.activityId,
+      goal: args.goal,
+      pace: args.pace,
+      updatedAt: Date.now(),
+    };
 
     const existing = await ctx.db
       .query("macroProfiles")
       .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+      .first();
 
-    const payload = { ...args, updatedAt: Date.now() };
-    if (existing[0]) {
-      await ctx.db.patch(existing[0]._id, payload);
-      for (const duplicate of existing.slice(1)) await ctx.db.delete(duplicate._id);
-      return existing[0]._id;
+    if (existing) {
+      const unchanged =
+        existing.sex === payload.sex &&
+        existing.age === payload.age &&
+        existing.heightCm === payload.heightCm &&
+        existing.weightKg === payload.weightKg &&
+        existing.activityId === payload.activityId &&
+        existing.goal === payload.goal &&
+        existing.pace === payload.pace;
+      if (!unchanged) await ctx.db.patch(existing._id, payload);
+      return existing._id;
     }
-
     return await ctx.db.insert("macroProfiles", { userId, ...payload });
   },
 });
 
-export const getWeightData = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return { entries: [], unit: "kg", hasPreferences: false };
-
-    const [entries, preferences] = await Promise.all([
-      ctx.db
-        .query("weightEntries")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("userPreferences")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .first(),
-    ]);
-
-    return {
-      entries: entries.sort((a, b) => b.date.localeCompare(a.date)),
-      unit: preferences?.weightUnit === "lbs" ? "lbs" : "kg",
-      hasPreferences: !!preferences,
-    };
-  },
-});
-
-export const saveWeightEntry = mutation({
-  args: {
-    dateKey: v.string(),
-    weightKg: v.number(),
-    note: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-    const date = assertDateKey(args.dateKey);
-    if (!Number.isFinite(args.weightKg) || args.weightKg <= 0 || args.weightKg > 1000) {
-      throw new Error("Invalid weight");
-    }
-
-    const existing = await ctx.db
-      .query("weightEntries")
-      .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", date))
-      .collect();
-
-    const payload = {
-      date,
-      weightKg: args.weightKg,
-      note: args.note?.trim() || undefined,
-      updatedAt: Date.now(),
-    };
-
-    if (existing[0]) {
-      await ctx.db.patch(existing[0]._id, payload);
-      for (const duplicate of existing.slice(1)) await ctx.db.delete(duplicate._id);
-      return existing[0]._id;
-    }
-
-    return await ctx.db.insert("weightEntries", { userId, ...payload });
-  },
-});
-
-export const deleteWeightEntry = mutation({
-  args: { entryId: v.id("weightEntries") },
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const entry = await ctx.db.get(args.entryId);
-    if (!entry || entry.userId !== userId) throw new Error("Weight entry not found");
-    await ctx.db.delete(args.entryId);
-  },
-});
-
-export const setWeightUnit = mutation({
-  args: { unit: v.union(v.literal("kg"), v.literal("lbs")) },
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const docs = await ctx.db
-      .query("userPreferences")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-
-    if (docs[0]) {
-      await ctx.db.patch(docs[0]._id, { weightUnit: args.unit });
-      for (const duplicate of docs.slice(1)) await ctx.db.delete(duplicate._id);
-      return docs[0]._id;
-    }
-
-    return await ctx.db.insert("userPreferences", { userId, weightUnit: args.unit });
-  },
-});
+// Weight tracking was removed from the product UI. Legacy weight tables stay in
+// schema.ts so existing data is not destroyed, but there are deliberately no
+// client-callable weight functions anymore. This keeps unused personal-data
+// endpoints out of the public API surface.

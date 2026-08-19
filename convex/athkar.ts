@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { LIMITS, assertIntegerInRange, cleanLongText, cleanText, enforceRateLimit } from "./security";
 
 type DefaultDhikr = {
   text: string;
@@ -325,12 +326,12 @@ export const getAthkar = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    if (!userId) return [];
 
     return await ctx.db
       .query("athkar")
       .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+      .take(LIMITS.athkarTotal);
   },
 });
 
@@ -344,11 +345,8 @@ export const ensureDefaultAthkar = mutation({
     const existing = await ctx.db
       .query("athkar")
       .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+      .take(LIMITS.athkarTotal);
 
-    // --- Morning replacement (requested: update Morning list to the new set) ---
-    // If the user already has Morning athkar but it's the older set, we replace the
-    // Morning category with the updated list (then seed any missing defaults).
     const MORNING_SENTINEL =
       "سبحان الله وبحمده، عدد خلقه، ورضا نفسه، وزنة عرشه، ومداد كلماته.";
 
@@ -357,10 +355,7 @@ export const ensureDefaultAthkar = mutation({
     const didReplaceMorning = existingMorning.length > 0 && !hasMorningSentinel;
 
     if (didReplaceMorning) {
-      for (const d of existingMorning) {
-        await ctx.db.delete(d._id);
-      }
-
+      for (const d of existingMorning) await ctx.db.delete(d._id);
       const morningDefaults = DEFAULT_ATHKAR.filter((d) => d.category === "morning");
       for (const item of morningDefaults) {
         await ctx.db.insert("athkar", {
@@ -375,18 +370,16 @@ export const ensureDefaultAthkar = mutation({
       }
     }
 
-    // Re-fetch after any replacement and seed any missing defaults.
     const after = await ctx.db
       .query("athkar")
       .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+      .take(LIMITS.athkarTotal);
 
     const existingTexts = new Set(after.map((d) => d.text));
     let added = 0;
-
     for (const item of DEFAULT_ATHKAR) {
       if (existingTexts.has(item.text)) continue;
-
+      if (after.length + added >= LIMITS.athkarTotal) break;
       await ctx.db.insert("athkar", {
         userId,
         text: item.text,
@@ -410,16 +403,14 @@ export const incrementCount = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const dhikr = await ctx.db.get(dhikrId);
-    if (!dhikr || dhikr.userId !== userId) throw new Error("Not found");
+    if (!dhikr || dhikr.userId !== userId) throw new Error("Dhikr not found");
+
+    // Idempotent at the target: avoids pointless writes if a button is double-clicked.
+    if (dhikr.currentCount >= dhikr.targetCount) return { completed: true };
 
     const next = Math.min(dhikr.currentCount + 1, dhikr.targetCount);
     const completed = next >= dhikr.targetCount;
-
-    await ctx.db.patch(dhikrId, {
-      currentCount: next,
-      isCompleted: completed,
-    });
-
+    await ctx.db.patch(dhikrId, { currentCount: next, isCompleted: completed });
     return { completed };
   },
 });
@@ -431,14 +422,18 @@ export const resetCount = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const dhikr = await ctx.db.get(dhikrId);
-    if (!dhikr || dhikr.userId !== userId) throw new Error("Not found");
-
-    await ctx.db.patch(dhikrId, {
-      currentCount: 0,
-      isCompleted: false,
-    });
+    if (!dhikr || dhikr.userId !== userId) throw new Error("Dhikr not found");
+    if (dhikr.currentCount === 0 && !dhikr.isCompleted) return;
+    await ctx.db.patch(dhikrId, { currentCount: 0, isCompleted: false });
   },
 });
+
+const ALLOWED_CATEGORIES = new Set(["morning", "evening", "prayer", "before_sleep", "waking_up", "custom"]);
+function cleanCategory(category: string) {
+  const clean = cleanText(category, "Category", LIMITS.dhikrCategory).toLowerCase();
+  if (!ALLOWED_CATEGORIES.has(clean)) throw new Error("Invalid Athkar category");
+  return clean;
+}
 
 export const addDhikr = mutation({
   args: {
@@ -451,13 +446,27 @@ export const addDhikr = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    await ctx.db.insert("athkar", {
+    await enforceRateLimit(ctx, userId, "athkar:structure", 20, 60_000);
+    const existing = await ctx.db
+      .query("athkar")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .take(LIMITS.athkarTotal);
+    if (existing.length >= LIMITS.athkarTotal) {
+      throw new Error(`You can have up to ${LIMITS.athkarTotal} Athkar entries`);
+    }
+
+    const text = cleanLongText(args.text, "Dhikr", LIMITS.dhikrText);
+    const translation = args.translation === undefined ? undefined : cleanLongText(args.translation, "Translation", LIMITS.dhikrTranslation, { optional: true });
+    const targetCount = assertIntegerInRange(args.targetCount, "Target count", 1, 1_000);
+    const category = cleanCategory(args.category);
+
+    return await ctx.db.insert("athkar", {
       userId,
-      text: args.text,
-      translation: args.translation,
-      targetCount: args.targetCount,
+      text,
+      translation,
+      targetCount,
       currentCount: 0,
-      category: args.category,
+      category,
       isCompleted: false,
     });
   },
@@ -475,17 +484,23 @@ export const updateDhikr = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
+    await enforceRateLimit(ctx, userId, "athkar:structure", 20, 60_000);
     const dhikr = await ctx.db.get(args.dhikrId);
-    if (!dhikr || dhikr.userId !== userId) throw new Error("Not found");
+    if (!dhikr || dhikr.userId !== userId) throw new Error("Dhikr not found");
+
+    const text = cleanLongText(args.text, "Dhikr", LIMITS.dhikrText);
+    const translation = args.translation === undefined ? undefined : cleanLongText(args.translation, "Translation", LIMITS.dhikrTranslation, { optional: true });
+    const targetCount = assertIntegerInRange(args.targetCount, "Target count", 1, 1_000);
+    const category = cleanCategory(args.category);
+    const currentCount = Math.min(dhikr.currentCount, targetCount);
 
     await ctx.db.patch(args.dhikrId, {
-      text: args.text,
-      translation: args.translation,
-      targetCount: args.targetCount,
-      category: args.category,
-      // keep currentCount; if targetCount lowered below currentCount, clamp it
-      currentCount: Math.min(dhikr.currentCount, args.targetCount),
-      isCompleted: Math.min(dhikr.currentCount, args.targetCount) >= args.targetCount,
+      text,
+      translation,
+      targetCount,
+      category,
+      currentCount,
+      isCompleted: currentCount >= targetCount,
     });
   },
 });
@@ -495,10 +510,10 @@ export const deleteDhikr = mutation({
   handler: async (ctx, { dhikrId }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+    await enforceRateLimit(ctx, userId, "athkar:structure", 20, 60_000);
 
     const dhikr = await ctx.db.get(dhikrId);
-    if (!dhikr || dhikr.userId !== userId) throw new Error("Not found");
-
+    if (!dhikr || dhikr.userId !== userId) throw new Error("Dhikr not found");
     await ctx.db.delete(dhikrId);
   },
 });
@@ -509,20 +524,19 @@ export const resetCategory = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    const athkarDocs = await ctx.db
+    await enforceRateLimit(ctx, userId, "athkar:reset", 12, 60_000);
+    const clean = cleanCategory(category);
+    const toReset = await ctx.db
       .query("athkar")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+      .withIndex("by_user_category", (q) => q.eq("userId", userId).eq("category", clean))
+      .take(LIMITS.athkarTotal);
 
-    const toReset = athkarDocs.filter((d) => d.category === category);
-    
+    let reset = 0;
     for (const doc of toReset) {
-      await ctx.db.patch(doc._id, {
-        currentCount: 0,
-        isCompleted: false,
-      });
+      if (doc.currentCount === 0 && !doc.isCompleted) continue;
+      await ctx.db.patch(doc._id, { currentCount: 0, isCompleted: false });
+      reset += 1;
     }
-
-    return { reset: toReset.length };
+    return { reset };
   },
 });

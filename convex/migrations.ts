@@ -1,20 +1,10 @@
-// migrations.ts — placeholder for future data migrations.
-import { mutation } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
+// Maintenance-only migrations. Internal functions cannot be invoked by the web client.
+import { internalMutation } from "./_generated/server";
 
-export const migrateUserStatsCleanup = mutation({
+export const migrateUserStatsCleanup = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
-
-    const stats = await ctx.db
-      .query("userStats")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-
+    const stats = await ctx.db.query("userStats").collect();
     let migrated = 0;
 
     for (const doc of stats) {
@@ -30,8 +20,6 @@ export const migrateUserStatsCleanup = mutation({
       migrated += 1;
     }
 
-    return {
-      migrated,
-    };
+    return { migrated };
   },
 });

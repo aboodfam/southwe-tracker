@@ -34,6 +34,12 @@ jobs:
       - name: Install JavaScript dependencies
         run: npm install
 
+      - name: Security regression audit
+        run: npm run security:audit
+
+      - name: Type-check application
+        run: npm run typecheck
+
       - name: Build Ceventic System for Windows
         run: npm run desktop:build
 

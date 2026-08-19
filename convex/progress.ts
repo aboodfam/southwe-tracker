@@ -2,12 +2,12 @@ import { query } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import {
-  assertDateKey,
   getUtcDateKeyDaysAgo,
   getUtcMonthStartKey,
   getUtcYearStartKey,
   parseUtcDateKey,
 } from "./date";
+import { LIMITS, assertCurrentLocalDate } from "./security";
 
 type DayProgress = {
   date: string;
@@ -36,7 +36,7 @@ export const getProgressData = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
 
-    const today = assertDateKey(args.dateKey);
+    const today = assertCurrentLocalDate(args.dateKey);
     const baseDate = parseUtcDateKey(today);
     let startDateStr: string;
 
@@ -60,26 +60,28 @@ export const getProgressData = query({
     const [dailyProgress, workoutProgress, habits, routines, workoutDays] = await Promise.all([
       ctx.db
         .query("dailyProgress")
-        .withIndex("by_user_date", (q) => q.eq("userId", userId))
-        .filter((q) => q.gte(q.field("date"), startDateStr))
+        .withIndex("by_user_date", (q) =>
+          q.eq("userId", userId).gte("date", startDateStr).lte("date", today)
+        )
         .collect(),
       ctx.db
         .query("workoutProgress")
-        .withIndex("by_user_date", (q) => q.eq("userId", userId))
-        .filter((q) => q.gte(q.field("date"), startDateStr))
+        .withIndex("by_user_date", (q) =>
+          q.eq("userId", userId).gte("date", startDateStr).lte("date", today)
+        )
         .collect(),
       ctx.db
         .query("habits")
         .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
+        .take(LIMITS.habits),
       ctx.db
         .query("routines")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
+        .withIndex("by_user_active", (q) => q.eq("userId", userId).eq("isActive", true))
+        .take(LIMITS.routines),
       ctx.db
         .query("workoutDays")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
+        .withIndex("by_user_active", (q) => q.eq("userId", userId).eq("isActive", true))
+        .take(LIMITS.workoutDays),
     ]);
 
     const activeHabits = habits.filter((habit) => habit.isActive !== false);

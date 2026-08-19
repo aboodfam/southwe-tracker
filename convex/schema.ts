@@ -16,7 +16,9 @@ const applicationTables = {
       })
     ),
     isActive: v.boolean(),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_active", ["userId", "isActive"]),
 
   userStats: defineTable({
     userId: v.id("users"),
@@ -100,7 +102,9 @@ const applicationTables = {
     isActive: v.boolean(),
     order: v.number(),
     warmupNotes: v.optional(v.string()),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_active", ["userId", "isActive"]),
 
   workoutStats: defineTable({
     userId: v.id("users"),
@@ -108,6 +112,7 @@ const applicationTables = {
     currentStreak: v.number(),
     longestStreak: v.number(),
     averageCompletionRate: v.number(),
+    lastCompletionDate: v.optional(v.string()),
   }).index("by_user", ["userId"]),
 
   workoutProgress: defineTable({
@@ -148,7 +153,9 @@ const applicationTables = {
     currentCount: v.number(),
     category: v.string(),
     isCompleted: v.boolean(),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_category", ["userId", "category"]),
 
   userProfiles: defineTable({
     userId: v.id("users"),
@@ -188,6 +195,15 @@ const applicationTables = {
     userId: v.id("users"),
     weightUnit: v.union(v.literal("kg"), v.literal("lbs")),
   }).index("by_user", ["userId"]),
+
+  // One small rolling document per user/action. This bounds abusive structural
+  // mutations without creating an ever-growing request log.
+  rateLimits: defineTable({
+    userId: v.id("users"),
+    key: v.string(),
+    windowStart: v.number(),
+    count: v.number(),
+  }).index("by_user_key", ["userId", "key"]),
 };
 
 export default defineSchema({

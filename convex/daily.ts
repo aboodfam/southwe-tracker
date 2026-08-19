@@ -1,7 +1,7 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { assertDateKey } from "./date";
+import { LIMITS, assertCurrentLocalDate } from "./security";
 
 
 async function snapshotRoutineProgress(ctx: any, userId: any, dateKey: string, routines: any[]) {
@@ -53,11 +53,11 @@ export const resetEverythingDaily = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    const today = assertDateKey(args.dateKey);
+    const today = assertCurrentLocalDate(args.dateKey);
     const existingResetState = await ctx.db
       .query("dailyResetState")
       .withIndex("by_user", (q) => q.eq("userId", userId))
-      .unique();
+      .first();
 
     if (existingResetState && existingResetState.lastResetDate >= today) {
       return {
@@ -70,8 +70,8 @@ export const resetEverythingDaily = mutation({
 
     const routines = await ctx.db
       .query("routines")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+      .withIndex("by_user_active", (q) => q.eq("userId", userId).eq("isActive", true))
+      .take(LIMITS.routines);
 
     // Before clearing today's live checkmarks, persist the previous local day's
     // final routine state. This protects progress even if the last action of the
@@ -92,7 +92,7 @@ export const resetEverythingDaily = mutation({
     const athkarDocs = await ctx.db
       .query("athkar")
       .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+      .take(LIMITS.athkarTotal);
 
     const builtinCategories = new Set([
       "morning",

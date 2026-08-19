@@ -28,7 +28,33 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": {
+        "default-src": "'self' customprotocol: asset:",
+        "base-uri": "'self'",
+        "object-src": "'none'",
+        "frame-src": "'none'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "img-src": "'self' asset: http://asset.localhost data: blob:",
+        "font-src": "'self' data: https://fonts.gstatic.com",
+        "connect-src": "'self' ipc: http://ipc.localhost https://*.convex.cloud wss://*.convex.cloud https://*.convex.site"
+      },
+      "devCsp": {
+        "default-src": "'self' customprotocol: asset: http://localhost:5173",
+        "base-uri": "'self'",
+        "object-src": "'none'",
+        "frame-src": "'none'",
+        "script-src": "'self' http://localhost:5173",
+        "style-src": "'self' 'unsafe-inline' http://localhost:5173 https://fonts.googleapis.com",
+        "img-src": "'self' asset: http://asset.localhost data: blob:",
+        "font-src": "'self' data: https://fonts.gstatic.com",
+        "connect-src": "'self' ipc: http://ipc.localhost http://localhost:5173 ws://localhost:5173 https://*.convex.cloud wss://*.convex.cloud https://*.convex.site"
+      },
+      "headers": {
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=()"
+      }
     }
   },
   "bundle": {

@@ -18,6 +18,7 @@ import type * as migrations from "../migrations.js";
 import type * as progress from "../progress.js";
 import type * as router from "../router.js";
 import type * as routines from "../routines.js";
+import type * as userData from "../userData.js";
 import type * as workouts from "../workouts.js";
 
 import type {
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   progress: typeof progress;
   router: typeof router;
   routines: typeof routines;
+  userData: typeof userData;
   workouts: typeof workouts;
 }>;
 

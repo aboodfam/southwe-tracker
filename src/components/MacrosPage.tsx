@@ -199,11 +199,25 @@ export function MacrosPage() {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch {}
 
+    const ageNumber = Number(age);
+    const heightNumber = Number(heightCm);
+    const weightNumber = Number(weightKg);
+    const canSync =
+      age.trim() !== "" &&
+      heightCm.trim() !== "" &&
+      weightKg.trim() !== "" &&
+      Number.isFinite(ageNumber) && ageNumber >= 13 && ageNumber <= 120 &&
+      Number.isFinite(heightNumber) && heightNumber >= 80 && heightNumber <= 260 &&
+      Number.isFinite(weightNumber) && weightNumber >= 20 && weightNumber <= 500;
+
+    // Keep drafts locally, but don't send incomplete/invalid form states to the backend.
+    if (!canSync) return;
+
     const timer = window.setTimeout(() => {
       void saveMacroProfile(payload).catch(() => {
-        // Keep the local copy; Convex will be retried on the next edit.
+        // Keep the local copy; Convex will be retried on the next valid edit.
       });
-    }, 450);
+    }, 1200);
 
     return () => window.clearTimeout(timer);
   }, [hydrated, sex, age, heightCm, weightKg, activityId, goal, pace, saveMacroProfile]);
