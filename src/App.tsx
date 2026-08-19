@@ -538,26 +538,36 @@ function Content({ currentPage }: { currentPage: Page }) {
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const [applyingPendingName, setApplyingPendingName] = useState(false);
+  const [confirmedNameThisSession, setConfirmedNameThisSession] = useState<string | null>(null);
 
   const profileName = userProfile?.displayName?.trim() ?? "";
-  const emailLocal = String(loggedInUser?.email ?? "").split("@")[0]?.trim().toLowerCase() ?? "";
-  const normalizedProfileName = profileName.toLowerCase();
-  const needsRealName = userProfile !== undefined && !!loggedInUser && (
-    !userProfile ||
-    !profileName ||
-    normalizedProfileName === "southwe" ||
-    normalizedProfileName === "southwe system" ||
-    (!!emailLocal && normalizedProfileName === emailLocal)
-  );
+  const displayName = confirmedNameThisSession ?? profileName;
+  // Do not try to infer whether a person's name is valid from their email or
+  // from old placeholder values. Explicit confirmation is the source of truth.
+  const needsRealName =
+    userProfile !== undefined &&
+    !!loggedInUser &&
+    confirmedNameThisSession === null &&
+    (!userProfile || userProfile.nameConfirmed !== true);
 
   useEffect(() => {
-    if (!loggedInUser || userProfile === undefined || userProfile || applyingPendingName) return;
+    // Reset the immediate client confirmation when auth changes.
+    if (!loggedInUser) setConfirmedNameThisSession(null);
+  }, [loggedInUser]);
+
+  useEffect(() => {
+    if (!loggedInUser || userProfile === undefined || applyingPendingName) return;
     const pending = sessionStorage.getItem("pending_display_name")?.trim().replace(/\s+/g, " ") ?? "";
     if (pending.length < 2) return;
 
+    // A pending signup name should be applied even if an old profile document
+    // somehow exists. Saving it also marks the name as explicitly confirmed.
     setApplyingPendingName(true);
     void setDisplayName({ displayName: pending })
-      .then(() => sessionStorage.removeItem("pending_display_name"))
+      .then(() => {
+        setConfirmedNameThisSession(pending);
+        sessionStorage.removeItem("pending_display_name");
+      })
       .catch(() => {})
       .finally(() => setApplyingPendingName(false));
   }, [loggedInUser, userProfile, applyingPendingName, setDisplayName]);
@@ -578,11 +588,13 @@ function Content({ currentPage }: { currentPage: Page }) {
   return (
     <div className="space-y-6 sm:space-y-8">
       <Authenticated>
-        {loggedInUser && needsRealName && !applyingPendingName && <NameSetupModal />}
+        {loggedInUser && needsRealName && !applyingPendingName && (
+          <NameSetupModal onSaved={(savedName) => setConfirmedNameThisSession(savedName)} />
+        )}
         {currentPage === "routines" && (
           <RoutinesContent
             loggedInUser={loggedInUser}
-            displayName={needsRealName ? "" : profileName}
+            displayName={needsRealName ? "" : displayName}
           />
         )}
         {currentPage === "workout" && <WorkoutPage />}
@@ -609,7 +621,7 @@ function Content({ currentPage }: { currentPage: Page }) {
   </h1>
 </div>
 
-          <p className={`${colors.textSecondary} text-lg sm:text-xl`}>Transform your daily habits</p>
+          <p className={`${colors.textSecondary} text-lg sm:text-xl`}>Your Personal Operating System</p>
           <div className={`w-24 sm:w-32 h-1 bg-[image:var(--sw-gradient)] mx-auto rounded-full`} />
           <SignInForm />
         </div>
@@ -618,7 +630,7 @@ function Content({ currentPage }: { currentPage: Page }) {
   );
 }
 
-function NameSetupModal() {
+function NameSetupModal({ onSaved }: { onSaved: (name: string) => void }) {
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const setDisplayName = useMutation(api.auth.setDisplayName);
@@ -631,6 +643,9 @@ function NameSetupModal() {
     setSaving(true);
     try {
       await setDisplayName({ displayName: clean });
+      // Close onboarding immediately; Convex will still update the reactive
+      // profile query in the background.
+      onSaved(clean);
       toast.success(`Welcome, ${clean}`);
     } catch (error: any) {
       toast.error(error?.message ?? "Could not save your name");

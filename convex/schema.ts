@@ -151,6 +151,9 @@ const applicationTables = {
   userProfiles: defineTable({
     userId: v.id("users"),
     displayName: v.string(),
+    // Older profiles may not have this yet. Once the user explicitly saves
+    // their name, it becomes true and onboarding never guesses again.
+    nameConfirmed: v.optional(v.boolean()),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 

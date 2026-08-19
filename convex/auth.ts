@@ -43,10 +43,15 @@ export const setDisplayName = mutation({
 
     const updatedAt = Date.now();
     if (existing) {
-      await ctx.db.patch(existing._id, { displayName, updatedAt });
+      await ctx.db.patch(existing._id, { displayName, nameConfirmed: true, updatedAt });
       return existing._id;
     }
 
-    return await ctx.db.insert("userProfiles", { userId, displayName, updatedAt });
+    return await ctx.db.insert("userProfiles", {
+      userId,
+      displayName,
+      nameConfirmed: true,
+      updatedAt,
+    });
   },
 });
