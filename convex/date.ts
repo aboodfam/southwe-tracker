@@ -6,6 +6,20 @@ export function parseUtcDateKey(dateKey: string) {
   return new Date(`${dateKey}T00:00:00.000Z`);
 }
 
+
+export function assertDateKey(dateKey: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+    throw new Error("Invalid date");
+  }
+
+  const parsed = parseUtcDateKey(dateKey);
+  if (Number.isNaN(parsed.getTime()) || getUtcDateKey(parsed) !== dateKey) {
+    throw new Error("Invalid date");
+  }
+
+  return dateKey;
+}
+
 export function shiftUtcDateKey(dateKey: string, days: number) {
   const date = parseUtcDateKey(dateKey);
   date.setUTCDate(date.getUTCDate() + days);
