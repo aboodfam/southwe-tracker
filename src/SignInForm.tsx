@@ -7,13 +7,12 @@ import { useTheme } from "./contexts/ThemeContext";
 
 export function SignInForm() {
   const { signIn } = useAuthActions();
-  const { theme, getThemeColors } = useTheme();
+  const { getThemeColors } = useTheme();
   const colors = getThemeColors();
 
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [submitting, setSubmitting] = useState(false);
 
-  const isWhite = theme === "white";
   const glow = colors.primary.replace("rgb(", "rgba(").replace(")", ",0.16)");
 
   const themedButton =
@@ -27,11 +26,7 @@ export function SignInForm() {
     `bg-[image:var(--sw-gradient)] text-black ` +
     `hover:brightness-110 active:scale-[0.99]`;
 
-  // If your auth input class is too dim on white mode, this keeps it readable
-  // without changing your global CSS.
-  const inputClass = isWhite
-    ? "auth-input-field text-gray-900 placeholder:text-gray-500"
-    : "auth-input-field";
+  const inputClass = "auth-input-field";
 
   return (
     <div className="w-full">

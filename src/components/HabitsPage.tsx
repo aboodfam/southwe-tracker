@@ -52,7 +52,7 @@ function Pill({
         "px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-500",
         "border border-white/10 backdrop-blur-lg",
         active
-          ? "bg-white/10 text-white shadow-[0_10px_40px_rgba(var(--accent-rgb),0.12)]"
+          ? "bg-white/10 text-white shadow-[0_10px_40px_rgb(var(--sw-accent-rgb) / 0.12)]"
           : "bg-black/30 text-white/55 hover:text-white/80 hover:bg-white/5",
       ].join(" ")}
     >

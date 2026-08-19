@@ -3,6 +3,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useTheme } from "../contexts/ThemeContext";
 import { PageHeader } from "./PageHeader";
+import { Icon, IconName } from "./icons";
 
 type TimeFrame = "daily" | "weekly" | "monthly" | "yearly";
 type Metric = "overall" | "routines" | "workouts" | "habits";
@@ -13,7 +14,7 @@ type Achievement = {
   id: string;
   title: string;
   description: string;
-  icon: string;
+  icon: IconName;
   current: number;
   target: number;
   unit?: string;
@@ -310,8 +311,8 @@ function AchievementCard({ a }: { a: Achievement }) {
       <div className="relative p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-black/20 text-xl">
-              {a.icon}
+            <div className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-black/20">
+              <Icon name={a.icon} className="h-5 w-5 text-white/80" />
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -435,7 +436,7 @@ const achievements = useMemo(() => {
     id: string,
     title: string,
     description: string,
-    icon: string,
+    icon: IconName,
     current: number,
     target: number,
     unit: string | undefined,
@@ -454,41 +455,41 @@ const achievements = useMemo(() => {
 
   return [
     // Tasks
-    ach("task_1", "First Task", "Complete your first task.", "✅", tasksCompleted, 1, "tasks", "common"),
-    ach("task_100", "Task Grinder", "Complete 100 tasks.", "🧱", tasksCompleted, 100, "tasks", "uncommon"),
-    ach("task_1000", "Task Machine", "Complete 1,000 tasks.", "⚙️", tasksCompleted, 1000, "tasks", "rare"),
-    ach("task_5000", "Relentless", "Complete 5,000 tasks.", "🔥", tasksCompleted, 5000, "tasks", "legendary"),
+    ach("task_1", "First Task", "Complete your first task.", "checkCircle", tasksCompleted, 1, "tasks", "common"),
+    ach("task_100", "Task Grinder", "Complete 100 tasks.", "layers", tasksCompleted, 100, "tasks", "uncommon"),
+    ach("task_1000", "Task Machine", "Complete 1,000 tasks.", "settings", tasksCompleted, 1000, "tasks", "rare"),
+    ach("task_5000", "Relentless", "Complete 5,000 tasks.", "flame", tasksCompleted, 5000, "tasks", "legendary"),
 
     // Days completed (>=80% rule)
-    ach("day_1", "First Day", "Finish your first day (80%+).", "📅", daysCompleted, 1, "days", "common"),
-    ach("day_7", "Week Locked In", "Complete 7 days.", "🗓️", daysCompleted, 7, "days", "rare"),
-    ach("day_30", "30‑Day Discipline", "Complete 30 days.", "🏆", daysCompleted, 30, "days", "epic"),
-    ach("day_100", "100 Days", "Complete 100 days.", "👑", daysCompleted, 100, "days", "legendary"),
+    ach("day_1", "First Day", "Finish your first day (80%+).", "calendar", daysCompleted, 1, "days", "common"),
+    ach("day_7", "Week Locked In", "Complete 7 days.", "calendar", daysCompleted, 7, "days", "rare"),
+    ach("day_30", "30‑Day Discipline", "Complete 30 days.", "trophy", daysCompleted, 30, "days", "epic"),
+    ach("day_100", "100 Days", "Complete 100 days.", "diamond", daysCompleted, 100, "days", "legendary"),
 
     // Streaks
-    ach("streak_3", "Streak Starter", "Hold a 3‑day streak.", "⚡", currentStreak, 3, "days", "uncommon"),
-    ach("streak_7", "Streak Warrior", "Hold a 7‑day streak.", "🛡️", currentStreak, 7, "days", "rare"),
-    ach("streak_14", "Two Weeks", "Hold a 14‑day streak.", "🗡️", currentStreak, 14, "days", "epic"),
-    ach("streak_30", "Unbreakable", "Hold a 30‑day streak.", "🧠", currentStreak, 30, "days", "legendary"),
-    ach("longest_60", "Legendary Streak", "Reach a 60‑day longest streak.", "🌟", longestStreak, 60, "days", "legendary"),
+    ach("streak_3", "Streak Starter", "Hold a 3‑day streak.", "bolt", currentStreak, 3, "days", "uncommon"),
+    ach("streak_7", "Streak Warrior", "Hold a 7‑day streak.", "shield", currentStreak, 7, "days", "rare"),
+    ach("streak_14", "Two Weeks", "Hold a 14‑day streak.", "bolt", currentStreak, 14, "days", "epic"),
+    ach("streak_30", "Unbreakable", "Hold a 30‑day streak.", "shield", currentStreak, 30, "days", "legendary"),
+    ach("longest_60", "Legendary Streak", "Reach a 60‑day longest streak.", "sparkles", longestStreak, 60, "days", "legendary"),
 
     // Perfection
-    ach("perfect_1", "Perfect Day", "Hit 100% completion in a day.", "💯", perfectDays, 1, "days", "rare"),
-    ach("perfect_7", "Perfection Week", "Get 7 perfect days (100%).", "✨", perfectDays, 7, "days", "legendary"),
+    ach("perfect_1", "Perfect Day", "Hit 100% completion in a day.", "checkCircle", perfectDays, 1, "days", "rare"),
+    ach("perfect_7", "Perfection Week", "Get 7 perfect days (100%).", "sparkles", perfectDays, 7, "days", "legendary"),
 
     // Workouts
-    ach("workout_1", "First Workout", "Finish your first workout.", "🏋️", workoutsTotal, 1, "workouts", "common"),
-    ach("workout_10", "Workout Habit", "Finish 10 workouts.", "🧃", workoutsTotal, 10, "workouts", "uncommon"),
-    ach("workout_25", "Built Different", "Finish 25 workouts.", "💪", workoutsTotal, 25, "workouts", "rare"),
-    ach("workout_100", "Training Beast", "Finish 100 workouts.", "🥇", workoutsTotal, 100, "workouts", "legendary"),
-    ach("workout_longest_14", "Workout Legend", "Reach a 14‑day longest workout streak.", "🏅", workoutLongest, 14, "days", "epic"),
+    ach("workout_1", "First Workout", "Finish your first workout.", "workout", workoutsTotal, 1, "workouts", "common"),
+    ach("workout_10", "Workout Habit", "Finish 10 workouts.", "workout", workoutsTotal, 10, "workouts", "uncommon"),
+    ach("workout_25", "Built Different", "Finish 25 workouts.", "workout", workoutsTotal, 25, "workouts", "rare"),
+    ach("workout_100", "Training Beast", "Finish 100 workouts.", "trophy", workoutsTotal, 100, "workouts", "legendary"),
+    ach("workout_longest_14", "Workout Legend", "Reach a 14‑day longest workout streak.", "trophy", workoutLongest, 14, "days", "epic"),
 
     // Habits
-    ach("habit_1", "First Habit", "Create your first habit.", "🌱", habitsTotal, 1, "habits", "common"),
-    ach("habit_5", "Habit Builder", "Create 5 habits.", "🧩", habitsTotal, 5, "habits", "uncommon"),
-    ach("habit_10", "Habit Architect", "Create 10 habits.", "📜", habitsTotal, 10, "habits", "rare"),
-    ach("habit_longest_21", "Consistency", "Reach a 21‑day habit streak.", "🧊", habitLongest, 21, "days", "epic"),
-    ach("habit_longest_60", "Master of Habits", "Reach a 60‑day habit streak.", "👁️", habitLongest, 60, "days", "legendary"),
+    ach("habit_1", "First Habit", "Create your first habit.", "habits", habitsTotal, 1, "habits", "common"),
+    ach("habit_5", "Habit Builder", "Create 5 habits.", "layers", habitsTotal, 5, "habits", "uncommon"),
+    ach("habit_10", "Habit Architect", "Create 10 habits.", "routines", habitsTotal, 10, "habits", "rare"),
+    ach("habit_longest_21", "Consistency", "Reach a 21‑day habit streak.", "diamond", habitLongest, 21, "days", "epic"),
+    ach("habit_longest_60", "Master of Habits", "Reach a 60‑day habit streak.", "habits", habitLongest, 60, "days", "legendary"),
   ];
 }, [userStats, workoutStats, habitStats, dailySafe]);
 

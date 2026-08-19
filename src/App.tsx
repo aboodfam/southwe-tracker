@@ -233,7 +233,7 @@ function StarfieldBackground() {
    Create New Block (animated + readable inputs)
    ========================= */
 function CreateRoutineCard() {
-  const { theme, getThemeColors } = useTheme();
+  const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const { play } = useSound();
 
@@ -254,12 +254,7 @@ function CreateRoutineCard() {
     return () => clearTimeout(t);
   }, [open]);
 
-  const isWhite = theme === "white";
-
-  // ✅ readable text (fix)
-  const inputBase = isWhite
-    ? `bg-white/70 text-gray-900 placeholder:text-gray-500 border border-black/10`
-    : `bg-black/35 text-white placeholder:text-white/35 border ${colors.borderHover}`;
+  const inputBase = `bg-black/35 text-white placeholder:text-white/35 border ${colors.borderHover}`;
 
   const handleCreate = async () => {
     const n = name.trim();
@@ -516,8 +511,9 @@ function AppContent() {
         <div className="container mx-auto px-4 h-16 sm:h-20 flex justify-between items-center">
           <div className="flex items-center gap-2 sm:gap-4">
             <div className="relative">
-              <div className={`w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br  rounded-lg flex items-center justify-center shadow-lg ${colors.shadow}`}>
-                <span className="text-black font-bold text-sm sm:text-lg">S</span>
+              <div className={`relative grid h-9 w-9 place-items-center overflow-hidden rounded-xl bg-[image:var(--sw-gradient)] shadow-lg sm:h-10 sm:w-10 ${colors.shadow}`}>
+                <span className="absolute inset-[1px] rounded-[11px] bg-black/20" />
+                <span className="relative text-sm font-black tracking-[-0.08em] text-black sm:text-base">SW</span>
               </div>
             </div>
             <h2 className={`text-lg sm:text-2xl font-bold bg-[image:var(--sw-gradient)] bg-clip-text text-transparent`}>
@@ -765,7 +761,7 @@ function RoutinesContent({ loggedInUser }: { loggedInUser: any }) {
             }}
             className={[
               "relative z-10 px-4 py-2 rounded-xl text-sm font-semibold transition-colors duration-300",
-              viewMode === "blocks" ? "text-black" : `${colors.textSecondary} hover:${colors.text}`,
+              viewMode === "blocks" ? "text-black" : `${colors.textSecondary} hover:text-white`,
             ].join(" ")}
           >
             Blocks
@@ -778,7 +774,7 @@ function RoutinesContent({ loggedInUser }: { loggedInUser: any }) {
             }}
             className={[
               "relative z-10 px-4 py-2 rounded-xl text-sm font-semibold transition-colors duration-300",
-              viewMode === "flex" ? "text-black" : `${colors.textSecondary} hover:${colors.text}`,
+              viewMode === "flex" ? "text-black" : `${colors.textSecondary} hover:text-white`,
             ].join(" ")}
           >
             Flexible

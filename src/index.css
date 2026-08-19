@@ -7,6 +7,14 @@
   --sw-gradient: linear-gradient(90deg, rgb(34, 211, 238), rgb(59, 130, 246));
   --sw-gradient-hover: linear-gradient(90deg, rgb(103, 232, 249), rgb(147, 197, 253));
   --sw-glow: 0 0 24px rgba(34, 211, 238, 0.26), 0 0 54px rgba(59, 130, 246, 0.16);
+  --sw-accent: rgb(34, 211, 238);
+  --sw-accent-rgb: 34 211 238;
+  --sw-accent-hover-rgb: 103 232 249;
+  --sw-accent-light-rgb: 165 243 252;
+  --sw-surface-rgb: 9 13 18;
+  --sw-surface-2-rgb: 15 23 32;
+  --sw-border-rgb: 255 255 255;
+  --sw-text-secondary-rgb: 148 163 184;
 }
 
 * {
@@ -325,7 +333,7 @@ button,
   color: rgba(255, 255, 255, 0.4);
 }
 
-/* Form inputs and dropdowns - consistent dark styling for all themes */
+/* Form controls use one deliberate dark glass treatment across presets. */
 select,
 input[type="text"],
 input[type="number"],
@@ -335,49 +343,47 @@ textarea {
   color-scheme: dark;
 }
 
-/* Force dark background for all form inputs in white theme */
-[data-theme="white"] select,
-[data-theme="white"] input[type="text"],
-[data-theme="white"] input[type="number"],
-[data-theme="white"] input[type="email"],
-[data-theme="white"] input[type="password"],
-[data-theme="white"] textarea {
-  background-color: #2a2a2a !important;
-  color: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
-}
-
-/* Force dark background for all form input placeholders in white theme */
-[data-theme="white"] input::placeholder,
-[data-theme="white"] textarea::placeholder {
-  color: rgba(255, 255, 255, 0.5) !important;
-}
-
-/* Force dark theme for select options in all themes */
 select option {
-  background-color: #1a1a1a !important;
-  color: #ffffff !important;
-  padding: 8px 12px;
+  background-color: #111318;
+  color: #fff;
 }
 
-/* White theme specific select styling */
-[data-theme="white"] select option {
-  background-color: #2a2a2a !important;
-  color: #ffffff !important;
+/* Theme-aware interactions. These replace dynamically generated Tailwind
+   class names such as hover:${colors.borderHover}, which Tailwind cannot
+   safely discover at build time. */
+.sw-theme-hover-border:hover {
+  border-color: rgb(var(--sw-accent-rgb) / 0.34);
 }
 
-/* Make sure select text is visible in white theme */
-[data-theme="white"] select {
-  color: #ffffff !important;
+.sw-theme-hover-text:hover {
+  color: var(--sw-accent);
 }
 
-/* Ensure all other themes keep proper text color */
-[data-theme="cyan"] select,
-[data-theme="black"] select,
-[data-theme="red"] select,
-[data-theme="purple"] select,
-[data-theme="green"] select {
-  color: #ffffff !important;
+.sw-range {
+  height: 6px;
+  appearance: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+}
+
+.sw-range::-webkit-slider-thumb {
+  width: 17px;
+  height: 17px;
+  appearance: none;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  border-radius: 999px;
+  background: var(--sw-accent);
+  box-shadow: 0 0 14px rgb(var(--sw-accent-rgb) / 0.42);
+}
+
+.sw-range::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  border-radius: 999px;
+  background: var(--sw-accent);
+  box-shadow: 0 0 14px rgb(var(--sw-accent-rgb) / 0.42);
 }
 
 /* Holographic effects */

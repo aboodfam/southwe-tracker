@@ -27,36 +27,30 @@ export type SoundPack =
 
 export const SOUND_PACKS: Record<
   Exclude<SoundPack, "custom"> | "custom",
-  { name: string; icon: string; description: string }
+  { name: string; description: string }
 > = {
   neon: {
     name: "Neon",
-    icon: "🟦",
     description: "Clean cyber chimes — modern and satisfying",
   },
   arcade: {
     name: "Arcade",
-    icon: "🕹️",
     description: "Retro game feel — punchy + fun rewards",
   },
   cinematic: {
     name: "Cinematic",
-    icon: "🎬",
     description: "Bigger wins — soft bass + airy sparkle",
   },
   lofi: {
     name: "Lo‑Fi",
-    icon: "🌙",
     description: "Warm and subtle — rewarding without being loud",
   },
   crystal: {
     name: "Crystal",
-    icon: "💎",
     description: "Bright bells — premium, shiny and clear",
   },
   custom: {
     name: "Custom",
-    icon: "🎧",
     description: "Upload your own reward sounds",
   },
 };

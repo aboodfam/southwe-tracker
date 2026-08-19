@@ -5,15 +5,15 @@ export default {
     extend: {
       // ✅ Theme colors powered by CSS vars (set in ThemeProvider)
       colors: {
-        primary: "rgb(var(--accent-rgb) / <alpha-value>)",
-        "primary-hover": "rgb(var(--accent-hover-rgb) / <alpha-value>)",
-        "primary-light": "rgb(var(--accent-light-rgb) / <alpha-value>)",
+        primary: "rgb(var(--sw-accent-rgb) / <alpha-value>)",
+        "primary-hover": "rgb(var(--sw-accent-hover-rgb) / <alpha-value>)",
+        "primary-light": "rgb(var(--sw-accent-light-rgb) / <alpha-value>)",
 
-        surface: "rgb(var(--surface-rgb) / <alpha-value>)",
-        "surface-2": "rgb(var(--surface-2-rgb) / <alpha-value>)",
+        surface: "rgb(var(--sw-surface-rgb) / <alpha-value>)",
+        "surface-2": "rgb(var(--sw-surface-2-rgb) / <alpha-value>)",
 
-        border: "rgb(var(--border-rgb) / <alpha-value>)",
-        secondary: "rgb(var(--text-secondary-rgb) / <alpha-value>)",
+        border: "rgb(var(--sw-border-rgb) / <alpha-value>)",
+        secondary: "rgb(var(--sw-text-secondary-rgb) / <alpha-value>)",
       },
 
       screens: { xs: "475px" },
@@ -50,8 +50,8 @@ export default {
 
         // ✅ Glow now follows the active theme
         glow: {
-          "0%": { boxShadow: "0 0 20px rgba(var(--accent-rgb), 0.22)" },
-          "100%": { boxShadow: "0 0 44px rgba(var(--accent-rgb), 0.55)" },
+          "0%": { boxShadow: "0 0 20px rgb(var(--sw-accent-rgb) / 0.22)" },
+          "100%": { boxShadow: "0 0 44px rgb(var(--sw-accent-rgb) / 0.55)" },
         },
 
         fadeIn: {
@@ -75,8 +75,8 @@ export default {
         },
 
         pulseGlow: {
-          "0%, 100%": { boxShadow: "0 0 12px rgba(var(--accent-rgb), 0.25)" },
-          "50%": { boxShadow: "0 0 36px rgba(var(--accent-rgb), 0.70)" },
+          "0%, 100%": { boxShadow: "0 0 12px rgb(var(--sw-accent-rgb) / 0.25)" },
+          "50%": { boxShadow: "0 0 36px rgb(var(--sw-accent-rgb) / 0.70)" },
         },
       },
     },

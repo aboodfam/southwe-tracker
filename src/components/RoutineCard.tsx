@@ -5,6 +5,7 @@ import { Id } from "../../convex/_generated/dataModel";
 import { useTheme } from "../contexts/ThemeContext";
 import { useSound } from "../contexts/SoundContext";
 import { toast } from "sonner";
+import { Icon } from "./icons";
 
 interface Task {
   id: string;
@@ -510,27 +511,27 @@ const startHoldDrag = (
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 mb-2">
-                <div className={`w-3 h-3 ${colors.text.replace("text-", "bg-")} rounded-full`} />
+                <div className="h-2.5 w-2.5 rounded-full bg-[color:var(--sw-accent)] shadow-[0_0_10px_var(--sw-accent)]" />
                 <h3 className={`text-lg sm:text-xl font-bold ${colors.text} truncate`}>
                   {routine.name}
                 </h3>
               </div>
 
               <p className={`${colors.textSecondary} text-sm flex items-center gap-2`}>
-                <span>🕐</span>
+                <Icon name="clock" className="h-4 w-4" />
                 {routine.timeSlot}
               </p>
 
               {/* Quick stats */}
               <div className="mt-4 flex items-center justify-between text-xs sm:text-sm">
                 <div className={`flex items-center gap-4 ${colors.textSecondary}`}>
-                  <span className="flex items-center gap-1">
-                    <span>✅</span>
+                  <span className="flex items-center gap-1.5">
+                    <Icon name="checkCircle" className="h-3.5 w-3.5" />
                     {completedTasks}/{totalTasks} tasks
                   </span>
                   {completionRate === 100 && (
-                    <span className="flex items-center gap-1 text-green-400">
-                      <span>🎉</span>
+                    <span className="flex items-center gap-1.5 text-green-400">
+                      <Icon name="sparkles" className="h-3.5 w-3.5" />
                       Complete!
                     </span>
                   )}

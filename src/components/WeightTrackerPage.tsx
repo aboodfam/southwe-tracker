@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 import { PageHeader } from "./PageHeader";
 import { toast } from "sonner";
+import { Icon } from "./icons";
 
 type WeightEntry = {
   id: string;
@@ -116,7 +117,7 @@ export function WeightTrackerPage() {
 
     setWeight("");
     setNote("");
-    toast.success("Weight saved! 💪");
+    toast.success("Weight saved.");
   };
 
   const toggleUnit = () => {
@@ -162,11 +163,11 @@ export function WeightTrackerPage() {
       <div className="flex justify-center animate-slide-up">
         <button
           onClick={toggleUnit}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${colors.border} ${colors.backgroundSecondary} hover:${colors.borderHover} transition-all duration-300 hover:scale-105`}
+          className={`sw-theme-hover-border flex items-center gap-2 px-4 py-2 rounded-xl border ${colors.border} ${colors.backgroundSecondary} transition-all duration-300 hover:scale-[1.02]`}
         >
           <span className={`${colors.textSecondary} text-sm`}>Unit:</span>
           <span className={`${colors.text} font-semibold`}>{unit}</span>
-          <span className="text-xs">🔄</span>
+          <Icon name="refresh" className="h-3.5 w-3.5" />
         </button>
       </div>
 
@@ -175,7 +176,7 @@ export function WeightTrackerPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className={`rounded-xl border ${colors.border} ${colors.backgroundTertiary} p-4 transition-all duration-300 hover:scale-105`}>
               <div className={`${colors.textSecondary} text-xs mb-1 flex items-center gap-1`}>
-                <span>📊</span>
+                <Icon name="weight" className="h-3.5 w-3.5" />
                 <span>Current Weight</span>
               </div>
               <div className={`${colors.text} text-2xl font-bold`}>
@@ -185,7 +186,7 @@ export function WeightTrackerPage() {
 
             <div className={`rounded-xl border ${colors.border} ${colors.backgroundTertiary} p-4 transition-all duration-300 hover:scale-105`}>
               <div className={`${colors.textSecondary} text-xs mb-1 flex items-center gap-1`}>
-                <span>📈</span>
+                <Icon name="chart" className="h-3.5 w-3.5" />
                 <span>Total Change</span>
               </div>
               <div className={`text-2xl font-bold ${stats.changeTotal && stats.changeTotal < 0 ? 'text-green-400' : stats.changeTotal && stats.changeTotal > 0 ? 'text-orange-400' : colors.text}`}>
@@ -195,7 +196,7 @@ export function WeightTrackerPage() {
 
             <div className={`rounded-xl border ${colors.border} ${colors.backgroundTertiary} p-4 transition-all duration-300 hover:scale-105`}>
               <div className={`${colors.textSecondary} text-xs mb-1 flex items-center gap-1`}>
-                <span>⚡</span>
+                <Icon name="bolt" className="h-3.5 w-3.5" />
                 <span>7-Day Change</span>
               </div>
               <div className={`text-2xl font-bold ${stats.changeWeek && stats.changeWeek < 0 ? 'text-green-400' : stats.changeWeek && stats.changeWeek > 0 ? 'text-orange-400' : colors.text}`}>
@@ -208,7 +209,7 @@ export function WeightTrackerPage() {
             <div className={`rounded-xl border ${colors.border} ${colors.backgroundTertiary} p-4`}>
               <div className="flex items-center justify-between mb-3">
                 <div className={`${colors.textSecondary} text-sm flex items-center gap-1`}>
-                  <span>📊</span>
+                  <Icon name="chart" className="h-3.5 w-3.5" />
                   <span>Progress Chart</span>
                 </div>
                 <div className={`${colors.textSecondary} text-xs`}>
@@ -253,9 +254,10 @@ export function WeightTrackerPage() {
               />
               <button
                 onClick={addEntry}
-                className="w-full px-4 py-2 bg-[image:var(--sw-gradient)] text-black rounded-lg text-sm transition-all duration-300 font-semibold hover:brightness-110 hover:scale-105 active:scale-95"
+                className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-[image:var(--sw-gradient)] text-black rounded-lg text-sm transition-all duration-300 font-semibold hover:brightness-110 hover:scale-[1.02] active:scale-95"
               >
-                💾 Save Entry
+                <Icon name="save" className="h-4 w-4" />
+                Save Entry
               </button>
             </div>
 
@@ -275,7 +277,7 @@ export function WeightTrackerPage() {
                 <div key={e.id} className={`flex items-start justify-between gap-3 rounded-xl border ${colors.border} ${colors.backgroundTertiary} p-4`}>
                   <div className="min-w-0">
                     <div className={`${colors.text} font-semibold flex items-center gap-2`}>
-                      <span className="text-lg">⚖️</span>
+                      <Icon name="weight" className="h-4 w-4" />
                       <span>{e.weight.toFixed(1)} {unit}</span>
                       <span className={`${colors.textSecondary} text-xs`}>• {new Date(e.date).toLocaleDateString()}</span>
                     </div>
@@ -296,7 +298,7 @@ export function WeightTrackerPage() {
           </div>
 
           <div className={`${colors.textSecondary} text-xs text-center`}>
-            💡 Tip: Track consistently for better insights. You can switch between kg and lbs anytime.
+            <span className="inline-flex items-center justify-center gap-1.5"><Icon name="info" className="h-3.5 w-3.5" /> Track consistently for better insights. You can switch between kg and lbs anytime.</span>
           </div>
         </div>
       </div>

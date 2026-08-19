@@ -138,163 +138,124 @@ function buildOutOfWorldAccent(base: RGB) {
   };
 }
 
-function applyAccentCssVars(gradient: string, gradientHover: string, glow: string) {
+function applyAccentCssVars(gradient: string, gradientHover: string, glow: string, primary: RGB, hover: RGB, light: RGB) {
   const root = document.documentElement;
   root.style.setProperty("--sw-gradient", gradient);
   root.style.setProperty("--sw-gradient-hover", gradientHover);
   root.style.setProperty("--sw-glow", glow);
+  root.style.setProperty("--sw-accent", rgbString(primary));
+  root.style.setProperty("--sw-accent-rgb", `${primary.r} ${primary.g} ${primary.b}`);
+  root.style.setProperty("--sw-accent-hover-rgb", `${hover.r} ${hover.g} ${hover.b}`);
+  root.style.setProperty("--sw-accent-light-rgb", `${light.r} ${light.g} ${light.b}`);
 }
 
 /**
- * GOAL:
- * - Keep cards EXACTLY the same vibe (bg-black/55)
- * - Make red/purple/green darker + premium (less “toy/neon”)
- * - Rework cyan to premium electric-aqua (clean, not washed)
+ * Theme presets use the same layout system but each one now has its own
+ * surface tint, border character, and background atmosphere. The old
+ * "white" id is kept for backwards compatibility, but visually represents
+ * the Frost preset instead of pretending to be a half-light/half-dark mode.
  */
 const themeColors: Record<Theme, ThemeColors> = {
   cyan: {
-    // Premium electric aqua (cleaner than default tailwind cyan)
-    primary: 'rgb(0, 204, 255)',
-    primaryHover: 'rgb(80, 228, 255)',
-    primaryLight: 'rgb(170, 248, 255)',
-    primaryDark: 'rgb(0, 150, 210)',
-
-    // Stronger + more premium bar/button gradient
+    primary: 'rgb(34, 211, 238)',
+    primaryHover: 'rgb(103, 232, 249)',
+    primaryLight: 'rgb(165, 243, 252)',
+    primaryDark: 'rgb(8, 145, 178)',
     gradient: 'from-cyan-300 via-sky-400 to-blue-500',
     gradientHover: 'from-cyan-200 via-sky-300 to-blue-400',
-
-    shadow: 'shadow-cyan-400/14',
-    border: 'border-cyan-300/14',
-    borderHover: 'border-cyan-200/22',
-
-    text: 'text-cyan-200',
-    textSecondary: 'text-slate-200/75',
-
-    background: 'from-black via-slate-950 to-black',
-
-    // ✅ KEEP OLD CARD LOOK (don’t change this)
-    backgroundSecondary: 'bg-black/55',
-
-    // Subtle tint inside task rows / add task area
-    backgroundTertiary: 'bg-cyan-950/14'
+    shadow: 'shadow-cyan-400/15',
+    border: 'border-cyan-300/15',
+    borderHover: 'border-cyan-200/30',
+    text: 'text-cyan-100',
+    textSecondary: 'text-slate-300/75',
+    background: 'from-[#02070b] via-[#07111b] to-[#020407]',
+    backgroundSecondary: 'bg-[#071018]/78',
+    backgroundTertiary: 'bg-cyan-950/22'
   },
 
   white: {
-    primary: 'rgb(235, 245, 255)',
-    primaryHover: 'rgb(255, 255, 255)',
-    primaryLight: 'rgb(200, 230, 255)',
-    primaryDark: 'rgb(180, 210, 235)',
-
-    gradient: 'from-slate-100 via-sky-100 to-white',
-    gradientHover: 'from-white via-sky-50 to-slate-100',
-
-    shadow: 'shadow-sky-200/12',
-    border: 'border-white/18',
+    primary: 'rgb(226, 232, 240)',
+    primaryHover: 'rgb(248, 250, 252)',
+    primaryLight: 'rgb(255, 255, 255)',
+    primaryDark: 'rgb(148, 163, 184)',
+    gradient: 'from-slate-100 via-white to-sky-200',
+    gradientHover: 'from-white via-slate-100 to-sky-100',
+    shadow: 'shadow-slate-200/10',
+    border: 'border-slate-200/15',
     borderHover: 'border-white/30',
-
-    text: 'text-white',
-    textSecondary: 'text-slate-200/85',
-
-    background: 'from-black via-slate-950 to-black',
-
-    // White theme can stay slightly frosty
-    backgroundSecondary: 'bg-white/6',
-    backgroundTertiary: 'bg-sky-500/6'
+    text: 'text-slate-100',
+    textSecondary: 'text-slate-300/75',
+    background: 'from-[#050608] via-[#10141a] to-[#030405]',
+    backgroundSecondary: 'bg-slate-900/72',
+    backgroundTertiary: 'bg-slate-800/45'
   },
 
   black: {
-    primary: 'rgb(160, 210, 255)',
-    primaryHover: 'rgb(200, 230, 255)',
-    primaryLight: 'rgb(120, 185, 255)',
-    primaryDark: 'rgb(80, 140, 220)',
-
-    gradient: 'from-sky-200 via-slate-100 to-sky-300',
-    gradientHover: 'from-white via-slate-100 to-sky-200',
-
-    shadow: 'shadow-sky-400/10',
+    primary: 'rgb(148, 163, 184)',
+    primaryHover: 'rgb(203, 213, 225)',
+    primaryLight: 'rgb(226, 232, 240)',
+    primaryDark: 'rgb(71, 85, 105)',
+    gradient: 'from-slate-400 via-slate-200 to-white',
+    gradientHover: 'from-slate-300 via-white to-slate-200',
+    shadow: 'shadow-white/5',
     border: 'border-white/10',
-    borderHover: 'border-white/20',
-
+    borderHover: 'border-white/22',
     text: 'text-white',
-    textSecondary: 'text-white/70',
-
-    background: 'from-black via-slate-950 to-black',
-
-    // ✅ KEEP OLD CARD LOOK
-    backgroundSecondary: 'bg-black/55',
+    textSecondary: 'text-slate-400',
+    background: 'from-black via-[#090b0f] to-black',
+    backgroundSecondary: 'bg-[#090a0d]/84',
     backgroundTertiary: 'bg-white/5'
   },
 
   red: {
-    // Dark ruby red (premium)
-    primary: 'rgb(190, 18, 60)',        // rose-700
-    primaryHover: 'rgb(225, 29, 72)',   // rose-600
-    primaryLight: 'rgb(244, 63, 94)',   // rose-500
-    primaryDark: 'rgb(159, 18, 57)',    // rose-800
-
-    gradient: 'from-rose-600 via-red-600 to-orange-500',
-    gradientHover: 'from-rose-500 via-red-500 to-orange-400',
-
-    shadow: 'shadow-rose-500/12',
-    border: 'border-rose-400/14',
-    borderHover: 'border-rose-300/22',
-
-    text: 'text-rose-200',
-    textSecondary: 'text-slate-200/75',
-
-    background: 'from-black via-zinc-950 to-black',
-
-    // ✅ KEEP OLD CARD LOOK
-    backgroundSecondary: 'bg-black/55',
-    backgroundTertiary: 'bg-rose-950/14'
+    primary: 'rgb(244, 63, 94)',
+    primaryHover: 'rgb(251, 113, 133)',
+    primaryLight: 'rgb(253, 164, 175)',
+    primaryDark: 'rgb(190, 18, 60)',
+    gradient: 'from-rose-500 via-red-500 to-orange-400',
+    gradientHover: 'from-rose-400 via-red-400 to-orange-300',
+    shadow: 'shadow-rose-500/14',
+    border: 'border-rose-400/15',
+    borderHover: 'border-rose-300/28',
+    text: 'text-rose-100',
+    textSecondary: 'text-slate-300/75',
+    background: 'from-[#090204] via-[#17060a] to-[#050203]',
+    backgroundSecondary: 'bg-[#16070b]/76',
+    backgroundTertiary: 'bg-rose-950/24'
   },
 
   purple: {
-    // Dark amethyst / galaxy purple (premium)
-    primary: 'rgb(107, 33, 168)',       // purple-800
-    primaryHover: 'rgb(147, 51, 234)',  // purple-600
-    primaryLight: 'rgb(168, 85, 247)',  // purple-500
-    primaryDark: 'rgb(88, 28, 135)',    // purple-900-ish
-
-    gradient: 'from-violet-600 via-purple-600 to-fuchsia-500',
-    gradientHover: 'from-violet-500 via-purple-500 to-fuchsia-400',
-
-    shadow: 'shadow-purple-500/12',
-    border: 'border-purple-400/14',
-    borderHover: 'border-purple-300/22',
-
-    text: 'text-violet-200',
-    textSecondary: 'text-slate-200/75',
-
-    background: 'from-black via-slate-950 to-black',
-
-    // ✅ KEEP OLD CARD LOOK
-    backgroundSecondary: 'bg-black/55',
-    backgroundTertiary: 'bg-violet-950/14'
+    primary: 'rgb(168, 85, 247)',
+    primaryHover: 'rgb(192, 132, 252)',
+    primaryLight: 'rgb(216, 180, 254)',
+    primaryDark: 'rgb(126, 34, 206)',
+    gradient: 'from-violet-500 via-purple-500 to-fuchsia-500',
+    gradientHover: 'from-violet-400 via-purple-400 to-fuchsia-400',
+    shadow: 'shadow-purple-500/14',
+    border: 'border-violet-400/15',
+    borderHover: 'border-violet-300/28',
+    text: 'text-violet-100',
+    textSecondary: 'text-slate-300/75',
+    background: 'from-[#06020b] via-[#11091d] to-[#040206]',
+    backgroundSecondary: 'bg-[#120a1c]/76',
+    backgroundTertiary: 'bg-violet-950/24'
   },
 
   green: {
-    // Dark emerald premium
-    primary: 'rgb(4, 120, 87)',         // emerald-700
-    primaryHover: 'rgb(5, 150, 105)',   // emerald-600
-    primaryLight: 'rgb(16, 185, 129)',  // emerald-500
-    primaryDark: 'rgb(6, 95, 70)',      // emerald-800-ish
-
-    gradient: 'from-emerald-600 via-green-600 to-lime-500',
-    gradientHover: 'from-emerald-500 via-green-500 to-lime-400',
-
-    shadow: 'shadow-emerald-500/11',
-    border: 'border-emerald-400/14',
-    borderHover: 'border-emerald-300/22',
-
-    text: 'text-emerald-200',
-    textSecondary: 'text-slate-200/75',
-
-    background: 'from-black via-zinc-950 to-black',
-
-    // ✅ KEEP OLD CARD LOOK
-    backgroundSecondary: 'bg-black/55',
-    backgroundTertiary: 'bg-emerald-950/14'
+    primary: 'rgb(16, 185, 129)',
+    primaryHover: 'rgb(52, 211, 153)',
+    primaryLight: 'rgb(110, 231, 183)',
+    primaryDark: 'rgb(4, 120, 87)',
+    gradient: 'from-emerald-500 via-teal-500 to-lime-400',
+    gradientHover: 'from-emerald-400 via-teal-400 to-lime-300',
+    shadow: 'shadow-emerald-500/13',
+    border: 'border-emerald-400/15',
+    borderHover: 'border-emerald-300/28',
+    text: 'text-emerald-100',
+    textSecondary: 'text-slate-300/75',
+    background: 'from-[#020806] via-[#07150f] to-[#020503]',
+    backgroundSecondary: 'bg-[#07140f]/76',
+    backgroundTertiary: 'bg-emerald-950/24'
   }
 };
 
@@ -374,7 +335,7 @@ useEffect(() => {
     { r: 0, g: 204, b: 255 };
 
   const acc = buildOutOfWorldAccent(baseRgb);
-  applyAccentCssVars(acc.gradient, acc.gradientHover, acc.glow);
+  applyAccentCssVars(acc.gradient, acc.gradientHover, acc.glow, acc.primary, acc.hover, acc.light);
 }, [theme, useCustomAccent, customAccent]);
 
   return (

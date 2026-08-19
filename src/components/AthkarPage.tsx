@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { useSound } from "../contexts/SoundContext";
 import { useTheme } from "../contexts/ThemeContext";
+import { Icon, IconName } from "./icons";
 
 interface Dhikr {
   _id: string;
@@ -19,7 +20,7 @@ interface Dhikr {
 type CategoryDef = {
   id: string;
   name: string;
-  icon: string;
+  icon: IconName;
   accentClass: string;
   accentStyle: string;
   description: string;
@@ -51,12 +52,12 @@ function writeCompletionDates(category: string, dates: string[]) {
 }
 
 const categories: CategoryDef[] = [
-  { id: "morning", name: "Morning Athkar", icon: "☀️", accentClass: "from-sky-500 via-blue-500 to-indigo-600", accentStyle: "rgba(59,130,246,0.26)", description: "Start the day with remembrance and protection." },
-  { id: "evening", name: "Evening Athkar", icon: "🌙", accentClass: "from-violet-500 via-fuchsia-500 to-purple-700", accentStyle: "rgba(168,85,247,0.26)", description: "Close the day with calm and reflection." },
-  { id: "before_sleep", name: "Before Sleep", icon: "🛏️", accentClass: "from-pink-500 via-fuchsia-500 to-purple-700", accentStyle: "rgba(236,72,153,0.26)", description: "Sleep with peace, remembrance, and trust." },
-  { id: "prayer", name: "After Prayer", icon: "🤲", accentClass: "from-emerald-500 via-green-500 to-teal-600", accentStyle: "rgba(34,197,94,0.26)", description: "Keep the prayer connected to remembrance." },
-  { id: "waking_up", name: "Upon Waking", icon: "🌅", accentClass: "from-cyan-500 via-sky-500 to-blue-600", accentStyle: "rgba(6,182,212,0.26)", description: "Begin waking moments with gratitude." },
-  { id: "custom", name: "Custom Dhikr", icon: "✨", accentClass: "from-amber-400 via-orange-500 to-amber-600", accentStyle: "rgba(251,191,36,0.26)", description: "Save your own personal remembrance list." },
+  { id: "morning", name: "Morning Athkar", icon: "sun", accentClass: "from-sky-500 via-blue-500 to-indigo-600", accentStyle: "rgba(59,130,246,0.26)", description: "Start the day with remembrance and protection." },
+  { id: "evening", name: "Evening Athkar", icon: "moon", accentClass: "from-violet-500 via-fuchsia-500 to-purple-700", accentStyle: "rgba(168,85,247,0.26)", description: "Close the day with calm and reflection." },
+  { id: "before_sleep", name: "Before Sleep", icon: "bed", accentClass: "from-pink-500 via-fuchsia-500 to-purple-700", accentStyle: "rgba(236,72,153,0.26)", description: "Sleep with peace, remembrance, and trust." },
+  { id: "prayer", name: "After Prayer", icon: "hands", accentClass: "from-emerald-500 via-green-500 to-teal-600", accentStyle: "rgba(34,197,94,0.26)", description: "Keep the prayer connected to remembrance." },
+  { id: "waking_up", name: "Upon Waking", icon: "sunrise", accentClass: "from-cyan-500 via-sky-500 to-blue-600", accentStyle: "rgba(6,182,212,0.26)", description: "Begin waking moments with gratitude." },
+  { id: "custom", name: "Custom Dhikr", icon: "sparkles", accentClass: "from-amber-400 via-orange-500 to-amber-600", accentStyle: "rgba(251,191,36,0.26)", description: "Save your own personal remembrance list." },
 ];
 
 export function AthkarPage() {
@@ -363,7 +364,7 @@ export function AthkarPage() {
                 <div className="relative flex h-full flex-col justify-between text-white">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="mb-2 text-3xl sm:text-4xl opacity-95">{category.icon}</div>
+                      <div className="mb-3 grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-black/20 sm:h-11 sm:w-11"><Icon name={category.icon} className="h-5 w-5 text-white/85 sm:h-6 sm:w-6" /></div>
                       <div className="text-xs text-white/45 sm:text-sm">Athkar</div>
                       <h3 className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
                         {category.name}
@@ -538,7 +539,7 @@ export function AthkarPage() {
             </div>
           ) : (
             <div className={`${colors.backgroundSecondary} ${colors.border} rounded-[28px] border p-8 text-center`}>
-              <div className="text-5xl">📿</div>
+              <div className={`mx-auto grid h-14 w-14 place-items-center rounded-2xl border ${colors.border} bg-white/[0.035]`}><Icon name="athkar" className={`h-7 w-7 ${colors.text}`} /></div>
               <h3 className={`mt-4 text-xl font-semibold ${colors.text}`}>No Athkar found</h3>
               <p className={`mt-2 text-sm ${colors.textSecondary}`}>
                 {selectedCategory === "custom" ? "Add your first custom Athkar below." : "This category does not have any entries yet."}
