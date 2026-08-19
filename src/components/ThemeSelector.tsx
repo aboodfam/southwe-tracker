@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTheme, Theme } from "../contexts/ThemeContext";
 import { useSound, SOUND_PACKS, SfxName, SoundPack } from "../contexts/SoundContext";
 import { Icon, IconName } from "./icons";
@@ -135,6 +136,24 @@ export function ThemeSelector() {
     setAccentDraft(customAccent);
   }, [customAccent]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    const lockBody = window.matchMedia("(max-width: 639px)").matches;
+    const previousOverflow = document.body.style.overflow;
+    if (lockBody) document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (lockBody) document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   const commitAccentDraft = () => {
     const normalized = accentDraft.startsWith("#") ? accentDraft : `#${accentDraft}`;
     if (/^#[0-9a-fA-F]{6}$/.test(normalized)) {
@@ -168,28 +187,13 @@ export function ThemeSelector() {
     fileInputRef.current?.click();
   };
 
-  return (
-    <div className="relative z-[100]">
-      <button
-        onClick={() => setIsOpen((value) => !value)}
-        className={`sw-theme-hover-border group relative z-[120] flex shrink-0 items-center gap-2 rounded-xl border px-2.5 py-2 sm:px-3 ${colors.border} transition duration-200`}
-        style={{ background: "rgba(7, 10, 14, 0.94)", backdropFilter: "blur(18px) saturate(140%)" }}
-        title="Appearance and sound settings"
-        aria-expanded={isOpen}
-      >
-        <span className="relative grid h-7 w-7 place-items-center rounded-lg border border-white/10 bg-white/[0.04]">
-          <Icon name="settings" className="h-4 w-4 text-white/80 transition-transform duration-300 group-hover:rotate-45" />
-          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-black/60" style={{ background: activeAccent }} />
-        </span>
-        <span className={`hidden text-sm font-medium sm:inline ${colors.text}`}>Customize</span>
-        <Icon name="chevronDown" className={`hidden h-4 w-4 sm:block ${colors.textSecondary} transition-transform ${isOpen ? "rotate-180" : ""}`} />
-      </button>
-
-      {isOpen && (
-        <>
-          <button className="fixed inset-0 z-[90] cursor-default bg-black/45 backdrop-blur-[6px]" onClick={() => setIsOpen(false)} aria-label="Close settings" />
+  const settingsLayer =
+    isOpen && typeof document !== "undefined"
+      ? createPortal(
+          <>
+          <button className="fixed inset-x-0 bottom-0 top-16 z-[1000] cursor-default bg-black/45 backdrop-blur-[6px] sm:top-20" onClick={() => setIsOpen(false)} aria-label="Close settings" />
           <div
-            className={`fixed inset-x-2 bottom-2 top-[4.5rem] z-[110] flex min-h-0 flex-col overflow-hidden rounded-3xl border ${colors.border} shadow-2xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-2 sm:block sm:w-[430px]`}
+            className={`fixed inset-x-2 bottom-2 top-[4.5rem] z-[1010] flex min-h-0 flex-col overflow-hidden rounded-3xl border ${colors.border} shadow-2xl sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-[5.5rem] sm:w-[430px] sm:max-h-[calc(100dvh-6.5rem)]`}
             style={{
               background: "#07090d",
               backdropFilter: "blur(36px) saturate(145%)",
@@ -389,8 +393,31 @@ export function ThemeSelector() {
               )}
             </div>
           </div>
-        </>
-      )}
-    </div>
+          </>,
+          document.body,
+        )
+      : null;
+
+  return (
+    <>
+      <div className="relative z-[100]">
+      <button
+        onClick={() => setIsOpen((value) => !value)}
+        className={`sw-theme-hover-border group relative z-[120] flex shrink-0 items-center gap-2 rounded-xl border px-2.5 py-2 sm:px-3 ${colors.border} transition duration-200`}
+        style={{ background: "rgba(7, 10, 14, 0.94)", backdropFilter: "blur(18px) saturate(140%)" }}
+        title="Appearance and sound settings"
+        aria-expanded={isOpen}
+      >
+        <span className="relative grid h-7 w-7 place-items-center rounded-lg border border-white/10 bg-white/[0.04]">
+          <Icon name="settings" className="h-4 w-4 text-white/80 transition-transform duration-300 group-hover:rotate-45" />
+          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-black/60" style={{ background: activeAccent }} />
+        </span>
+        <span className={`hidden text-sm font-medium sm:inline ${colors.text}`}>Customize</span>
+        <Icon name="chevronDown" className={`hidden h-4 w-4 sm:block ${colors.textSecondary} transition-transform ${isOpen ? "rotate-180" : ""}`} />
+      </button>
+
+      </div>
+      {settingsLayer}
+    </>
   );
 }
