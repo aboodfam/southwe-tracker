@@ -43,7 +43,7 @@ export function StatsPanel({ stats, isLoading }: StatsPanelProps) {
     return (
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5 animate-slide-up">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className={`${colors.backgroundSecondary} rounded-2xl border ${colors.border} p-4 backdrop-blur-sm animate-pulse`}>
+          <div key={i} className={`${i === 4 ? "col-span-2 md:col-span-1" : ""} ${colors.backgroundSecondary} rounded-2xl border ${colors.border} p-3.5 sm:p-4 backdrop-blur-sm animate-pulse`}>
             <div className="mb-4 h-9 w-9 rounded-xl bg-white/[0.05]" />
             <div className="mb-2 h-3 w-20 rounded bg-white/[0.05]" />
             <div className="h-6 w-12 rounded bg-white/[0.08]" />
@@ -58,12 +58,12 @@ export function StatsPanel({ stats, isLoading }: StatsPanelProps) {
       {statItems.map((stat, index) => (
         <div
           key={stat.label}
-          className={`${colors.backgroundSecondary} group relative overflow-hidden rounded-2xl border ${colors.border} p-4 backdrop-blur-sm transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.04] animate-fade-in`}
+          className={`${index === 4 ? "col-span-2 md:col-span-1" : ""} ${colors.backgroundSecondary} group relative overflow-hidden rounded-2xl border ${colors.border} p-3.5 sm:p-4 backdrop-blur-sm transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.04] animate-fade-in`}
           style={{ animationDelay: `${index * 60}ms`, animationFillMode: "both" }}
         >
           <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-[image:var(--sw-gradient)] opacity-[0.06] blur-2xl transition group-hover:opacity-[0.12]" />
           <div className="relative z-10">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-3.5 flex items-center justify-between sm:mb-4">
               <span className={`grid h-9 w-9 place-items-center rounded-xl border ${colors.border} bg-white/[0.035]`}>
                 <Icon name={stat.icon} className={`h-[18px] w-[18px] ${colors.text}`} />
               </span>

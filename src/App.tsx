@@ -100,7 +100,9 @@ function StarfieldBackground() {
     let dpr = 1;
 
     const resize = () => {
-      dpr = window.devicePixelRatio || 1;
+      const isMobileViewport = window.innerWidth <= 640;
+      const rawDpr = window.devicePixelRatio || 1;
+      dpr = Math.min(rawDpr, isMobileViewport ? 1.5 : 2);
       w = Math.floor(window.innerWidth);
       h = Math.floor(window.innerHeight);
 
@@ -113,18 +115,35 @@ function StarfieldBackground() {
     };
 
     resize();
-    window.addEventListener("resize", resize);
+    let resizeRaf: number | null = null;
+    const scheduleResize = () => {
+      if (resizeRaf !== null) return;
+      resizeRaf = requestAnimationFrame(() => {
+        resizeRaf = null;
+        resize();
+      });
+    };
+    window.addEventListener("resize", scheduleResize, { passive: true });
 
     const area = w * h;
     const isWhite = !useCustomAccent && theme === "white";
+    const isMobileViewport = w <= 640;
 
-    const starCount = isWhite
-      ? clamp(Math.floor(area / 6200), 260, 620)
-      : clamp(Math.floor(area / 9000), 180, 420);
+    // Mobile keeps the same animated look, but avoids spending most of the frame
+    // budget on hundreds of particles at 3x device pixel ratio.
+    const starCount = isMobileViewport
+      ? (isWhite
+          ? clamp(Math.floor(area / 5200), 130, 220)
+          : clamp(Math.floor(area / 7000), 105, 180))
+      : (isWhite
+          ? clamp(Math.floor(area / 6200), 260, 620)
+          : clamp(Math.floor(area / 9000), 180, 420));
 
-    const glowCount = isWhite
-      ? clamp(Math.floor(area / 130000), 12, 26)
-      : clamp(Math.floor(area / 170000), 7, 16);
+    const glowCount = isMobileViewport
+      ? (isWhite ? 5 : 3)
+      : (isWhite
+          ? clamp(Math.floor(area / 130000), 12, 26)
+          : clamp(Math.floor(area / 170000), 7, 16));
 
     const rand = (min: number, max: number) => min + Math.random() * (max - min);
 
@@ -165,13 +184,13 @@ function StarfieldBackground() {
       a: rand(0.06, 0.11),
     }));
 
-    const FPS = 30;
+    const FPS = isMobileViewport ? 24 : 30;
     const frameInterval = 1000 / FPS;
     let lastTime = 0;
 
     const draw = (time: number) => {
       rafRef.current = requestAnimationFrame(draw);
-      if (time - lastTime < frameInterval) return;
+      if (document.hidden || time - lastTime < frameInterval) return;
       lastTime = time;
 
       ctx.clearRect(0, 0, w, h);
@@ -216,7 +235,8 @@ function StarfieldBackground() {
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      window.removeEventListener("resize", resize);
+      if (resizeRaf !== null) cancelAnimationFrame(resizeRaf);
+      window.removeEventListener("resize", scheduleResize);
     };
   }, [palette, theme, useCustomAccent]);
 
@@ -520,7 +540,7 @@ function AppContent() {
         <Navigation currentPage={currentPage} onPageChange={setCurrentPage} />
       )}
 
-      <main className="relative z-10 container mx-auto px-4 py-4 sm:py-8 pb-safe" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+      <main className="relative z-10 container mx-auto px-3 py-4 sm:px-4 sm:py-8 pb-safe" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
           <div key={swapKey} className={swapDir === "left" ? "sw-page-swap-left" : "sw-page-swap-right"}>
         <Content currentPage={currentPage} />
                 </div>
@@ -820,16 +840,15 @@ function RoutinesContent({ loggedInUser, displayName }: { loggedInUser: any; dis
   return (
     <>
       {/* Header */}
-      <div className="text-center space-y-4 sm:space-y-6 animate-fade-in px-4">
+      <div className="animate-fade-in px-3 text-center sm:px-4">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45 sm:text-xs">Welcome back</p>
         <h1
-          className={`text-3xl sm:text-4xl md:text-6xl font-bold bg-[image:var(--sw-gradient)] bg-clip-text text-transparent`}
+          className="mt-2 break-words bg-[image:var(--sw-gradient)] bg-clip-text text-4xl font-bold leading-[1.05] text-transparent sm:mt-3 sm:text-5xl md:text-6xl"
           style={{ textShadow: `0 0 18px ${glowStrong}` }}
         >
-          Welcome Back{displayName ? `, ${displayName}` : ""}
+          {displayName || "Your dashboard"}
         </h1>
-
-
-        <div className={`w-24 sm:w-32 h-1 bg-[image:var(--sw-gradient)] mx-auto rounded-full`} />
+        <div className="mx-auto mt-5 h-1 w-20 rounded-full bg-[image:var(--sw-gradient)] sm:mt-6 sm:w-28" />
       </div>
 
       {/* Stats */}

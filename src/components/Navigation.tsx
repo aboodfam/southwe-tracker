@@ -22,14 +22,14 @@ export function Navigation({ currentPage, onPageChange }: NavigationProps) {
   return (
     <nav className={`sticky top-16 sm:top-20 z-40 border-b ${colors.border} ${colors.backgroundSecondary} backdrop-blur-xl`}>
       <div className="container mx-auto px-2 sm:px-4">
-        <div className="scrollbar-hide flex items-center justify-start gap-1 overflow-x-auto py-2 sm:justify-center sm:gap-1.5">
+        <div className="scrollbar-hide grid grid-cols-6 items-center gap-1 py-1 sm:flex sm:justify-center sm:gap-1.5 sm:overflow-x-auto sm:py-2">
           {pages.map((page) => {
             const active = currentPage === page.id;
             return (
               <button
                 key={page.id}
                 onClick={() => onPageChange(page.id)}
-                className={`group relative flex shrink-0 items-center gap-2 rounded-xl border px-2.5 py-2 text-sm font-medium transition-all duration-200 sm:px-3.5 ${
+                className={`sw-nav-button group relative flex w-full min-w-0 items-center justify-center gap-0 rounded-xl border px-0 py-1.5 text-sm font-medium transition-all duration-200 sm:w-auto sm:shrink-0 sm:gap-2 sm:px-3.5 sm:py-2 ${
                   active
                     ? "border-white/15 bg-white/[0.06] text-white shadow-lg"
                     : `border-transparent ${colors.textSecondary} hover:border-white/10 hover:bg-white/[0.04] hover:text-white`
@@ -42,7 +42,7 @@ export function Navigation({ currentPage, onPageChange }: NavigationProps) {
                   <Icon name={page.icon} className={`h-4 w-4 ${active ? colors.text : "text-white/55 group-hover:text-white/80"}`} />
                 </span>
                 <span className="hidden sm:inline">{page.name}</span>
-                {active && <span className="absolute inset-x-4 -bottom-2 h-px bg-[image:var(--sw-gradient)] shadow-[0_0_10px_var(--sw-accent)]" />}
+                {active && <span className="absolute inset-x-4 -bottom-1.5 h-px sm:-bottom-2 bg-[image:var(--sw-gradient)] shadow-[0_0_10px_var(--sw-accent)]" />}
               </button>
             );
           })}

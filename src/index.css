@@ -289,18 +289,34 @@ button,
   user-select: none;
 }
 
-/* Improve tap targets on mobile */
+/* Mobile controls keep a 44px tap target without globally overriding every
+   component's intentional horizontal/vertical padding. */
 @media (max-width: 640px) {
-  button {
-    padding: 0.75rem 1rem;
-  }
-  
   input,
   select,
   textarea {
     font-size: 16px; /* Prevents zoom on iOS */
   }
+
+  .sw-nav-button {
+    min-height: 44px !important;
+    padding: 0.375rem 0 !important;
+  }
+
+  /* Costly full-screen blur layers are toned down on phones while the
+     foreground cards/menus keep their glass treatment. */
+  header.backdrop-blur-md {
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+
+  .backdrop-blur-xl { --tw-backdrop-blur: blur(10px) !important; }
+  .backdrop-blur-lg { --tw-backdrop-blur: blur(8px) !important; }
+  .backdrop-blur-md { --tw-backdrop-blur: blur(7px) !important; }
+  .backdrop-blur-sm { --tw-backdrop-blur: blur(4px) !important; }
 }
+
+
 
 /* Additional utility classes */
 .force-ltr {

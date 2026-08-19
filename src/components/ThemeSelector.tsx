@@ -189,7 +189,7 @@ export function ThemeSelector() {
         <>
           <button className="fixed inset-0 z-[90] cursor-default bg-black/45 backdrop-blur-[6px]" onClick={() => setIsOpen(false)} aria-label="Close settings" />
           <div
-            className={`absolute right-0 top-full z-[110] mt-2 w-[min(92vw,430px)] overflow-hidden rounded-3xl border ${colors.border} shadow-2xl`}
+            className={`fixed inset-x-2 bottom-2 top-[4.5rem] z-[110] flex min-h-0 flex-col overflow-hidden rounded-3xl border ${colors.border} shadow-2xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-2 sm:block sm:w-[430px]`}
             style={{
               background: "#07090d",
               backdropFilter: "blur(36px) saturate(145%)",
@@ -197,7 +197,7 @@ export function ThemeSelector() {
               boxShadow: "0 28px 90px rgba(0,0,0,.62), 0 0 0 1px rgba(255,255,255,.025) inset",
             }}
           >
-            <div className="border-b border-white/10 px-4 pt-4 sm:px-5 sm:pt-5">
+            <div className="shrink-0 border-b border-white/10 px-4 pt-4 sm:px-5 sm:pt-5">
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div>
                   <p className={`text-base font-semibold ${colors.text}`}>Preferences</p>
@@ -226,7 +226,7 @@ export function ThemeSelector() {
               <div className="h-4" />
             </div>
 
-            <div className="max-h-[68vh] overflow-y-auto p-4 sm:p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:max-h-[68vh] sm:flex-none sm:p-5">
               {activeTab === "themes" ? (
                 <div className="space-y-5">
                   <div>
