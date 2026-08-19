@@ -148,6 +148,12 @@ const applicationTables = {
     isCompleted: v.boolean(),
   }).index("by_user", ["userId"]),
 
+  userProfiles: defineTable({
+    userId: v.id("users"),
+    displayName: v.string(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
   // User-specific nutrition/macro calculator profile.
   macroProfiles: defineTable({
     userId: v.id("users"),

@@ -63,6 +63,10 @@ export function SignInForm() {
           {flow === "signIn" ? "Sign in" : "Sign up"}
         </button>
 
+        {flow === "signUp" && (
+          <p className="text-center text-xs text-secondary/80">You’ll choose the name shown on your dashboard after signing up.</p>
+        )}
+
         <div className="text-center text-sm text-secondary">
           <span>
             {flow === "signIn"

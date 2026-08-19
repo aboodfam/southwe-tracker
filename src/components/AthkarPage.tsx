@@ -6,6 +6,7 @@ import { Id } from "../../convex/_generated/dataModel";
 import { useSound } from "../contexts/SoundContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { Icon, IconName } from "./icons";
+import { PageHeader } from "./PageHeader";
 
 interface Dhikr {
   _id: string;
@@ -20,26 +21,34 @@ interface Dhikr {
 type CategoryDef = {
   id: string;
   name: string;
+  shortName: string;
   icon: IconName;
-  accentClass: string;
-  accentStyle: string;
   description: string;
 };
+
+const categories: CategoryDef[] = [
+  { id: "morning", name: "Morning Athkar", shortName: "Morning", icon: "sun", description: "Start the day with remembrance and protection." },
+  { id: "evening", name: "Evening Athkar", shortName: "Evening", icon: "moon", description: "Close the day with calm and reflection." },
+  { id: "before_sleep", name: "Before Sleep", shortName: "Sleep", icon: "bed", description: "End the day with peace, remembrance, and trust." },
+  { id: "prayer", name: "After Prayer", shortName: "Prayer", icon: "hands", description: "Keep each prayer connected to remembrance." },
+  { id: "waking_up", name: "Upon Waking", shortName: "Wake", icon: "sunrise", description: "Begin your first moments with gratitude." },
+  { id: "custom", name: "Custom Dhikr", shortName: "Custom", icon: "sparkles", description: "Build a personal remembrance list of your own." },
+];
 
 function getLocalDateKey() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function getCompletionDatesKey(category: string) {
+function completionStorageKey(category: string) {
   return `athkar_completed_dates_${category}`;
 }
 
 function readCompletionDates(category: string): string[] {
   try {
-    const raw = localStorage.getItem(getCompletionDatesKey(category));
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : [];
+    const raw = localStorage.getItem(completionStorageKey(category));
+    const value = raw ? JSON.parse(raw) : [];
+    return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
   } catch {
     return [];
   }
@@ -47,18 +56,13 @@ function readCompletionDates(category: string): string[] {
 
 function writeCompletionDates(category: string, dates: string[]) {
   try {
-    localStorage.setItem(getCompletionDatesKey(category), JSON.stringify(dates));
+    localStorage.setItem(completionStorageKey(category), JSON.stringify(dates));
   } catch {}
 }
 
-const categories: CategoryDef[] = [
-  { id: "morning", name: "Morning Athkar", icon: "sun", accentClass: "from-sky-500 via-blue-500 to-indigo-600", accentStyle: "rgba(59,130,246,0.26)", description: "Start the day with remembrance and protection." },
-  { id: "evening", name: "Evening Athkar", icon: "moon", accentClass: "from-violet-500 via-fuchsia-500 to-purple-700", accentStyle: "rgba(168,85,247,0.26)", description: "Close the day with calm and reflection." },
-  { id: "before_sleep", name: "Before Sleep", icon: "bed", accentClass: "from-pink-500 via-fuchsia-500 to-purple-700", accentStyle: "rgba(236,72,153,0.26)", description: "Sleep with peace, remembrance, and trust." },
-  { id: "prayer", name: "After Prayer", icon: "hands", accentClass: "from-emerald-500 via-green-500 to-teal-600", accentStyle: "rgba(34,197,94,0.26)", description: "Keep the prayer connected to remembrance." },
-  { id: "waking_up", name: "Upon Waking", icon: "sunrise", accentClass: "from-cyan-500 via-sky-500 to-blue-600", accentStyle: "rgba(6,182,212,0.26)", description: "Begin waking moments with gratitude." },
-  { id: "custom", name: "Custom Dhikr", icon: "sparkles", accentClass: "from-amber-400 via-orange-500 to-amber-600", accentStyle: "rgba(251,191,36,0.26)", description: "Save your own personal remembrance list." },
-];
+function clampPercent(value: number) {
+  return Math.max(0, Math.min(100, value));
+}
 
 export function AthkarPage() {
   const { getThemeColors } = useTheme();
@@ -67,7 +71,7 @@ export function AthkarPage() {
 
   const athkarRaw = useQuery(api.athkar.getAthkar);
   const athkar = athkarRaw ?? [];
-  const isLoadingAthkar = athkarRaw === undefined;
+  const isLoading = athkarRaw === undefined;
 
   const incrementCount = useMutation(api.athkar.incrementCount);
   const resetCount = useMutation(api.athkar.resetCount);
@@ -83,129 +87,99 @@ export function AthkarPage() {
   const [editingDhikr, setEditingDhikr] = useState<Dhikr | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [slideDirection, setSlideDirection] = useState<"next" | "prev" | null>(null);
+  const [newDhikr, setNewDhikr] = useState({ text: "", translation: "", targetCount: 1 });
+  const [editForm, setEditForm] = useState({ text: "", translation: "", targetCount: 1, category: "custom" });
   const touchStartX = useRef<number | null>(null);
   const seededOnceRef = useRef(false);
 
-  const [newDhikr, setNewDhikr] = useState({ text: "", translation: "", targetCount: 1 });
-  const [editForm, setEditForm] = useState({ text: "", translation: "", targetCount: 1, category: "custom" });
-
   useEffect(() => {
-    if (isLoadingAthkar || seededOnceRef.current) return;
+    if (isLoading || seededOnceRef.current) return;
     seededOnceRef.current = true;
     ensureDefaultAthkar().catch(() => {});
-  }, [isLoadingAthkar, ensureDefaultAthkar]);
+  }, [isLoading, ensureDefaultAthkar]);
 
   useEffect(() => {
     const today = getLocalDateKey();
-    const last = localStorage.getItem("athkar_last_reset_date");
-    if (last === today) return;
+    const lastReset = localStorage.getItem("athkar_last_reset_date");
+    if (lastReset === today) return;
     localStorage.setItem("athkar_last_reset_date", today);
-    const catsToReset = ["morning", "evening", "prayer", "before_sleep", "waking_up"];
-    Promise.allSettled(catsToReset.map((c) => resetCategory({ category: c }))).catch(() => {});
+    void Promise.allSettled(["morning", "evening", "prayer", "before_sleep", "waking_up"].map((category) => resetCategory({ category })));
   }, [resetCategory]);
 
-  useEffect(() => {
-    if (!selectedCategory || selectedCategory === "custom") return;
-    const today = getLocalDateKey();
-    const list = athkar.filter((d: Dhikr) => d.category === selectedCategory);
-    if (!list.length) return;
-    const allDone = list.every((d: Dhikr) => (d.currentCount ?? 0) >= (d.targetCount ?? 1));
-    if (!allDone) return;
-    const dates = readCompletionDates(selectedCategory);
-    if (!dates.includes(today)) writeCompletionDates(selectedCategory, [...dates, today]);
-  }, [athkar, selectedCategory]);
-
-  useEffect(() => {
-    if (!slideDirection) return;
-    const id = window.setTimeout(() => setSlideDirection(null), 160);
-    return () => window.clearTimeout(id);
-  }, [slideDirection, currentIndex]);
-
-  const selectedCategoryDef = categories.find((category) => category.id === selectedCategory) ?? null;
+  const countFor = (dhikr: Dhikr) => optimisticCounts[dhikr._id] ?? dhikr.currentCount;
 
   const categoryData = useMemo(() => {
     return categories.map((category) => {
       const items = athkar.filter((dhikr: Dhikr) => dhikr.category === category.id);
-      const completed = items.filter((dhikr) => {
-        const count = optimisticCounts[dhikr._id] ?? dhikr.currentCount;
-        return count >= dhikr.targetCount;
-      }).length;
-      const totalTarget = items.reduce((sum, dhikr) => sum + dhikr.targetCount, 0);
-      const totalCurrent = items.reduce(
-        (sum, dhikr) => sum + Math.min(optimisticCounts[dhikr._id] ?? dhikr.currentCount, dhikr.targetCount),
-        0
-      );
-      const progress = totalTarget > 0 ? (totalCurrent / totalTarget) * 100 : 0;
+      const totalTarget = items.reduce((sum, dhikr) => sum + Math.max(1, dhikr.targetCount), 0);
+      const totalCurrent = items.reduce((sum, dhikr) => sum + Math.min(optimisticCounts[dhikr._id] ?? dhikr.currentCount, Math.max(1, dhikr.targetCount)), 0);
+      const completed = items.filter((dhikr) => (optimisticCounts[dhikr._id] ?? dhikr.currentCount) >= dhikr.targetCount).length;
       return {
         ...category,
         itemCount: items.length,
         completed,
-        progress,
+        progress: totalTarget ? (totalCurrent / totalTarget) * 100 : 0,
         completionDays: category.id === "custom" ? 0 : readCompletionDates(category.id).length,
       };
     });
   }, [athkar, optimisticCounts]);
 
-  const filteredAthkar = useMemo(() => {
-    if (!selectedCategory) return [];
-    return athkar.filter((dhikr: Dhikr) => dhikr.category === selectedCategory);
-  }, [athkar, selectedCategory]);
+  const overall = useMemo(() => {
+    const totalTarget = athkar.reduce((sum: number, dhikr: Dhikr) => sum + Math.max(1, dhikr.targetCount), 0);
+    const totalCurrent = athkar.reduce((sum: number, dhikr: Dhikr) => sum + Math.min(optimisticCounts[dhikr._id] ?? dhikr.currentCount, Math.max(1, dhikr.targetCount)), 0);
+    const completedItems = athkar.filter((dhikr: Dhikr) => (optimisticCounts[dhikr._id] ?? dhikr.currentCount) >= dhikr.targetCount).length;
+    return {
+      progress: totalTarget ? (totalCurrent / totalTarget) * 100 : 0,
+      completedItems,
+      totalItems: athkar.length,
+    };
+  }, [athkar, optimisticCounts]);
+
+  const filteredAthkar = useMemo(
+    () => (selectedCategory ? athkar.filter((dhikr: Dhikr) => dhikr.category === selectedCategory) : []),
+    [athkar, selectedCategory]
+  );
+
+  const selectedCategoryDef = categories.find((category) => category.id === selectedCategory) ?? null;
+  const currentDhikr = filteredAthkar[currentIndex] ?? null;
+  const currentDhikrCount = currentDhikr ? countFor(currentDhikr) : 0;
+
+  useEffect(() => {
+    if (!selectedCategory || selectedCategory === "custom") return;
+    const items = athkar.filter((dhikr: Dhikr) => dhikr.category === selectedCategory);
+    if (!items.length || !items.every((dhikr) => countFor(dhikr) >= dhikr.targetCount)) return;
+    const today = getLocalDateKey();
+    const dates = readCompletionDates(selectedCategory);
+    if (!dates.includes(today)) writeCompletionDates(selectedCategory, [...dates, today]);
+  }, [athkar, optimisticCounts, selectedCategory]);
 
   useEffect(() => {
     if (currentIndex > Math.max(0, filteredAthkar.length - 1)) setCurrentIndex(0);
   }, [currentIndex, filteredAthkar.length]);
 
-  const currentDhikr = filteredAthkar[currentIndex] ?? null;
-  const currentDhikrCount = currentDhikr ? optimisticCounts[currentDhikr._id] ?? currentDhikr.currentCount : 0;
+  useEffect(() => {
+    if (!slideDirection) return;
+    const timeout = window.setTimeout(() => setSlideDirection(null), 170);
+    return () => window.clearTimeout(timeout);
+  }, [slideDirection, currentIndex]);
 
-  const handleIncrement = (dhikrId: string) => {
-    const dhikr = athkar.find((d: any) => d._id === dhikrId);
-    if (!dhikr) return;
-    const current = (optimisticCounts[dhikrId] ?? dhikr.currentCount) as number;
-    const target = (dhikr.targetCount ?? 1) as number;
-    if (current >= target) return;
-
-    const nextCount = Math.min(target, current + 1);
-    setOptimisticCounts((m) => ({ ...m, [dhikrId]: nextCount }));
-
-    if (nextCount >= target) play("success", 0.85);
-    else play("notification", 0.28);
-
-    incrementCount({ dhikrId: dhikrId as Id<"athkar"> }).catch((err: any) => {
-      setOptimisticCounts((m) => {
-        const next = { ...m };
-        delete next[dhikrId];
-        return next;
-      });
-      toast.error(err?.message ?? "Failed to update");
-    });
-  };
-
-  const handleReset = async (dhikrId: string) => {
-    try {
-      setOptimisticCounts((m) => ({ ...m, [dhikrId]: 0 }));
-      await resetCount({ dhikrId: dhikrId as Id<"athkar"> });
-      toast.success("Counter reset");
-    } catch {
-      setOptimisticCounts((m) => {
-        const next = { ...m };
-        delete next[dhikrId];
-        return next;
-      });
-      toast.error("Failed to reset count");
-    }
+  const openCategory = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+    setCurrentIndex(0);
+    setShowAddForm(false);
+    setSlideDirection(null);
   };
 
   const goNext = () => {
-    if (!filteredAthkar.length || currentIndex >= filteredAthkar.length - 1) return;
+    if (currentIndex >= filteredAthkar.length - 1) return;
     setSlideDirection("next");
-    setCurrentIndex((index) => Math.min(filteredAthkar.length - 1, index + 1));
+    setCurrentIndex((index) => index + 1);
   };
 
   const goPrevious = () => {
-    if (!filteredAthkar.length || currentIndex <= 0) return;
+    if (currentIndex <= 0) return;
     setSlideDirection("prev");
-    setCurrentIndex((index) => Math.max(0, index - 1));
+    setCurrentIndex((index) => index - 1);
   };
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
@@ -216,25 +190,46 @@ export function AthkarPage() {
     const start = touchStartX.current;
     const end = event.changedTouches[0]?.clientX ?? null;
     touchStartX.current = null;
-    if (start === null || end === null) return;
-    const delta = start - end;
-    if (Math.abs(delta) < 50) return;
-    if (delta > 0) goNext();
+    if (start === null || end === null || Math.abs(start - end) < 55) return;
+    if (start > end) goNext();
     else goPrevious();
   };
 
-  const openCategory = (categoryId: string) => {
-    setSelectedCategory(categoryId);
-    setCurrentIndex(0);
-    setShowAddForm(false);
-    setSlideDirection(null);
+  const handleIncrement = (dhikrId: string) => {
+    const dhikr = athkar.find((item: Dhikr) => item._id === dhikrId);
+    if (!dhikr) return;
+    const current = countFor(dhikr);
+    if (current >= dhikr.targetCount) return;
+    const next = Math.min(dhikr.targetCount, current + 1);
+    setOptimisticCounts((state) => ({ ...state, [dhikrId]: next }));
+    play(next >= dhikr.targetCount ? "success" : "notification", next >= dhikr.targetCount ? 0.85 : 0.25);
+    incrementCount({ dhikrId: dhikrId as Id<"athkar"> }).catch((error: any) => {
+      setOptimisticCounts((state) => {
+        const nextState = { ...state };
+        delete nextState[dhikrId];
+        return nextState;
+      });
+      toast.error(error?.message ?? "Failed to update");
+    });
+  };
+
+  const handleReset = async (dhikrId: string) => {
+    setOptimisticCounts((state) => ({ ...state, [dhikrId]: 0 }));
+    try {
+      await resetCount({ dhikrId: dhikrId as Id<"athkar"> });
+      toast.success("Counter reset");
+    } catch {
+      setOptimisticCounts((state) => {
+        const nextState = { ...state };
+        delete nextState[dhikrId];
+        return nextState;
+      });
+      toast.error("Failed to reset count");
+    }
   };
 
   const handleAddDhikr = async () => {
-    if (!newDhikr.text.trim()) {
-      toast.error("Please enter the dhikr text");
-      return;
-    }
+    if (!newDhikr.text.trim()) return toast.error("Please enter the dhikr text");
     try {
       await addDhikr({
         text: newDhikr.text.trim(),
@@ -251,21 +246,12 @@ export function AthkarPage() {
   };
 
   const startEdit = (dhikr: Dhikr) => {
-    setEditForm({
-      text: dhikr.text,
-      translation: dhikr.translation || "",
-      targetCount: dhikr.targetCount,
-      category: dhikr.category,
-    });
+    setEditForm({ text: dhikr.text, translation: dhikr.translation || "", targetCount: dhikr.targetCount, category: dhikr.category });
     setEditingDhikr(dhikr);
   };
 
   const saveEdit = async () => {
-    if (!editingDhikr) return;
-    if (!editForm.text.trim()) {
-      toast.error("Please enter the dhikr text");
-      return;
-    }
+    if (!editingDhikr || !editForm.text.trim()) return;
     try {
       await updateDhikr({
         dhikrId: editingDhikr._id as Id<"athkar">,
@@ -274,343 +260,260 @@ export function AthkarPage() {
         targetCount: Math.max(1, Number(editForm.targetCount) || 1),
         category: editForm.category,
       });
-      toast.success("Athkar updated");
       setEditingDhikr(null);
+      toast.success("Athkar updated");
     } catch {
       toast.error("Failed to update dhikr");
     }
   };
 
   const removeDhikr = async (dhikr: Dhikr) => {
-    const ok = window.confirm("Delete this Athkar?");
-    if (!ok) return;
+    if (!window.confirm("Delete this Athkar?")) return;
     try {
       await deleteDhikr({ dhikrId: dhikr._id as Id<"athkar"> });
+      if (currentIndex >= filteredAthkar.length - 1) setCurrentIndex((value) => Math.max(0, value - 1));
       toast.success("Athkar deleted");
-      if (currentIndex >= filteredAthkar.length - 1) setCurrentIndex((prev) => Math.max(0, prev - 1));
     } catch {
       toast.error("Failed to delete dhikr");
     }
   };
 
-  const slideClass =
-    slideDirection === "next"
-      ? "animate-[athkarSlideRight_160ms_ease-out]"
-      : slideDirection === "prev"
-        ? "animate-[athkarSlideLeft_160ms_ease-out]"
-        : "";
+  const slideClass = slideDirection === "next" ? "animate-[athkarSlideRight_170ms_ease-out]" : slideDirection === "prev" ? "animate-[athkarSlideLeft_170ms_ease-out]" : "";
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <PageHeader title="Athkar" subtitle="Daily remembrance, organized and easy to complete." />
+        <div className="mx-auto max-w-5xl rounded-3xl border border-white/10 bg-black/30 p-8 text-center text-sm text-white/50 backdrop-blur-xl">Loading Athkar…</div>
+      </div>
+    );
+  }
 
   return (
-    <div className={selectedCategory ? "overflow-hidden" : "space-y-6 pb-8"}>
+    <div className="space-y-6 sm:space-y-8 animate-fade-in">
       <style>{`
-        @keyframes athkarSlideRight {
-          from { opacity: 0; transform: translateX(16px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes athkarSlideLeft {
-          from { opacity: 0; transform: translateX(-16px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes cardTap {
-          0% { transform: scale(1); }
-          50% { transform: scale(0.985); }
-          100% { transform: scale(1); }
-        }
+        @keyframes athkarSlideRight { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes athkarSlideLeft { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: translateX(0); } }
       `}</style>
 
       {!selectedCategory ? (
-        <div className="space-y-5">
-          <div className="text-center">
-            <h1 className={`text-4xl font-bold tracking-tight sm:text-5xl ${colors.text}`}>Athkar</h1>
-            <p className={`mx-auto mt-3 max-w-2xl text-sm sm:text-base ${colors.textSecondary}`}>
-              Choose a category to enter a focused reader.
-            </p>
-          </div>
+        <>
+          <PageHeader title="Athkar" subtitle="Daily remembrance, organized and easy to complete." />
 
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {categoryData.map((category) => (
-              <button
-                key={category.id}
-                onClick={() => openCategory(category.id)}
-                className={`group relative min-h-[190px] overflow-hidden rounded-[28px] border p-5 text-left transition duration-200 hover:-translate-y-1 active:animate-[cardTap_180ms_ease-out]`}
-                style={{
-                  background: "linear-gradient(180deg, rgba(3,8,18,0.98) 0%, rgba(2,6,15,0.96) 100%)",
-                  borderColor: category.accentStyle,
-                  boxShadow: `0 0 0 1px ${category.accentStyle} inset, 0 0 22px ${category.accentStyle}, 0 12px 28px rgba(0,0,0,0.28)`,
-                }}
-              >
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.06),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.03),transparent_28%)]" />
-                <div className="absolute inset-[1px] rounded-[27px] bg-[linear-gradient(180deg,rgba(255,255,255,0.03),transparent_34%)]" />
-                <div
-                  className="absolute inset-x-6 top-0 h-px"
-                  style={{ background: `linear-gradient(90deg, transparent, ${category.accentStyle}, transparent)` }}
-                />
-                <div
-                  className="absolute inset-y-7 left-0 w-px"
-                  style={{ background: `linear-gradient(180deg, transparent, ${category.accentStyle}, transparent)` }}
-                />
-                <div
-                  className="absolute inset-y-7 right-0 w-px"
-                  style={{ background: `linear-gradient(180deg, transparent, ${category.accentStyle}, transparent)` }}
-                />
-                <div
-                  className="absolute inset-x-6 bottom-0 h-px"
-                  style={{ background: `linear-gradient(90deg, transparent, ${category.accentStyle}, transparent)` }}
-                />
-                <div
-                  className="absolute -right-8 -top-8 h-24 w-24 rounded-full blur-3xl"
-                  style={{ backgroundColor: category.accentStyle }}
-                />
-                <div className="relative flex h-full flex-col justify-between text-white">
-                  <div className="flex items-start justify-between gap-3">
+          <section className="mx-auto max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-black/30 p-4 backdrop-blur-xl sm:p-5">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                { label: "Today", value: `${Math.round(overall.progress)}%`, sub: "overall progress", icon: "progress" as IconName },
+                { label: "Completed", value: `${overall.completedItems}/${overall.totalItems}`, sub: "Athkar items", icon: "checkCircle" as IconName },
+                { label: "Categories", value: String(categories.length), sub: "organized sections", icon: "layers" as IconName },
+              ].map((stat) => (
+                <div key={stat.label} className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/35 p-4">
+                  <div className="pointer-events-none absolute -right-8 -top-8 h-20 w-20 rounded-full bg-[image:var(--sw-gradient)] opacity-[0.07] blur-2xl" />
+                  <div className="relative flex items-start justify-between gap-3">
                     <div>
-                      <div className="mb-3 grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-black/20 sm:h-11 sm:w-11"><Icon name={category.icon} className="h-5 w-5 text-white/85 sm:h-6 sm:w-6" /></div>
-                      <div className="text-xs text-white/45 sm:text-sm">Athkar</div>
-                      <h3 className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-                        {category.name}
-                      </h3>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white/45">{stat.label}</div>
+                      <div className="mt-1 text-2xl font-black text-white">{stat.value}</div>
+                      <div className="mt-1 text-xs text-white/45">{stat.sub}</div>
                     </div>
-                    <div
-                      className="rounded-full px-3 py-1 text-xs font-semibold text-white/80"
-                      style={{
-                        backgroundColor: "rgba(255,255,255,0.05)",
-                        border: `1px solid ${category.accentStyle}`,
-                        boxShadow: `0 0 14px ${category.accentStyle}`,
-                      }}
-                    >
-                      {category.itemCount} items
+                    <div className={`grid h-10 w-10 place-items-center rounded-xl border ${colors.border} bg-white/[0.035]`}>
+                      <Icon name={stat.icon} className={`h-4.5 w-4.5 ${colors.text}`} />
                     </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <p className="max-w-[24rem] text-sm text-white/70 sm:text-base">
-                      {category.description}
-                    </p>
-                    <div>
-                      <div className="mb-2 flex items-center justify-between text-xs text-white/60 sm:text-sm">
-                        <span>{category.completed} completed</span>
-                        <span>{Math.round(category.progress)}%</span>
-                      </div>
-                      <div className="h-[6px] overflow-hidden rounded-full bg-white/8">
-                        <div
-                          className="h-full rounded-full transition-all duration-300"
-                          style={{
-                            width: `${Math.min(category.progress, 100)}%`,
-                            background: `linear-gradient(90deg, rgba(255,255,255,0.55), ${category.accentStyle})`,
-                            boxShadow: `0 0 12px ${category.accentStyle}`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                    {category.id !== "custom" && (
-                      <div className="text-xs font-medium text-white/55 sm:text-sm">
-                        {category.completionDays} completed day{category.completionDays === 1 ? "" : "s"}
-                      </div>
-                    )}
                   </div>
                 </div>
-              </button>
-            ))}
+              ))}
+            </div>
+            <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+              <div className="h-full rounded-full bg-[image:var(--sw-gradient)] transition-all duration-700" style={{ width: `${clampPercent(overall.progress)}%` }} />
+            </div>
           </section>
-        </div>
-      ) : (
-        <div className="mx-auto w-full max-w-[760px]">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <button
-              onClick={() => setSelectedCategory(null)}
-              className={`inline-flex items-center gap-2 rounded-2xl border ${colors.border} ${colors.backgroundSecondary} px-4 py-2.5 text-sm ${colors.text} transition hover:bg-white/5`}
-            >
-              <span>←</span>
-              <span>Back</span>
-            </button>
-            {selectedCategoryDef && (
-              <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80">
-                {selectedCategoryDef.name}
+
+          <section className="mx-auto max-w-6xl">
+            <div className="mb-3 flex items-end justify-between gap-3 px-1">
+              <div>
+                <h2 className="text-lg font-bold text-white sm:text-xl">Choose a section</h2>
+                <p className="mt-1 text-sm text-white/45">Open one category and work through it without distractions.</p>
               </div>
-            )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {categoryData.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => openCategory(category.id)}
+                  className={`group relative overflow-hidden rounded-2xl border ${colors.border} ${colors.backgroundSecondary} p-4 text-left backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 sm:p-5`}
+                  style={{ boxShadow: "0 16px 50px rgba(0,0,0,.18)" }}
+                >
+                  <div className="pointer-events-none absolute -right-12 -top-12 h-28 w-28 rounded-full bg-[image:var(--sw-gradient)] opacity-[0.06] blur-3xl transition-opacity group-hover:opacity-[0.1]" />
+                  <div className="relative">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className={`grid h-11 w-11 place-items-center rounded-xl border ${colors.border} bg-white/[0.035]`}>
+                        <Icon name={category.icon} className={`h-5 w-5 ${colors.text}`} />
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-black/25 px-2.5 py-1 text-[11px] font-semibold text-white/50">{category.itemCount} items</div>
+                    </div>
+                    <h3 className="mt-4 text-lg font-bold text-white">{category.name}</h3>
+                    <p className="mt-1.5 min-h-[40px] text-sm leading-5 text-white/50">{category.description}</p>
+                    <div className="mt-4 flex items-center justify-between text-xs text-white/45">
+                      <span>{category.completed}/{category.itemCount} completed</span>
+                      <span className={colors.text}>{Math.round(category.progress)}%</span>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                      <div className="h-full rounded-full bg-[image:var(--sw-gradient)] transition-all duration-500" style={{ width: `${clampPercent(category.progress)}%` }} />
+                    </div>
+                    <div className="mt-4 flex items-center justify-between border-t border-white/[0.07] pt-3">
+                      <span className="text-xs text-white/40">{category.id === "custom" ? "Personal list" : `${category.completionDays} completed day${category.completionDays === 1 ? "" : "s"}`}</span>
+                      <span className={`flex items-center gap-1 text-xs font-semibold ${colors.text}`}>Open <Icon name="chevronRight" className="h-3.5 w-3.5" /></span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+        </>
+      ) : (
+        <div className="mx-auto max-w-5xl space-y-5">
+          <PageHeader title={selectedCategoryDef?.name ?? "Athkar"} subtitle={selectedCategoryDef?.description ?? "Focused remembrance."} />
+
+          <div className="flex items-center justify-between gap-3">
+            <button onClick={() => setSelectedCategory(null)} className={`inline-flex items-center gap-2 rounded-xl border ${colors.border} bg-black/30 px-3 py-2 text-sm ${colors.textSecondary} backdrop-blur-xl transition hover:bg-white/[0.05] hover:text-white`}>
+              <Icon name="chevronLeft" className="h-4 w-4" /> Back to sections
+            </button>
+            <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white/45 backdrop-blur-xl">{filteredAthkar.length} items</div>
           </div>
 
           {currentDhikr ? (
-            <div
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
-              className="overflow-hidden rounded-[22px] border border-white/10 bg-black"
-            >
-              <div className={`shrink-0 bg-gradient-to-r ${selectedCategoryDef?.accentClass ?? "from-emerald-500 to-green-700"} px-4 py-3 sm:px-5`}>
-                <div className="flex items-center justify-between text-white">
-                  <button
-                    onClick={goPrevious}
-                    disabled={currentIndex === 0}
-                    className="rounded-full bg-black/15 px-3 py-2 text-sm transition hover:bg-black/25 disabled:opacity-40"
-                    aria-label="Previous"
-                  >
-                    ←
+            <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} className={`relative overflow-hidden rounded-3xl border ${colors.border} ${colors.backgroundSecondary} backdrop-blur-xl`}>
+              <div className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full bg-[image:var(--sw-gradient)] opacity-[0.06] blur-3xl" />
+
+              <div className="relative border-b border-white/[0.08] p-4 sm:p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <button onClick={goPrevious} disabled={currentIndex === 0} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-black/25 text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25" aria-label="Previous Athkar">
+                    <Icon name="chevronLeft" className="h-4 w-4" />
                   </button>
-                  <div className="text-lg font-medium">{selectedCategoryDef?.name}</div>
-                  <button
-                    onClick={goNext}
-                    disabled={currentIndex >= filteredAthkar.length - 1}
-                    className="rounded-full bg-black/15 px-3 py-2 text-sm transition hover:bg-black/25 disabled:opacity-40"
-                    aria-label="Next"
-                  >
-                    →
+                  <div className="min-w-0 flex-1 text-center">
+                    <div className="text-xs font-semibold uppercase tracking-[0.1em] text-white/35">Item {currentIndex + 1} of {filteredAthkar.length}</div>
+                    <div className="mt-1 text-sm font-semibold text-white/75">{selectedCategoryDef?.shortName}</div>
+                  </div>
+                  <button onClick={goNext} disabled={currentIndex >= filteredAthkar.length - 1} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-black/25 text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25" aria-label="Next Athkar">
+                    <Icon name="chevronRight" className="h-4 w-4" />
                   </button>
+                </div>
+
+                <div className="mt-4 flex items-center gap-3">
+                  <div className="min-w-[68px] text-sm font-bold text-white">{currentDhikrCount}/{currentDhikr.targetCount}</div>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.07]">
+                    <div className="h-full rounded-full bg-[image:var(--sw-gradient)] transition-all duration-300" style={{ width: `${clampPercent((currentDhikrCount / Math.max(1, currentDhikr.targetCount)) * 100)}%` }} />
+                  </div>
+                  <div className={`min-w-[52px] text-right text-xs font-semibold ${colors.text}`}>{Math.round(clampPercent((currentDhikrCount / Math.max(1, currentDhikr.targetCount)) * 100))}%</div>
                 </div>
               </div>
 
-              <div className="shrink-0 bg-[#1f1f1f] px-4 py-3 sm:px-5">
-                <div className="flex items-center gap-3">
-                  <div className="min-w-[54px] text-white text-[1.05rem] font-medium">
-                    {currentDhikr.targetCount}/{Math.max(1, currentDhikrCount)}
-                  </div>
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#4b4b4b]">
-                    <div
-                      className="h-full rounded-full bg-[#63b43b] transition-all duration-300"
-                      style={{ width: `${((currentDhikrCount / currentDhikr.targetCount) * 100) || 0}%` }}
-                    />
-                  </div>
+              <div className={`relative px-5 py-7 sm:px-8 sm:py-10 ${slideClass}`}>
+                <div className="mx-auto min-h-[300px] max-w-3xl">
+                  <div dir="rtl" className="text-right text-[1.65rem] leading-[1.95] text-white sm:text-[2rem] lg:text-[2.2rem]">{currentDhikr.text}</div>
+                  {currentDhikr.translation && <p className="mt-8 border-t border-white/[0.07] pt-5 text-center text-sm leading-7 text-white/50 sm:text-base">{currentDhikr.translation}</p>}
                 </div>
               </div>
 
-              <div className="px-5 py-4 sm:px-7">
-                <div className={`h-[46vh] min-h-[280px] max-h-[430px] overflow-y-auto ${slideClass}`}>
-                  <div className="mx-auto flex min-h-full max-w-[620px] items-start justify-center py-2">
-                    <div className="w-full">
-                      <div
-                        dir="rtl"
-                        className="mx-auto text-right text-[1.75rem] leading-[1.85] text-white sm:text-[2.05rem] lg:text-[2.3rem]"
-                      >
-                        {currentDhikr.text}
-                      </div>
-                      {currentDhikr.translation && (
-                        <p className="mt-8 text-center text-sm leading-7 text-white/60 sm:text-base">
-                          {currentDhikr.translation}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="px-5 pb-4 sm:px-7">
-                <div className="mb-4 flex items-center justify-between text-[#63b43b]">
-                  <button
-                    type="button"
-                    className="rounded-full p-2 transition hover:bg-white/5"
-                    aria-label="Share"
-                  >
-                    ↗
-                  </button>
-                  <div className="text-base font-semibold">
-                    {Math.max(0, currentDhikr.targetCount - currentDhikrCount) === 0
-                      ? "Completed"
-                      : `${Math.max(0, currentDhikr.targetCount - currentDhikrCount)} left`}
-                  </div>
+              <div className="relative border-t border-white/[0.08] p-4 sm:p-5">
+                <div className="mb-3 flex items-center justify-between gap-3 text-xs">
+                  <span className="text-white/40">{Math.max(0, currentDhikr.targetCount - currentDhikrCount)} remaining</span>
+                  <span className={`font-semibold ${currentDhikrCount >= currentDhikr.targetCount ? colors.text : "text-white/50"}`}>{currentDhikrCount >= currentDhikr.targetCount ? "Completed" : "In progress"}</span>
                 </div>
 
                 <button
-                  onClick={() => {
-                    if (currentDhikrCount < currentDhikr.targetCount) {
-                      handleIncrement(currentDhikr._id);
-                    } else {
-                      goNext();
-                    }
-                  }}
-                  className="w-full rounded-xl bg-[#5d980b] px-5 py-4 text-lg font-semibold text-white transition hover:bg-[#6aa812]"
+                  onClick={() => currentDhikrCount < currentDhikr.targetCount ? handleIncrement(currentDhikr._id) : goNext()}
+                  className="w-full rounded-2xl bg-[image:var(--sw-gradient)] px-5 py-4 text-base font-bold text-black transition hover:brightness-110 active:scale-[0.995]"
                 >
-                  {currentDhikrCount < currentDhikr.targetCount
-                    ? "Count"
-                    : currentIndex < filteredAthkar.length - 1
-                      ? "Next"
-                      : "Done"}
+                  {currentDhikrCount < currentDhikr.targetCount ? "Count +1" : currentIndex < filteredAthkar.length - 1 ? "Continue" : "Completed"}
                 </button>
 
-                <div className="mt-3 flex items-center justify-between gap-2 text-xs text-white/45">
-                  <button onClick={() => handleReset(currentDhikr._id)} className="rounded-lg px-2 py-1 transition hover:bg-white/5">
-                    Reset
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <button onClick={() => void handleReset(currentDhikr._id)} className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-black/20 px-2 py-2.5 text-xs text-white/55 transition hover:bg-white/[0.05] hover:text-white">
+                    <Icon name="refresh" className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Reset</span>
                   </button>
-                  <div>{currentIndex + 1} of {filteredAthkar.length}</div>
-                  <div className="flex gap-2">
-                    <button onClick={() => startEdit(currentDhikr)} className="rounded-lg px-2 py-1 transition hover:bg-white/5">Edit</button>
-                    <button onClick={() => removeDhikr(currentDhikr)} className="rounded-lg px-2 py-1 text-red-300 transition hover:bg-red-500/10">Delete</button>
-                  </div>
+                  <button onClick={() => startEdit(currentDhikr)} className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-black/20 px-2 py-2.5 text-xs text-white/55 transition hover:bg-white/[0.05] hover:text-white">
+                    <Icon name="edit" className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Edit</span>
+                  </button>
+                  <button onClick={() => void removeDhikr(currentDhikr)} className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-rose-400/15 bg-black/20 px-2 py-2.5 text-xs text-rose-300/75 transition hover:bg-rose-400/[0.08] hover:text-rose-200">
+                    <Icon name="trash" className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Delete</span>
+                  </button>
                 </div>
               </div>
             </div>
           ) : (
-            <div className={`${colors.backgroundSecondary} ${colors.border} rounded-[28px] border p-8 text-center`}>
-              <div className={`mx-auto grid h-14 w-14 place-items-center rounded-2xl border ${colors.border} bg-white/[0.035]`}><Icon name="athkar" className={`h-7 w-7 ${colors.text}`} /></div>
-              <h3 className={`mt-4 text-xl font-semibold ${colors.text}`}>No Athkar found</h3>
-              <p className={`mt-2 text-sm ${colors.textSecondary}`}>
-                {selectedCategory === "custom" ? "Add your first custom Athkar below." : "This category does not have any entries yet."}
-              </p>
+            <div className={`rounded-3xl border ${colors.border} ${colors.backgroundSecondary} p-8 text-center backdrop-blur-xl`}>
+              <div className={`mx-auto grid h-12 w-12 place-items-center rounded-xl border ${colors.border} bg-white/[0.035]`}><Icon name="athkar" className={`h-5 w-5 ${colors.text}`} /></div>
+              <h3 className="mt-4 text-lg font-bold text-white">No Athkar here yet</h3>
+              <p className="mt-1 text-sm text-white/45">{selectedCategory === "custom" ? "Add your first custom Dhikr below." : "This section currently has no entries."}</p>
             </div>
           )}
 
           {selectedCategory === "custom" && (
-            <div className={`${colors.backgroundSecondary} ${colors.border} mt-4 rounded-[28px] border p-4 sm:p-6`}>
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <section className={`rounded-3xl border ${colors.border} ${colors.backgroundSecondary} p-4 backdrop-blur-xl sm:p-5`}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h3 className={`text-lg font-semibold ${colors.text}`}>Manage custom Athkar</h3>
-                  <p className={`mt-1 text-sm ${colors.textSecondary}`}>Create and edit your own personal list.</p>
+                  <h3 className="text-base font-bold text-white">Custom Dhikr</h3>
+                  <p className="mt-1 text-sm text-white/45">Add personal entries without changing the default sections.</p>
                 </div>
-                <button onClick={() => setShowAddForm((value) => !value)} className={`rounded-2xl bg-gradient-to-r ${selectedCategoryDef?.accentClass ?? "from-amber-400 to-orange-600"} px-4 py-3 text-sm font-semibold text-white transition hover:opacity-95`}>
-                  {showAddForm ? "Close form" : "Add custom Athkar"}
+                <button onClick={() => setShowAddForm((value) => !value)} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2.5 text-sm font-semibold text-white/75 transition hover:bg-white/[0.08] hover:text-white">
+                  <Icon name={showAddForm ? "chevronDown" : "plus"} className={`h-4 w-4 ${showAddForm ? "rotate-180" : ""}`} />
+                  {showAddForm ? "Close" : "Add Dhikr"}
                 </button>
               </div>
 
               {showAddForm && (
-                <div className="grid gap-4 rounded-[24px] border border-white/10 bg-white/5 p-4 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <label className={`mb-2 block text-sm ${colors.textSecondary}`}>Arabic text</label>
-                    <textarea dir="rtl" rows={4} value={newDhikr.text} onChange={(e) => setNewDhikr((prev) => ({ ...prev, text: e.target.value }))} className={`w-full rounded-2xl border ${colors.border} ${colors.backgroundTertiary} ${colors.text} p-4 text-right`} />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className={`mb-2 block text-sm ${colors.textSecondary}`}>Translation</label>
-                    <input value={newDhikr.translation} onChange={(e) => setNewDhikr((prev) => ({ ...prev, translation: e.target.value }))} className={`w-full rounded-2xl border ${colors.border} ${colors.backgroundTertiary} ${colors.text} p-4`} />
-                  </div>
-                  <div>
-                    <label className={`mb-2 block text-sm ${colors.textSecondary}`}>Target count</label>
-                    <input type="number" min="1" max="1000" value={newDhikr.targetCount} onChange={(e) => setNewDhikr((prev) => ({ ...prev, targetCount: parseInt(e.target.value) || 1 }))} className={`w-full rounded-2xl border ${colors.border} ${colors.backgroundTertiary} ${colors.text} p-4`} />
-                  </div>
+                <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-black/25 p-4 sm:grid-cols-2">
+                  <label className="sm:col-span-2">
+                    <span className="mb-2 block text-xs font-semibold text-white/45">Arabic text</span>
+                    <textarea dir="rtl" rows={4} value={newDhikr.text} onChange={(e) => setNewDhikr((state) => ({ ...state, text: e.target.value }))} className={`w-full rounded-xl border ${colors.border} bg-black/30 p-3 text-right text-white outline-none focus:border-white/25`} />
+                  </label>
+                  <label className="sm:col-span-2">
+                    <span className="mb-2 block text-xs font-semibold text-white/45">Translation</span>
+                    <input value={newDhikr.translation} onChange={(e) => setNewDhikr((state) => ({ ...state, translation: e.target.value }))} className={`w-full rounded-xl border ${colors.border} bg-black/30 p-3 text-white outline-none focus:border-white/25`} />
+                  </label>
+                  <label>
+                    <span className="mb-2 block text-xs font-semibold text-white/45">Target count</span>
+                    <input type="number" min="1" max="1000" value={newDhikr.targetCount} onChange={(e) => setNewDhikr((state) => ({ ...state, targetCount: parseInt(e.target.value) || 1 }))} className={`w-full rounded-xl border ${colors.border} bg-black/30 p-3 text-white outline-none focus:border-white/25`} />
+                  </label>
                   <div className="flex items-end">
-                    <button onClick={handleAddDhikr} className={`w-full rounded-2xl bg-gradient-to-r ${selectedCategoryDef?.accentClass ?? "from-amber-400 to-orange-600"} px-4 py-4 font-semibold text-white transition hover:opacity-95`}>Save custom Athkar</button>
+                    <button onClick={() => void handleAddDhikr()} className="w-full rounded-xl bg-[image:var(--sw-gradient)] px-4 py-3 font-semibold text-black transition hover:brightness-110">Save Dhikr</button>
                   </div>
                 </div>
               )}
-            </div>
+            </section>
           )}
         </div>
       )}
 
       {editingDhikr && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setEditingDhikr(null)} />
-          <div className={`${colors.backgroundSecondary} ${colors.border} relative z-10 w-full max-w-2xl rounded-[28px] border p-5 sm:p-6`}>
-            <h3 className={`text-xl font-semibold ${colors.text}`}>Edit Athkar</h3>
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <button className="absolute inset-0 cursor-default bg-black/75 backdrop-blur-lg" onClick={() => setEditingDhikr(null)} aria-label="Close edit dialog" />
+          <div className={`relative z-10 w-full max-w-2xl rounded-3xl border ${colors.border} p-5 shadow-2xl sm:p-6`} style={{ background: "rgba(6,9,13,.97)" }}>
+            <h3 className="text-xl font-bold text-white">Edit Athkar</h3>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <label className={`mb-2 block text-sm ${colors.textSecondary}`}>Arabic text</label>
-                <textarea dir="rtl" rows={4} value={editForm.text} onChange={(e) => setEditForm((prev) => ({ ...prev, text: e.target.value }))} className={`w-full rounded-2xl border ${colors.border} ${colors.backgroundTertiary} ${colors.text} p-4 text-right`} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className={`mb-2 block text-sm ${colors.textSecondary}`}>Translation</label>
-                <input value={editForm.translation} onChange={(e) => setEditForm((prev) => ({ ...prev, translation: e.target.value }))} className={`w-full rounded-2xl border ${colors.border} ${colors.backgroundTertiary} ${colors.text} p-4`} />
-              </div>
-              <div>
-                <label className={`mb-2 block text-sm ${colors.textSecondary}`}>Target count</label>
-                <input type="number" min="1" max="1000" value={editForm.targetCount} onChange={(e) => setEditForm((prev) => ({ ...prev, targetCount: parseInt(e.target.value) || 1 }))} className={`w-full rounded-2xl border ${colors.border} ${colors.backgroundTertiary} ${colors.text} p-4`} />
-              </div>
-              <div>
-                <label className={`mb-2 block text-sm ${colors.textSecondary}`}>Category</label>
-                <select value={editForm.category} onChange={(e) => setEditForm((prev) => ({ ...prev, category: e.target.value }))} className={`w-full rounded-2xl border ${colors.border} ${colors.backgroundTertiary} ${colors.text} p-4`}>
+              <label className="sm:col-span-2">
+                <span className="mb-2 block text-xs font-semibold text-white/45">Arabic text</span>
+                <textarea dir="rtl" rows={4} value={editForm.text} onChange={(e) => setEditForm((state) => ({ ...state, text: e.target.value }))} className={`w-full rounded-xl border ${colors.border} bg-black/35 p-3 text-right text-white outline-none focus:border-white/25`} />
+              </label>
+              <label className="sm:col-span-2">
+                <span className="mb-2 block text-xs font-semibold text-white/45">Translation</span>
+                <input value={editForm.translation} onChange={(e) => setEditForm((state) => ({ ...state, translation: e.target.value }))} className={`w-full rounded-xl border ${colors.border} bg-black/35 p-3 text-white outline-none focus:border-white/25`} />
+              </label>
+              <label>
+                <span className="mb-2 block text-xs font-semibold text-white/45">Target count</span>
+                <input type="number" min="1" max="1000" value={editForm.targetCount} onChange={(e) => setEditForm((state) => ({ ...state, targetCount: parseInt(e.target.value) || 1 }))} className={`w-full rounded-xl border ${colors.border} bg-black/35 p-3 text-white outline-none focus:border-white/25`} />
+              </label>
+              <label>
+                <span className="mb-2 block text-xs font-semibold text-white/45">Category</span>
+                <select value={editForm.category} onChange={(e) => setEditForm((state) => ({ ...state, category: e.target.value }))} className={`w-full rounded-xl border ${colors.border} bg-[#090c11] p-3 text-white outline-none focus:border-white/25`}>
                   {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
                 </select>
-              </div>
+              </label>
             </div>
-            <div className="mt-6 flex gap-3">
-              <button onClick={() => setEditingDhikr(null)} className={`flex-1 rounded-2xl border ${colors.border} px-4 py-4 ${colors.textSecondary} transition hover:bg-white/5`}>Cancel</button>
-              <button onClick={saveEdit} className={`flex-1 rounded-2xl bg-gradient-to-r ${selectedCategoryDef?.accentClass ?? "from-emerald-500 to-green-700"} px-4 py-4 font-semibold text-white transition hover:opacity-95`}>Save changes</button>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button onClick={() => setEditingDhikr(null)} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white/65 transition hover:bg-white/[0.07] hover:text-white">Cancel</button>
+              <button onClick={() => void saveEdit()} className="rounded-xl bg-[image:var(--sw-gradient)] px-4 py-3 text-sm font-semibold text-black transition hover:brightness-110">Save changes</button>
             </div>
           </div>
         </div>

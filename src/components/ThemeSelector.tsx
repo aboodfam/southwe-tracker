@@ -148,7 +148,8 @@ export function ThemeSelector() {
     <div className="relative z-[100]">
       <button
         onClick={() => setIsOpen((value) => !value)}
-        className={`sw-theme-hover-border group flex items-center gap-2 rounded-xl border px-2.5 py-2 sm:px-3 ${colors.border} ${colors.backgroundSecondary} backdrop-blur-xl transition duration-200`}
+        className={`sw-theme-hover-border group flex shrink-0 items-center gap-2 rounded-xl border px-2.5 py-2 sm:px-3 ${colors.border} transition duration-200`}
+        style={{ background: "rgba(7, 10, 14, 0.94)", backdropFilter: "blur(18px) saturate(140%)" }}
         title="Appearance and sound settings"
         aria-expanded={isOpen}
       >
@@ -162,8 +163,16 @@ export function ThemeSelector() {
 
       {isOpen && (
         <>
-          <button className="fixed inset-0 z-[90] cursor-default" onClick={() => setIsOpen(false)} aria-label="Close settings" />
-          <div className={`absolute right-0 top-full z-[100] mt-2 w-[min(92vw,430px)] overflow-hidden rounded-3xl border ${colors.border} ${colors.backgroundSecondary} shadow-2xl backdrop-blur-2xl`}>
+          <button className="fixed inset-0 z-[90] cursor-default bg-black/15 backdrop-blur-[2px]" onClick={() => setIsOpen(false)} aria-label="Close settings" />
+          <div
+            className={`absolute right-0 top-full z-[100] mt-2 w-[min(92vw,430px)] overflow-hidden rounded-3xl border ${colors.border} shadow-2xl`}
+            style={{
+              background: "rgba(5, 8, 12, 0.985)",
+              backdropFilter: "blur(30px) saturate(150%)",
+              WebkitBackdropFilter: "blur(30px) saturate(150%)",
+              boxShadow: "0 28px 90px rgba(0,0,0,.62), 0 0 0 1px rgba(255,255,255,.025) inset",
+            }}
+          >
             <div className="border-b border-white/10 px-4 pt-4 sm:px-5 sm:pt-5">
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div>

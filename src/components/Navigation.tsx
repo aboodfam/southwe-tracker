@@ -2,8 +2,8 @@ import { useTheme } from "../contexts/ThemeContext";
 import { Icon, IconName } from "./icons";
 
 interface NavigationProps {
-  currentPage: "routines" | "workout" | "habits" | "progress" | "athkar" | "macros" | "weight";
-  onPageChange: (page: "routines" | "workout" | "habits" | "progress" | "athkar" | "macros" | "weight") => void;
+  currentPage: "routines" | "workout" | "habits" | "progress" | "athkar" | "macros";
+  onPageChange: (page: "routines" | "workout" | "habits" | "progress" | "athkar" | "macros") => void;
 }
 
 export function Navigation({ currentPage, onPageChange }: NavigationProps) {
@@ -17,7 +17,6 @@ export function Navigation({ currentPage, onPageChange }: NavigationProps) {
     { id: "progress", name: "Progress", icon: "progress" },
     { id: "athkar", name: "Athkar", icon: "athkar" },
     { id: "macros", name: "Macros", icon: "macros" },
-    { id: "weight", name: "Weight", icon: "weight" },
   ];
 
   return (

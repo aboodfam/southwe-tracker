@@ -190,7 +190,7 @@ const tasksToRender = useMemo(() => {
               className="shrink-0 rounded-lg p-1.5 text-white/50 hover:text-white/80 hover:bg-white/5 transition"
               title="Close"
             >
-              ✕
+              <Icon name="x" className="h-4 w-4" />
             </button>
           </div>
 
@@ -551,7 +551,7 @@ const startHoldDrag = (
             <div className="flex flex-col items-end gap-2 shrink-0">
               <button
                 onClick={handleDeleteBlock}
-                className="p-2 text-red-400 hover:text-red-300 transition-colors rounded-lg hover:bg-red-400/10"
+                className="grid h-8 w-8 place-items-center rounded-lg text-red-400 transition-colors hover:bg-red-400/10 hover:text-red-300"
                 title="Delete block"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -645,23 +645,23 @@ const startHoldDrag = (
                     value={newTaskName}
                     onChange={(e) => setNewTaskName(e.target.value)}
                     placeholder="Enter new task..."
-                    className={`flex-1 ${colors.backgroundTertiary} border ${colors.borderHover} rounded-lg px-3 py-2 ${colors.textSecondary} text-sm focus:outline-none`}
+                    className={`min-w-0 flex-1 ${colors.backgroundTertiary} border ${colors.borderHover} rounded-lg px-3 py-2 ${colors.textSecondary} text-sm focus:outline-none`}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleAddTask();
                       if (e.key === "Escape") setShowAddTask(false);
                     }}
                     autoFocus
                   />
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
                     <button
                       onClick={handleAddTask}
-                      className={`flex-1 sm:flex-none px-4 py-2 bg-[image:var(--sw-gradient)] text-black rounded-lg text-sm transition-colors font-medium hover:brightness-110`}
+                      className="min-w-[72px] rounded-lg bg-[image:var(--sw-gradient)] px-4 py-2 text-sm font-medium text-black transition hover:brightness-110"
                     >
                       Add
                     </button>
                     <button
                       onClick={() => setShowAddTask(false)}
-                      className="flex-1 sm:flex-none px-4 py-2 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-500 transition-colors"
+                      className="min-w-[72px] rounded-lg border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
                     >
                       Cancel
                     </button>
@@ -712,7 +712,7 @@ function TaskItem(props: {
 
   return (
     <div
-      className={`group flex items-center gap-3 p-3 sm:p-4 rounded-xl border transition-all duration-[520ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${isRemoving ? "opacity-0 -translate-y-1 scale-[0.98] pointer-events-none" : "opacity-100 translate-y-0 scale-100"} ${isNew ? "animate-pop-in" : ""} ${isDragging ? "ring-2 ring-white/20 shadow-2xl" : ""} ${
+      className={`group flex min-w-0 items-center gap-2.5 sm:gap-3 p-3 sm:p-4 rounded-xl border transition-all duration-[520ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${isRemoving ? "opacity-0 -translate-y-1 scale-[0.98] pointer-events-none" : "opacity-100 translate-y-0 scale-100"} ${isNew ? "animate-pop-in" : ""} ${isDragging ? "ring-2 ring-white/20 shadow-2xl" : ""} ${
         task.completed
           ? `${colors.backgroundTertiary} ${colors.border} ${colors.textSecondary}`
           : `${colors.backgroundTertiary} border-gray-700/20 text-gray-300`
@@ -737,38 +737,42 @@ function TaskItem(props: {
       </button>
       <button
         onClick={() => onToggle(task.id)}
-        className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg border-2 flex items-center justify-center transition-all duration-200 ${
+        className={`w-6 h-6 sm:w-7 sm:h-7 shrink-0 rounded-lg border-2 flex items-center justify-center transition-all duration-200 ${
           task.completed
             ? `bg-[image:var(--sw-gradient)] border-transparent text-black shadow-lg ${colors.shadow}`
             : `border-gray-500`
         }`}
       >
-        {task.completed && <span className="text-sm font-bold">✓</span>}
+        {task.completed && <Icon name="check" className="h-3.5 w-3.5" />}
       </button>
 
       {editingTask === task.id ? (
-        <div className="flex-1 flex flex-col sm:flex-row gap-2">
+        <div className="min-w-0 flex-1 flex flex-col sm:flex-row gap-2">
           <input
             type="text"
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
-            className={`flex-1 ${colors.backgroundTertiary} border ${colors.borderHover} rounded-lg px-3 py-2 ${colors.textSecondary} text-sm focus:outline-none`}
+            className={`min-w-0 flex-1 ${colors.backgroundTertiary} border ${colors.borderHover} rounded-lg px-3 py-2 ${colors.textSecondary} text-sm focus:outline-none`}
             onKeyDown={(e) => {
               if (e.key === "Enter") onEditSave();
               if (e.key === "Escape") onEditCancel();
             }}
             autoFocus
           />
-          <div className="flex gap-2">
+          <div className="flex shrink-0 gap-2">
             <button
               onClick={onEditSave}
-              className={`flex-1 sm:flex-none px-3 py-2 bg-[image:var(--sw-gradient)] text-black rounded-lg text-sm transition-colors font-medium hover:brightness-110`}
+              className="grid h-9 w-9 place-items-center rounded-lg bg-[image:var(--sw-gradient)] text-sm font-bold text-black transition hover:brightness-110"
+              title="Save task"
+              aria-label="Save task"
             >
-              ✓
+              <Icon name="check" className="h-4 w-4" />
             </button>
             <button
               onClick={onEditCancel}
-              className="flex-1 sm:flex-none px-3 py-2 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-500 transition-colors"
+              className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/[0.06] text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white"
+              title="Cancel editing"
+              aria-label="Cancel editing"
             >
               ✕
             </button>
@@ -776,14 +780,14 @@ function TaskItem(props: {
         </div>
       ) : (
         <>
-          <span className={`flex-1 text-sm sm:text-base font-medium ${task.completed ? "line-through opacity-60" : ""}`}>
+          <span className={`min-w-0 flex-1 break-words text-sm sm:text-base font-medium ${task.completed ? "line-through opacity-60" : ""}`}>
             {task.name}
           </span>
 
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+          <div className="flex shrink-0 gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
             <button
               onClick={() => onEditStart(task)}
-              className={`p-2 ${colors.text} transition-colors rounded-lg hover:bg-white/5`}
+              className={`grid h-8 w-8 place-items-center rounded-lg ${colors.text} transition-colors hover:bg-white/5`}
               title="Edit task"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -798,7 +802,7 @@ function TaskItem(props: {
 
             <button
               onClick={() => onDelete(task.id)}
-              className="p-2 text-red-400 hover:text-red-300 transition-colors rounded-lg hover:bg-red-400/10"
+              className="grid h-8 w-8 place-items-center rounded-lg text-red-400 transition-colors hover:bg-red-400/10 hover:text-red-300"
               title="Delete task"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

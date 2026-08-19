@@ -12,7 +12,6 @@ import { HabitsPage } from "./components/HabitsPage";
 import { ProgressPage } from "./components/ProgressPage";
 import { AthkarPage } from "./components/AthkarPage";
 import { MacrosPage } from "./components/MacrosPage";
-import { WeightTrackerPage } from "./components/WeightTrackerPage";
 import { Navigation } from "./components/Navigation";
 import { ThemeSelector } from "./components/ThemeSelector";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
@@ -20,7 +19,7 @@ import { SoundProvider } from "./contexts/SoundContext";
 import { useSound } from "./contexts/SoundContext";
 import { useDailyReset } from "./hooks/useDailyReset";
 
-type Page = "routines" | "workout" | "habits" | "progress" | "athkar" | "macros" | "weight";
+type Page = "routines" | "workout" | "habits" | "progress" | "athkar" | "macros";
 
 /* =========================
    Helpers
@@ -443,7 +442,7 @@ function AppContent() {
   // Only touch authenticated daily data after auth has resolved.
   useDailyReset(isAuthenticated);
 
-  const PAGE_ORDER: Page[] = ["routines", "workout", "habits", "progress", "athkar", "macros", "weight"];
+  const PAGE_ORDER: Page[] = ["routines", "workout", "habits", "progress", "athkar", "macros"];
 
   const goPrev = () => {
     const idx = PAGE_ORDER.indexOf(currentPage);
@@ -509,8 +508,8 @@ function AppContent() {
       <StarfieldBackground key={theme} />
 
       <header className={`relative z-50 ${colors.backgroundSecondary} backdrop-blur-md border-b ${colors.border} shadow-2xl`}>
-        <div className="container mx-auto px-4 h-16 sm:h-20 flex items-center justify-end">
-          <div className="flex items-center gap-3">
+        <div className="container mx-auto flex h-16 items-center justify-end px-3 sm:h-20 sm:px-4">
+          <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
             <ThemeSelector />
             <SignOutButton />
           </div>
@@ -534,6 +533,7 @@ function AppContent() {
 
 function Content({ currentPage }: { currentPage: Page }) {
   const loggedInUser = useQuery(api.auth.loggedInUser);
+  const userProfile = useQuery(api.auth.getProfile);
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
 
@@ -553,13 +553,18 @@ function Content({ currentPage }: { currentPage: Page }) {
   return (
     <div className="space-y-6 sm:space-y-8">
       <Authenticated>
-        {currentPage === "routines" && <RoutinesContent loggedInUser={loggedInUser} />}
+        {loggedInUser && userProfile !== undefined && !userProfile && <NameSetupModal />}
+        {currentPage === "routines" && (
+          <RoutinesContent
+            loggedInUser={loggedInUser}
+            displayName={userProfile?.displayName ?? loggedInUser?.name ?? ""}
+          />
+        )}
         {currentPage === "workout" && <WorkoutPage />}
         {currentPage === "habits" && <HabitsPage />}
         {currentPage === "progress" && <ProgressPage />}
         {currentPage === "athkar" && <AthkarPage />}
         {currentPage === "macros" && <MacrosPage />}
-        {currentPage === "weight" && <WeightTrackerPage />}
       </Authenticated>
 
       <Unauthenticated>
@@ -588,7 +593,66 @@ function Content({ currentPage }: { currentPage: Page }) {
   );
 }
 
-function RoutinesContent({ loggedInUser }: { loggedInUser: any }) {
+function NameSetupModal() {
+  const { getThemeColors } = useTheme();
+  const colors = getThemeColors();
+  const setDisplayName = useMutation(api.auth.setDisplayName);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    const clean = name.trim().replace(/\s+/g, " ");
+    if (clean.length < 2) return toast.error("Enter the name you want us to use.");
+    setSaving(true);
+    try {
+      await setDisplayName({ displayName: clean });
+      toast.success(`Welcome, ${clean}`);
+    } catch (error: any) {
+      toast.error(error?.message ?? "Could not save your name");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-xl" />
+      <div
+        className={`relative z-10 w-full max-w-md overflow-hidden rounded-3xl border ${colors.border} p-5 shadow-2xl sm:p-6`}
+        style={{ background: "rgba(6, 9, 13, 0.97)", boxShadow: `0 28px 100px rgba(0,0,0,.55), 0 0 44px rgb(var(--sw-accent-rgb) / .12)` }}
+      >
+        <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[image:var(--sw-gradient)] opacity-10 blur-3xl" />
+        <div className="relative">
+          <div className={`grid h-11 w-11 place-items-center rounded-2xl border ${colors.border} bg-white/[0.04]`}>
+            <svg viewBox="0 0 24 24" className={`h-5 w-5 ${colors.text}`} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="4" /><path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
+            </svg>
+          </div>
+          <h2 className={`mt-4 text-2xl font-bold ${colors.text}`}>What should we call you?</h2>
+          <p className={`mt-2 text-sm leading-6 ${colors.textSecondary}`}>This is the name SouthWe will use on your dashboard. It does not need to match your email.</p>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") void submit(); }}
+            maxLength={32}
+            autoFocus
+            placeholder="Your name"
+            className={`mt-5 w-full rounded-2xl border ${colors.border} bg-black/45 px-4 py-3.5 ${colors.text} outline-none transition focus:border-white/25 focus:ring-2 focus:ring-white/5`}
+          />
+          <button
+            onClick={() => void submit()}
+            disabled={saving || name.trim().length < 2}
+            className="mt-3 w-full rounded-2xl bg-[image:var(--sw-gradient)] px-4 py-3.5 font-semibold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Continue"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoutinesContent({ loggedInUser, displayName }: { loggedInUser: any; displayName: string }) {
   const routines = useQuery(api.routines.getRoutines);
   const userStats = useQuery(api.routines.getUserStats);
 
@@ -719,14 +783,14 @@ function RoutinesContent({ loggedInUser }: { loggedInUser: any }) {
           className={`text-3xl sm:text-4xl md:text-6xl font-bold bg-[image:var(--sw-gradient)] bg-clip-text text-transparent`}
           style={{ textShadow: `0 0 18px ${glowStrong}` }}
         >
-          Welcome Back
+          Welcome Back{displayName ? `, ${displayName}` : ""}
         </h1>
 
         <p
-          className={`${colors.textSecondary} text-lg sm:text-xl`}
+          className={`${colors.textSecondary} text-sm sm:text-base`}
           style={{ textShadow: `0 0 12px ${glowSoft}` }}
         >
-          {loggedInUser?.email?.split("@")[0] ?? "User"}
+          Your day, organized around what matters.
         </p>
 
         <div className={`w-24 sm:w-32 h-1 bg-[image:var(--sw-gradient)] mx-auto rounded-full`} />
