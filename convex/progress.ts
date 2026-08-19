@@ -2,10 +2,11 @@ import { query } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import {
-  getUtcDateKey,
+  assertDateKey,
   getUtcDateKeyDaysAgo,
   getUtcMonthStartKey,
   getUtcYearStartKey,
+  parseUtcDateKey,
 } from "./date";
 
 type DayProgress = {
@@ -23,6 +24,7 @@ function average(values: number[]) {
 
 export const getProgressData = query({
   args: {
+    dateKey: v.string(),
     timeFrame: v.union(
       v.literal("daily"),
       v.literal("weekly"),
@@ -34,23 +36,25 @@ export const getProgressData = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
 
+    const today = assertDateKey(args.dateKey);
+    const baseDate = parseUtcDateKey(today);
     let startDateStr: string;
 
     switch (args.timeFrame) {
       case "daily":
-        startDateStr = getUtcDateKeyDaysAgo(6);
+        startDateStr = getUtcDateKeyDaysAgo(6, baseDate);
         break;
       case "weekly":
-        startDateStr = getUtcDateKeyDaysAgo(27);
+        startDateStr = getUtcDateKeyDaysAgo(27, baseDate);
         break;
       case "monthly":
-        startDateStr = getUtcMonthStartKey(5);
+        startDateStr = getUtcMonthStartKey(5, baseDate);
         break;
       case "yearly":
-        startDateStr = getUtcYearStartKey(2);
+        startDateStr = getUtcYearStartKey(2, baseDate);
         break;
       default:
-        startDateStr = getUtcDateKeyDaysAgo(6);
+        startDateStr = getUtcDateKeyDaysAgo(6, baseDate);
     }
 
     const [dailyProgress, workoutProgress, habits, routines, workoutDays] = await Promise.all([
@@ -102,8 +106,29 @@ export const getProgressData = query({
       ensureDay(day.date).routineCompletionRate = day.completionRate;
     });
 
+    // For the current local day, the live routine documents are authoritative.
+    // Historical days keep their saved dailyProgress snapshots.
+    const todayRoutineSnapshot = dailyProgress.find((day) => day.date === today);
+    if (hasRoutineTracking && todayRoutineSnapshot?.countedInStats !== true) {
+      const activeRoutines = routines.filter((routine) => routine.isActive !== false);
+      const totalTasks = activeRoutines.reduce((sum, routine) => sum + routine.tasks.length, 0);
+      const completedTasks = activeRoutines.reduce(
+        (sum, routine) => sum + routine.tasks.filter((task) => task.completed).length,
+        0,
+      );
+      if (totalTasks > 0 || dailyProgress.some((day) => day.date === today)) {
+        ensureDay(today).routineCompletionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+      }
+    }
+
+    const workoutRatesByDate = new Map<string, number[]>();
     workoutProgress.forEach((workout) => {
-      ensureDay(workout.date).workoutCompletionRate = workout.completionRate;
+      const rates = workoutRatesByDate.get(workout.date) ?? [];
+      rates.push(workout.completionRate);
+      workoutRatesByDate.set(workout.date, rates);
+    });
+    workoutRatesByDate.forEach((rates, date) => {
+      ensureDay(date).workoutCompletionRate = average(rates);
     });
 
     const habitTotalsByDate = new Map<string, { completed: number; total: number }>();
@@ -137,7 +162,6 @@ export const getProgressData = query({
       return day;
     });
 
-    const today = getUtcDateKey();
     return result
       .filter((day) => day.date >= startDateStr && day.date <= today)
       .sort((a, b) => a.date.localeCompare(b.date));

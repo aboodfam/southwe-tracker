@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { useLocalDateKey } from "./useLocalDateKey";
 
 /**
  * Triggers the server-side daily reset check.
@@ -11,11 +12,12 @@ import { api } from "../../convex/_generated/api";
  */
 export function useDailyReset(enabled = true) {
   const resetEverythingDaily = useMutation(api.daily.resetEverythingDaily);
+  const dateKey = useLocalDateKey();
 
   useEffect(() => {
     if (!enabled) return;
-    resetEverythingDaily({}).catch(() => {
+    resetEverythingDaily({ dateKey }).catch(() => {
       // silent (offline etc.)
     });
-  }, [enabled, resetEverythingDaily]);
+  }, [enabled, dateKey, resetEverythingDaily]);
 }

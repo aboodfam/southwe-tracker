@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { useTheme } from "../contexts/ThemeContext";
 import { useSound } from "../contexts/SoundContext";
 import { toast } from "sonner";
+import { useLocalDateKey } from "../hooks/useLocalDateKey";
 
 type WorkoutDay = {
   _id: Id<"workoutDays">;
@@ -74,6 +75,7 @@ export function WorkoutPage() {
   const colors = getThemeColors();
   const accent = colors.primary;
   const { play } = useSound();
+  const dateKey = useLocalDateKey();
 
   // IMPORTANT: keep `undefined` while loading so we don't accidentally create defaults too early.
   const rawDays = useQuery(api.workouts.getWorkoutDays);
@@ -91,6 +93,7 @@ export function WorkoutPage() {
   const deleteExercise = useMutation(api.workouts.deleteExercise);
 
   const toggleComplete = useMutation(api.workouts.toggleExerciseComplete);
+  const completeWorkout = useMutation(api.workouts.completeWorkout);
 
   const [selectedIdx, setSelectedIdx] = useState(0);
   const initRef = useRef(false);
@@ -129,7 +132,7 @@ export function WorkoutPage() {
   // Convex: skip query until we actually have a selected day
   const todayProgress = useQuery(
     api.workouts.getTodayWorkoutProgress,
-    selectedDay ? { dayId: selectedDay._id } : ("skip" as any)
+    selectedDay ? { dayId: selectedDay._id, dateKey } : ("skip" as any)
   );
 
   const completedSet = useMemo(() => {
@@ -402,7 +405,7 @@ play("notification", 0.9);
     if (!selectedDay) return;
     const willComplete = !completedSet.has(exerciseId);
     try {
-      const res: any = await toggleComplete({ dayId: selectedDay._id, exerciseId });
+      const res: any = await toggleComplete({ dayId: selectedDay._id, exerciseId, dateKey });
 
       // Reward only when marking an exercise as complete (not when unchecking)
       if (willComplete) {
@@ -415,6 +418,17 @@ play("notification", 0.9);
       }
     } catch (e: any) {
       toast.error(e?.message ?? "Failed");
+    }
+  };
+
+  const doCompleteWorkout = async () => {
+    if (!selectedDay) return;
+    try {
+      await completeWorkout({ dayId: selectedDay._id, dateKey });
+      play("complete", 1.15);
+      toast.success("Workout saved as complete.");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not complete workout");
     }
   };
 
@@ -625,6 +639,32 @@ play("notification", 0.9);
                 }}
               />
             </div>
+
+            {total > 0 && (
+              <button
+                onClick={() => void doCompleteWorkout()}
+                disabled={(todayProgress as any)?.completedWorkout === true || rate < 70}
+                className={[
+                  "mt-4 w-full rounded-xl px-4 py-3 text-sm font-semibold transition",
+                  (todayProgress as any)?.completedWorkout === true
+                    ? "cursor-not-allowed border border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                    : rate >= 70
+                      ? "text-black hover:brightness-110"
+                      : "cursor-not-allowed border border-white/10 bg-white/[0.03] text-white/35",
+                ].join(" ")}
+                style={
+                  rate >= 70 && (todayProgress as any)?.completedWorkout !== true
+                    ? { background: `linear-gradient(90deg, ${rgbaFromRgb(accent, 1)}, ${rgbaFromRgb(accent, 0.72)})` }
+                    : undefined
+                }
+              >
+                {(todayProgress as any)?.completedWorkout === true
+                  ? "Workout Completed"
+                  : rate >= 70
+                    ? "Complete Workout"
+                    : `Reach 70% to complete (${Math.round(rate)}%)`}
+              </button>
+            )}
           </div>
 
           {/* No exercises */}

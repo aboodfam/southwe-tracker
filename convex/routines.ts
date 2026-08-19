@@ -2,6 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
+import { assertDateKey } from "./date";
 
 // Matches the `routines.tasks` object schema in `convex/schema.ts`.
 type RoutineTask = {
@@ -26,12 +27,12 @@ export const getRoutines = query({
 });
 
 export const resetDailyTasks = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { dateKey: v.string() },
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    const today = isoDate(new Date());
+    const today = assertDateKey(args.dateKey);
     
     // Check if user has completed today already
     const todayProgress = await ctx.db
@@ -148,8 +149,8 @@ function diffDays(a: string, b: string) {
   return Math.floor((bMs - aMs) / msPerDay);
 }
 
-async function computeRoutineStats(ctx: any, userId: any) {
-  const today = isoDate(new Date());
+async function computeRoutineStats(ctx: any, userId: any, dateKey: string) {
+  const today = assertDateKey(dateKey);
 
   const routines = await ctx.db
     .query("routines")
@@ -256,6 +257,7 @@ export const toggleTask = mutation({
   args: {
     routineId: v.id("routines"),
     taskId: v.string(),
+    dateKey: v.string(),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -266,6 +268,15 @@ export const toggleTask = mutation({
       throw new Error("Routine not found");
     }
 
+    const today = assertDateKey(args.dateKey);
+    const savedDay = await ctx.db
+      .query("dailyProgress")
+      .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", today))
+      .first();
+    if (savedDay?.countedInStats === true) {
+      throw new Error("Today is already completed.");
+    }
+
     const updatedTasks = routine.tasks.map((task) =>
       task.id === args.taskId ? { ...task, completed: !task.completed } : task
     );
@@ -273,10 +284,8 @@ export const toggleTask = mutation({
     await ctx.db.patch(args.routineId, { tasks: updatedTasks });
 
     // Update today's routine progress (used by Progress & Achievements).
-    const stats = await computeRoutineStats(ctx, userId);
-    const dayDoc = await upsertDailyProgress(ctx, userId, stats);
-    await maybeCountDayInUserStats(ctx, userId, dayDoc, stats.completionRate, stats.completedTasks);
-
+    const stats = await computeRoutineStats(ctx, userId, args.dateKey);
+    await upsertDailyProgress(ctx, userId, stats);
   },
 });
 
@@ -392,26 +401,22 @@ export const reorderTasks = mutation({
 });
 
 export const completeDay = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { dateKey: v.string() },
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
     // Update (or create) today's dailyProgress snapshot.
-    const stats = await computeRoutineStats(ctx, userId);
+    const stats = await computeRoutineStats(ctx, userId, args.dateKey);
+    if (stats.completionRate < 80) {
+      throw new Error("Reach at least 80% before completing the day.");
+    }
+
     const dayDoc = await upsertDailyProgress(ctx, userId, stats);
 
-    // If the day has reached the threshold, count it exactly once for Achievements/streak.
+    // Count it exactly once for Achievements/streak. Keep today's checkmarks
+    // visible; the single daily reset will clear them on the next local day.
     await maybeCountDayInUserStats(ctx, userId, dayDoc, stats.completionRate, stats.completedTasks);
-
-    // We already have the routines list in stats.
-    const routines = stats.routines;
-
-    // Reset all tasks for next day
-    for (const routine of routines) {
-      const resetTasks = routine.tasks.map((task: RoutineTask) => ({ ...task, completed: false }));
-      await ctx.db.patch(routine._id, { tasks: resetTasks });
-    }
   },
 });
 
@@ -429,12 +434,12 @@ export const getUserStats = query({
 });
 
 export const getTodayProgress = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { dateKey: v.string() },
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
 
-    const today = isoDate(new Date());
+    const today = assertDateKey(args.dateKey);
     
     return await ctx.db
       .query("dailyProgress")

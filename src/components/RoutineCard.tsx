@@ -6,6 +6,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import { useSound } from "../contexts/SoundContext";
 import { toast } from "sonner";
 import { Icon } from "./icons";
+import { useLocalDateKey } from "../hooks/useLocalDateKey";
 
 interface Task {
   id: string;
@@ -31,6 +32,7 @@ export function RoutineCard({ routine, appear }: RoutineCardProps) {
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const { play } = useSound();
+  const dateKey = useLocalDateKey();
 
   // Animations: smooth add/delete without extra libs
   const [isRemovingBlock, setIsRemovingBlock] = useState(false);
@@ -112,14 +114,15 @@ const tasksToRender = useMemo(() => {
 }, [routine.tasks, routineSorted, orderedTaskIds]);
 
 
-  const handleTaskToggle = (taskId: string) => {
+  const handleTaskToggle = async (taskId: string) => {
     const task = routine.tasks.find((t) => t.id === taskId);
     const willComplete = task ? !task.completed : true;
-    toggleTask({ routineId: routine._id, taskId });
 
-    // Reward only when a task is completed (not when unchecking)
-    if (willComplete) {
-      play("success", 0.9);
+    try {
+      await toggleTask({ routineId: routine._id, taskId, dateKey });
+      if (willComplete) play("success", 0.9);
+    } catch (error: any) {
+      toast.error(error?.message ?? "Could not save task progress");
     }
   };
 

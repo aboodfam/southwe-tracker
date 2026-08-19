@@ -719,7 +719,6 @@ function RoutinesContent({ loggedInUser, displayName }: { loggedInUser: any; dis
   const routines = useQuery(api.routines.getRoutines);
   const userStats = useQuery(api.routines.getUserStats);
 
-  const resetDailyTasks = useMutation(api.routines.resetDailyTasks);
   const ensureUserStats = useMutation(api.routines.ensureUserStats);
   const createRoutine = useMutation(api.routines.createRoutine);
 
@@ -787,12 +786,12 @@ function RoutinesContent({ loggedInUser, displayName }: { loggedInUser: any; dis
     localStorage.setItem("sw_routines_view", viewMode);
   }, [viewMode]);
 
-  // Keep daily reset + stats safe
+  // Daily reset is handled once at the app shell using the user's local date.
+  // Here we only make sure the stats document exists.
   useEffect(() => {
     if (!loggedInUser) return;
     void ensureUserStats();
-    void resetDailyTasks();
-  }, [loggedInUser, ensureUserStats, resetDailyTasks]);
+  }, [loggedInUser, ensureUserStats]);
 
   // Flexible sections (stored as normal routines)
   const FLEX_TIME = "Flexible";

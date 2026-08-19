@@ -1,7 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { getUtcDateKey } from "./date";
+import { assertDateKey, getUtcDateKey } from "./date";
 
 const todayKey = () => getUtcDateKey();
 
@@ -30,7 +30,7 @@ function getPreviousDateString(dateString: string) {
   return date.toISOString().split("T")[0];
 }
 
-function calculateWorkoutStreaks(completedDates: string[]) {
+function calculateWorkoutStreaks(completedDates: string[], today = todayKey()) {
   const uniqueDates = Array.from(new Set(completedDates)).sort();
 
   if (uniqueDates.length === 0) {
@@ -52,7 +52,6 @@ function calculateWorkoutStreaks(completedDates: string[]) {
     previousDate = date;
   }
 
-  const today = todayKey();
   let currentStreak = 0;
 
   if (uniqueDates[uniqueDates.length - 1] === today) {
@@ -262,21 +261,27 @@ export const deleteExercise = mutation({
 export const getTodayWorkoutProgress = query({
   args: {
     dayId: v.optional(v.id("workoutDays")),
+    dateKey: v.string(),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
 
-    const today = todayKey();
-    const p = await ctx.db
+    const today = assertDateKey(args.dateKey);
+
+    if (args.dayId) {
+      return await ctx.db
+        .query("workoutProgress")
+        .withIndex("by_user_date_day", (q) =>
+          q.eq("userId", userId).eq("date", today).eq("workoutDayId", args.dayId)
+        )
+        .first();
+    }
+
+    return await ctx.db
       .query("workoutProgress")
       .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", today))
       .first();
-
-    if (!p) return null;
-    if (args.dayId && p.workoutDayId && p.workoutDayId !== args.dayId) return null;
-
-    return p;
   },
 });
 
@@ -284,6 +289,7 @@ export const toggleExerciseComplete = mutation({
   args: {
     dayId: v.id("workoutDays"),
     exerciseId: v.string(),
+    dateKey: v.string(),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -292,15 +298,21 @@ export const toggleExerciseComplete = mutation({
     const day = await ctx.db.get(args.dayId);
     if (!day || day.userId !== userId) throw new Error("Workout day not found");
 
-    const today = todayKey();
+    const today = assertDateKey(args.dateKey);
     const totalExercises = day.exercises.length;
 
     const existing = await ctx.db
       .query("workoutProgress")
-      .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", today))
+      .withIndex("by_user_date_day", (q) =>
+        q.eq("userId", userId).eq("date", today).eq("workoutDayId", args.dayId)
+      )
       .first();
 
     let progress = existing;
+
+    if (progress?.completedWorkout) {
+      throw new Error("This workout is already completed for today.");
+    }
 
     // create if none
     if (!progress) {
@@ -318,31 +330,6 @@ export const toggleExerciseComplete = mutation({
       const created = await ctx.db.get(insertedId);
       assertExists(created, "Progress not found");
       progress = created;
-    }
-
-    // normalize legacy doc fields
-    const completed = safeCompleted(progress);
-
-    // if progress exists but is for different day, reset to this day
-    if (progress.workoutDayId !== args.dayId) {
-      await ctx.db.patch(progress._id, {
-        workoutDayId: args.dayId,
-        dayLabel: day.name,
-        completedExercises: [],
-        totalExercises,
-        completionRate: 0,
-        completedWorkout: false,
-      });
-
-      progress = {
-        ...progress,
-        workoutDayId: args.dayId,
-        dayLabel: day.name,
-        completedExercises: [],
-        totalExercises,
-        completionRate: 0,
-        completedWorkout: false,
-      };
     }
 
     const nowCompleted = safeCompleted(progress);
@@ -369,6 +356,7 @@ export const toggleExerciseComplete = mutation({
 export const completeWorkout = mutation({
   args: {
     dayId: v.id("workoutDays"),
+    dateKey: v.string(),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -377,12 +365,14 @@ export const completeWorkout = mutation({
     const day = await ctx.db.get(args.dayId);
     if (!day || day.userId !== userId) throw new Error("Workout day not found");
 
-    const today = todayKey();
+    const today = assertDateKey(args.dateKey);
     const totalExercises = day.exercises.length;
 
     const existing = await ctx.db
       .query("workoutProgress")
-      .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", today))
+      .withIndex("by_user_date_day", (q) =>
+        q.eq("userId", userId).eq("date", today).eq("workoutDayId", args.dayId)
+      )
       .first();
 
     let progress = existing;
@@ -402,28 +392,6 @@ export const completeWorkout = mutation({
       const created = await ctx.db.get(insertedId);
       assertExists(created, "Progress not found");
       progress = created;
-    }
-
-    // if for different day, reset
-    if (progress.workoutDayId !== args.dayId) {
-      await ctx.db.patch(progress._id, {
-        workoutDayId: args.dayId,
-        dayLabel: day.name,
-        completedExercises: [],
-        totalExercises,
-        completionRate: 0,
-        completedWorkout: false,
-      });
-
-      progress = {
-        ...progress,
-        workoutDayId: args.dayId,
-        dayLabel: day.name,
-        completedExercises: [],
-        totalExercises,
-        completionRate: 0,
-        completedWorkout: false,
-      };
     }
 
     const completedExercises = safeCompleted(progress);
@@ -461,7 +429,7 @@ export const completeWorkout = mutation({
       completedDates.push(today);
     }
 
-    const { currentStreak, longestStreak } = calculateWorkoutStreaks(completedDates);
+    const { currentStreak, longestStreak } = calculateWorkoutStreaks(completedDates, today);
 
     const stats = await ctx.db
       .query("workoutStats")

@@ -120,7 +120,9 @@ const applicationTables = {
     completionRate: v.number(),
     completedWorkout: v.boolean(),
     day: v.optional(v.number()),
-  }).index("by_user_date", ["userId", "date"]),
+  })
+    .index("by_user_date", ["userId", "date"])
+    .index("by_user_date_day", ["userId", "date", "workoutDayId"]),
 
   dailyProgress: defineTable({
     userId: v.id("users"),

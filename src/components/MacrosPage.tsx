@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { useTheme } from "../contexts/ThemeContext";
 import { PageHeader } from "./PageHeader";
 
@@ -86,6 +88,9 @@ function isOneOf<T extends string>(v: any, allowed: readonly T[]): v is T {
 export function MacrosPage() {
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
+  const savedProfile = useQuery(api.userData.getMacroProfile);
+  const saveMacroProfile = useMutation(api.userData.saveMacroProfile);
+  const [hydrated, setHydrated] = useState(false);
 
   const [sex, setSex] = useState<Sex>("male");
   // Keep inputs as strings so the user can clear the field (no forced 0 while typing)
@@ -97,24 +102,22 @@ export function MacrosPage() {
   const [goal, setGoal] = useState<Goal>("maintain");
   const [pace, setPace] = useState<Pace>("moderate");
 
-  // Load previously entered values (so the user doesn't retype every time)
+  // Hydrate from the account first so calculator inputs follow the user across
+  // refreshes/devices. localStorage remains a fallback for old installs/offline use.
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (savedProfile === undefined || hydrated) return;
 
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
+    let data: any = savedProfile;
+    if (!data && typeof window !== "undefined") {
+      try {
+        const raw = window.localStorage.getItem(STORAGE_KEY);
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        data = null;
+      }
+    }
 
-    try {
-      const data = JSON.parse(raw) as Partial<{
-        sex: Sex;
-        age: string;
-        heightCm: string;
-        weightKg: string;
-        activityId: (typeof ACTIVITY)[number]["id"];
-        goal: Goal;
-        pace: Pace;
-      }>;
-
+    if (data) {
       if (isOneOf<Sex>(data.sex, ["male", "female"])) setSex(data.sex);
       if (typeof data.age === "string") setAge(data.age);
       if (typeof data.heightCm === "string") setHeightCm(data.heightCm);
@@ -122,18 +125,16 @@ export function MacrosPage() {
 
       const activityIds = ACTIVITY.map((a) => a.id) as (typeof ACTIVITY)[number]["id"][];
       if (isOneOf(data.activityId as any, activityIds)) setActivityId(data.activityId as any);
-
       if (isOneOf<Goal>(data.goal, ["maintain", "cut", "bulk"])) setGoal(data.goal);
       if (isOneOf<Pace>(data.pace, ["mild", "moderate", "aggressive"])) setPace(data.pace);
-    } catch {
-      // ignore
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
-  // Persist values as the user types (so they stay saved even after refresh)
+    setHydrated(true);
+  }, [savedProfile, hydrated]);
+
+  // Persist locally immediately and sync to Convex with a small debounce.
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!hydrated) return;
 
     const payload = {
       sex,
@@ -143,15 +144,20 @@ export function MacrosPage() {
       activityId,
       goal,
       pace,
-      updatedAt: Date.now(),
     };
 
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch {
-      // ignore storage quota / private mode errors
-    }
-  }, [sex, age, heightCm, weightKg, activityId, goal, pace]);
+    } catch {}
+
+    const timer = window.setTimeout(() => {
+      void saveMacroProfile(payload).catch(() => {
+        // Keep the local copy; Convex will be retried on the next edit.
+      });
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [hydrated, sex, age, heightCm, weightKg, activityId, goal, pace, saveMacroProfile]);
 
   const activity = ACTIVITY.find((a) => a.id === activityId) ?? ACTIVITY[2];
 

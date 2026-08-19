@@ -1,6 +1,45 @@
 import { mutation } from "./_generated/server";
+import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { getUtcDateKey } from "./date";
+import { assertDateKey } from "./date";
+
+
+async function snapshotRoutineProgress(ctx: any, userId: any, dateKey: string, routines: any[]) {
+  const active = routines.filter((routine) => routine.isActive !== false);
+  const totalTasks = active.reduce((sum, routine) => sum + routine.tasks.length, 0);
+  const completedTasks = active.reduce(
+    (sum, routine) => sum + routine.tasks.filter((task: any) => task.completed).length,
+    0,
+  );
+  const completedRoutines = active
+    .filter((routine) => routine.tasks.length > 0 && routine.tasks.every((task: any) => task.completed))
+    .map((routine) => routine._id);
+  const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+  const existing = await ctx.db
+    .query("dailyProgress")
+    .withIndex("by_user_date", (q: any) => q.eq("userId", userId).eq("date", dateKey))
+    .first();
+
+  const patch = {
+    completedRoutines,
+    totalRoutines: active.length,
+    totalTasks,
+    completedTasks,
+    completionRate,
+  };
+
+  if (existing) {
+    await ctx.db.patch(existing._id, patch);
+  } else if (totalTasks > 0 || completedTasks > 0) {
+    await ctx.db.insert("dailyProgress", {
+      userId,
+      date: dateKey,
+      ...patch,
+      countedInStats: false,
+    });
+  }
+}
 
 /**
  * Resets daily-progress across the app for the current user.
@@ -9,18 +48,18 @@ import { getUtcDateKey } from "./date";
  * the mutation becomes a no-op.
  */
 export const resetEverythingDaily = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { dateKey: v.string() },
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    const today = getUtcDateKey();
+    const today = assertDateKey(args.dateKey);
     const existingResetState = await ctx.db
       .query("dailyResetState")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .unique();
 
-    if (existingResetState?.lastResetDate === today) {
+    if (existingResetState && existingResetState.lastResetDate >= today) {
       return {
         alreadyReset: true,
         resetDate: today,
@@ -33,6 +72,13 @@ export const resetEverythingDaily = mutation({
       .query("routines")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
+
+    // Before clearing today's live checkmarks, persist the previous local day's
+    // final routine state. This protects progress even if the last action of the
+    // day was adding/deleting a task rather than toggling one.
+    if (existingResetState?.lastResetDate && existingResetState.lastResetDate < today) {
+      await snapshotRoutineProgress(ctx, userId, existingResetState.lastResetDate, routines);
+    }
 
     for (const routine of routines) {
       const tasks = Array.isArray(routine.tasks) ? routine.tasks : [];

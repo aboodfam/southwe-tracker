@@ -6,6 +6,7 @@ import { Id } from "../../convex/_generated/dataModel";
 import { useTheme } from "../contexts/ThemeContext";
 import { useSound } from "../contexts/SoundContext";
 import { PageHeader } from "./PageHeader";
+import { useLocalDateKey } from "../hooks/useLocalDateKey";
 
 type HabitType = "build" | "break";
 
@@ -93,6 +94,7 @@ export function HabitsPage() {
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const { play } = useSound();
+  const dateKey = useLocalDateKey();
 
   const accentTriplet = parseRgbTriplet(colors.primary);
   const accentLightTriplet = parseRgbTriplet(colors.primaryLight);
@@ -107,7 +109,7 @@ export function HabitsPage() {
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
 
   const habits = useQuery(api.habits.getHabits) as HabitDoc[] | undefined;
-  const habitStats = useQuery(api.habits.getHabitStats);
+  const habitStats = useQuery(api.habits.getHabitStats, { dateKey });
 
   const addHabit = useMutation(api.habits.createHabit);
   const toggleHabit = useMutation(api.habits.logHabit);
@@ -122,7 +124,7 @@ export function HabitsPage() {
   }, [habits]);
 
   const safeHabits = habits ?? lastHabitsRef.current ?? [];
-  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const today = dateKey;
 
   const filtered = useMemo(() => {
     return safeHabits.filter((h) => h.type === activeTab);
@@ -186,7 +188,7 @@ export function HabitsPage() {
         (e) => e.date === today && e.completed
       );
 
-      await toggleHabit({ habitId, completed: !doneToday });
+      await toggleHabit({ habitId, completed: !doneToday, dateKey });
 
       if (!doneToday) {
         play("success", 0.95);

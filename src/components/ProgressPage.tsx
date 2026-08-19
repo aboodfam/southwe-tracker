@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import { useTheme } from "../contexts/ThemeContext";
 import { PageHeader } from "./PageHeader";
 import { Icon, IconName } from "./icons";
+import { useLocalDateKey } from "../hooks/useLocalDateKey";
 
 type TimeFrame = "daily" | "weekly" | "monthly" | "yearly";
 type Metric = "overall" | "routines" | "workouts" | "habits";
@@ -368,18 +369,19 @@ function AchievementCard({ a }: { a: Achievement }) {
 export function ProgressPage() {
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
+  const dateKey = useLocalDateKey();
 
   const [activeTimeFrame, setActiveTimeFrame] = useState<TimeFrame>("weekly");
   const [metric, setMetric] = useState<Metric>("overall");
 
-  const progressData = useQuery(api.progress.getProgressData, { timeFrame: activeTimeFrame }) as ProgressDay[] | undefined;
+  const progressData = useQuery(api.progress.getProgressData, { timeFrame: activeTimeFrame, dateKey }) as ProgressDay[] | undefined;
 
   const userStats = useQuery(api.routines.getUserStats);
   const workoutStats = useQuery(api.workouts.getWorkoutStats);
-  const habitStats = useQuery(api.habits.getHabitStats);
+  const habitStats = useQuery(api.habits.getHabitStats, { dateKey });
 
   // Separate daily series for achievements like "Perfect Day"
-  const dailyDataRaw = useQuery(api.progress.getProgressData, { timeFrame: "daily" }) as ProgressDay[] | undefined;
+  const dailyDataRaw = useQuery(api.progress.getProgressData, { timeFrame: "daily", dateKey }) as ProgressDay[] | undefined;
   const dailyLastRef = useRef<ProgressDay[] | null>(null);
   if (dailyDataRaw && dailyDataRaw.length) dailyLastRef.current = dailyDataRaw;
   const dailySafe = (dailyDataRaw ?? dailyLastRef.current ?? []) as ProgressDay[];

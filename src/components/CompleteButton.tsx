@@ -4,21 +4,23 @@ import { toast } from "sonner";
 import { useTheme } from "../contexts/ThemeContext";
 import { useSound } from "../contexts/SoundContext";
 import { Icon } from "./icons";
+import { useLocalDateKey } from "../hooks/useLocalDateKey";
 
 export function CompleteButton() {
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const { play } = useSound();
+  const dateKey = useLocalDateKey();
 
   const routines = useQuery(api.routines.getRoutines);
   const completeDay = useMutation(api.routines.completeDay);
-  const todayProgress = useQuery(api.routines.getTodayProgress);
+  const todayProgress = useQuery(api.routines.getTodayProgress, { dateKey });
 
   const handleCompleteDay = async () => {
     try {
-      await completeDay();
+      await completeDay({ dateKey });
       play("complete", 1.25);
-      toast.success("Day completed. All tasks reset for tomorrow.", {
+      toast.success("Day locked in. Progress will reset tomorrow.", {
         style: {
           background: "rgb(var(--sw-accent-rgb) / 0.12)",
           border: "1px solid rgb(var(--sw-accent-rgb) / 0.35)",
@@ -35,7 +37,7 @@ export function CompleteButton() {
   const totalTasks = routines.reduce((sum, routine) => sum + routine.tasks.length, 0);
   const completedTasks = routines.reduce((sum, routine) => sum + routine.tasks.filter((task) => task.completed).length, 0);
   const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-  const isAlreadyCompleted = todayProgress !== null;
+  const isAlreadyCompleted = todayProgress?.countedInStats === true;
   const remaining = Math.max(0, Math.ceil(((80 - completionRate) * totalTasks) / 100));
 
   return (

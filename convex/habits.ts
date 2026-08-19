@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { assertDateKey, shiftUtcDateKey } from "./date";
 
 function getTodayDateString() {
   return new Date().toISOString().split("T")[0];
@@ -12,7 +13,7 @@ function getPreviousDateString(dateString: string) {
   return date.toISOString().split("T")[0];
 }
 
-function calculateHabitStreaks(entries: { date: string; completed: boolean }[]) {
+function calculateHabitStreaks(entries: { date: string; completed: boolean }[], today = getTodayDateString()) {
   const completedDates = Array.from(
     new Set(entries.filter((entry) => entry.completed).map((entry) => entry.date))
   ).sort();
@@ -39,7 +40,6 @@ function calculateHabitStreaks(entries: { date: string; completed: boolean }[]) 
     previousDate = date;
   }
 
-  const today = getTodayDateString();
   let currentStreak = 0;
 
   if (completedDates[completedDates.length - 1] === today) {
@@ -76,8 +76,8 @@ export const getHabits = query({
 });
 
 export const getHabitStats = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { dateKey: v.string() },
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
 
@@ -95,13 +95,13 @@ export const getHabitStats = query({
       };
     }
 
-    const totalCurrentStreak = habits.reduce((sum, habit) => sum + habit.currentStreak, 0);
-    const totalLongestStreak = Math.max(...habits.map((habit) => habit.longestStreak));
+    const derivedStreaks = habits.map((habit) => calculateHabitStreaks(habit.entries, assertDateKey(args.dateKey)));
+    const totalCurrentStreak = derivedStreaks.reduce((sum, streak) => sum + streak.currentStreak, 0);
+    const totalLongestStreak = Math.max(...derivedStreaks.map((streak) => streak.longestStreak));
 
-    // Calculate average completion rate over the last 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
+    const today = assertDateKey(args.dateKey);
+    // Calculate average completion rate over the last 30 local calendar days.
+    const thirtyDaysAgoStr = shiftUtcDateKey(today, -29);
 
     let totalDays = 0;
     let completedDays = 0;
@@ -154,6 +154,7 @@ export const logHabit = mutation({
   args: {
     habitId: v.id("habits"),
     completed: v.boolean(),
+    dateKey: v.string(),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -164,7 +165,7 @@ export const logHabit = mutation({
       throw new Error("Habit not found");
     }
 
-    const today = getTodayDateString();
+    const today = assertDateKey(args.dateKey);
     const existingEntryIndex = habit.entries.findIndex((entry) => entry.date === today);
     const newEntries = [...habit.entries];
 
@@ -174,7 +175,7 @@ export const logHabit = mutation({
       newEntries.push({ date: today, completed: args.completed });
     }
 
-    const { currentStreak, longestStreak } = calculateHabitStreaks(newEntries);
+    const { currentStreak, longestStreak } = calculateHabitStreaks(newEntries, today);
 
     await ctx.db.patch(args.habitId, {
       entries: newEntries,

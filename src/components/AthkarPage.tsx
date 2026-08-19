@@ -75,7 +75,6 @@ export function AthkarPage({ prefetchedAthkar }: { prefetchedAthkar?: Dhikr[] })
 
   const incrementCount = useMutation(api.athkar.incrementCount);
   const resetCount = useMutation(api.athkar.resetCount);
-  const resetCategory = useMutation(api.athkar.resetCategory);
   const addDhikr = useMutation(api.athkar.addDhikr);
   const ensureDefaultAthkar = useMutation(api.athkar.ensureDefaultAthkar);
   const updateDhikr = useMutation(api.athkar.updateDhikr);
@@ -97,14 +96,6 @@ export function AthkarPage({ prefetchedAthkar }: { prefetchedAthkar?: Dhikr[] })
     seededOnceRef.current = true;
     ensureDefaultAthkar().catch(() => {});
   }, [isLoading, ensureDefaultAthkar]);
-
-  useEffect(() => {
-    const today = getLocalDateKey();
-    const lastReset = localStorage.getItem("athkar_last_reset_date");
-    if (lastReset === today) return;
-    localStorage.setItem("athkar_last_reset_date", today);
-    void Promise.allSettled(["morning", "evening", "prayer", "before_sleep", "waking_up"].map((category) => resetCategory({ category })));
-  }, [resetCategory]);
 
   const countFor = (dhikr: Dhikr) => optimisticCounts[dhikr._id] ?? dhikr.currentCount;
 
