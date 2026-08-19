@@ -427,3 +427,34 @@ select option {
     opacity: 1;
   }
 }
+
+/* Compact switches must ignore the global mobile button tap-target padding. */
+.sw-toggle {
+  width: 46px !important;
+  height: 26px !important;
+  min-width: 46px !important;
+  min-height: 26px !important;
+  padding: 2px !important;
+  line-height: 1 !important;
+}
+
+@keyframes athkar-slide-next {
+  from { opacity: 0; transform: translate3d(12px, 0, 0) scale(0.997); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes athkar-slide-prev {
+  from { opacity: 0; transform: translate3d(-12px, 0, 0) scale(0.997); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+.athkar-slide-next,
+.athkar-slide-prev {
+  will-change: transform, opacity;
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+}
+
+.athkar-slide-next { animation-name: athkar-slide-next; }
+.athkar-slide-prev { animation-name: athkar-slide-prev; }

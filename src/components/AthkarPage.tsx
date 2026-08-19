@@ -278,29 +278,26 @@ export function AthkarPage() {
     }
   };
 
-  const slideClass = slideDirection === "next" ? "animate-[athkarSlideRight_170ms_ease-out]" : slideDirection === "prev" ? "animate-[athkarSlideLeft_170ms_ease-out]" : "";
+  const slideClass = slideDirection === "next" ? "athkar-slide-next" : slideDirection === "prev" ? "athkar-slide-prev" : "";
 
   if (isLoading) {
     return (
-      <div className="space-y-6 animate-fade-in">
-        <PageHeader title="Athkar" subtitle="Daily remembrance, organized and easy to complete." />
-        <div className="mx-auto max-w-5xl rounded-3xl border border-white/10 bg-black/30 p-8 text-center text-sm text-white/50 backdrop-blur-xl">Loading Athkar…</div>
+      <div className="space-y-6 sm:space-y-8">
+        <div className="mx-auto mt-8 max-w-5xl rounded-3xl border border-white/10 bg-black/30 p-8 text-center text-sm text-white/50 backdrop-blur-xl animate-fade-in">Loading Athkar…</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-fade-in">
-      <style>{`
-        @keyframes athkarSlideRight { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
-        @keyframes athkarSlideLeft { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: translateX(0); } }
-      `}</style>
-
+    <div className="space-y-6 sm:space-y-8">
       {!selectedCategory ? (
         <>
           <PageHeader title="Athkar" subtitle="Daily remembrance, organized and easy to complete." />
 
-          <section className="mx-auto max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-black/30 p-4 backdrop-blur-xl sm:p-5">
+          <section
+            className="mx-auto max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-black/30 p-4 backdrop-blur-xl sm:p-5 animate-float-in"
+            style={{ ["--delay" as any]: "70ms" }}
+          >
             <div className="grid gap-3 sm:grid-cols-3">
               {[
                 { label: "Today", value: `${Math.round(overall.progress)}%`, sub: "overall progress", icon: "progress" as IconName },
@@ -327,7 +324,7 @@ export function AthkarPage() {
             </div>
           </section>
 
-          <section className="mx-auto max-w-6xl">
+          <section className="mx-auto max-w-6xl animate-float-in" style={{ ["--delay" as any]: "130ms" }}>
             <div className="mb-3 flex items-end justify-between gap-3 px-1">
               <div>
                 <h2 className="text-lg font-bold text-white sm:text-xl">Choose a section</h2>

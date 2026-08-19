@@ -241,7 +241,7 @@ function CreateRoutineCard() {
   const [open, setOpen] = useState(false);
   const [entered, setEntered] = useState(false);
 
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName);
   const [timeSlot, setTimeSlot] = useState("");
 
   useEffect(() => {
@@ -534,8 +534,33 @@ function AppContent() {
 function Content({ currentPage }: { currentPage: Page }) {
   const loggedInUser = useQuery(api.auth.loggedInUser);
   const userProfile = useQuery(api.auth.getProfile);
+  const setDisplayName = useMutation(api.auth.setDisplayName);
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
+  const [applyingPendingName, setApplyingPendingName] = useState(false);
+
+  const profileName = userProfile?.displayName?.trim() ?? "";
+  const emailLocal = String(loggedInUser?.email ?? "").split("@")[0]?.trim().toLowerCase() ?? "";
+  const normalizedProfileName = profileName.toLowerCase();
+  const needsRealName = userProfile !== undefined && !!loggedInUser && (
+    !userProfile ||
+    !profileName ||
+    normalizedProfileName === "southwe" ||
+    normalizedProfileName === "southwe system" ||
+    (!!emailLocal && normalizedProfileName === emailLocal)
+  );
+
+  useEffect(() => {
+    if (!loggedInUser || userProfile === undefined || userProfile || applyingPendingName) return;
+    const pending = sessionStorage.getItem("pending_display_name")?.trim().replace(/\s+/g, " ") ?? "";
+    if (pending.length < 2) return;
+
+    setApplyingPendingName(true);
+    void setDisplayName({ displayName: pending })
+      .then(() => sessionStorage.removeItem("pending_display_name"))
+      .catch(() => {})
+      .finally(() => setApplyingPendingName(false));
+  }, [loggedInUser, userProfile, applyingPendingName, setDisplayName]);
 
   if (loggedInUser === undefined) {
     return (
@@ -553,11 +578,11 @@ function Content({ currentPage }: { currentPage: Page }) {
   return (
     <div className="space-y-6 sm:space-y-8">
       <Authenticated>
-        {loggedInUser && userProfile !== undefined && !userProfile && <NameSetupModal />}
+        {loggedInUser && needsRealName && !applyingPendingName && <NameSetupModal />}
         {currentPage === "routines" && (
           <RoutinesContent
             loggedInUser={loggedInUser}
-            displayName={userProfile?.displayName ?? loggedInUser?.name ?? ""}
+            displayName={needsRealName ? "" : profileName}
           />
         )}
         {currentPage === "workout" && <WorkoutPage />}
@@ -580,7 +605,7 @@ function Content({ currentPage }: { currentPage: Page }) {
   <h1
     className={`text-4xl sm:text-5xl md:text-7xl font-bold bg-[image:var(--sw-gradient)] bg-clip-text text-transparent`}
   >
-    SouthWe System
+    Personal Tracker
   </h1>
 </div>
 
@@ -629,7 +654,7 @@ function NameSetupModal() {
             </svg>
           </div>
           <h2 className={`mt-4 text-2xl font-bold ${colors.text}`}>What should we call you?</h2>
-          <p className={`mt-2 text-sm leading-6 ${colors.textSecondary}`}>This is the name SouthWe will use on your dashboard. It does not need to match your email.</p>
+          <p className={`mt-2 text-sm leading-6 ${colors.textSecondary}`}>This name will appear on your dashboard.</p>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -773,7 +798,6 @@ function RoutinesContent({ loggedInUser, displayName }: { loggedInUser: any; dis
     ) ?? [];
 
   const glowStrong = colors.primary.replace("rgb(", "rgba(").replace(")", ",0.35)");
-  const glowSoft = colors.primary.replace("rgb(", "rgba(").replace(")", ",0.22)");
 
   return (
     <>
@@ -786,12 +810,6 @@ function RoutinesContent({ loggedInUser, displayName }: { loggedInUser: any; dis
           Welcome Back{displayName ? `, ${displayName}` : ""}
         </h1>
 
-        <p
-          className={`${colors.textSecondary} text-sm sm:text-base`}
-          style={{ textShadow: `0 0 12px ${glowSoft}` }}
-        >
-          Your day, organized around what matters.
-        </p>
 
         <div className={`w-24 sm:w-32 h-1 bg-[image:var(--sw-gradient)] mx-auto rounded-full`} />
       </div>

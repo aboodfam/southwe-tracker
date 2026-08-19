@@ -54,6 +54,30 @@ function randomNeonHex() {
   return `#${toHex(rr)}${toHex(gg)}${toHex(bb)}`;
 }
 
+function ToggleSwitch({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={onChange}
+      className={`sw-toggle relative inline-flex h-[26px] w-[46px] shrink-0 overflow-hidden rounded-full border transition-colors duration-200 ${checked ? "border-white/25" : "border-white/12 bg-white/[0.12]"}`}
+      style={{
+        padding: "2px",
+        minHeight: "26px",
+        minWidth: "46px",
+        background: checked ? "var(--sw-gradient)" : undefined,
+      }}
+    >
+      <span
+        className="absolute top-[2px] h-5 w-5 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,.45)] transition-[left] duration-200 ease-out"
+        style={{ left: checked ? "22px" : "2px" }}
+      />
+    </button>
+  );
+}
+
 function ThemePreview({ option, selected }: { option: ThemeOption; selected: boolean }) {
   return (
     <div
@@ -163,21 +187,21 @@ export function ThemeSelector() {
 
       {isOpen && (
         <>
-          <button className="fixed inset-0 z-[90] cursor-default bg-black/15 backdrop-blur-[2px]" onClick={() => setIsOpen(false)} aria-label="Close settings" />
+          <button className="fixed inset-0 z-[90] cursor-default bg-black/45 backdrop-blur-[6px]" onClick={() => setIsOpen(false)} aria-label="Close settings" />
           <div
             className={`absolute right-0 top-full z-[100] mt-2 w-[min(92vw,430px)] overflow-hidden rounded-3xl border ${colors.border} shadow-2xl`}
             style={{
-              background: "rgba(5, 8, 12, 0.985)",
-              backdropFilter: "blur(30px) saturate(150%)",
-              WebkitBackdropFilter: "blur(30px) saturate(150%)",
+              background: "#07090d",
+              backdropFilter: "blur(36px) saturate(145%)",
+              WebkitBackdropFilter: "blur(36px) saturate(145%)",
               boxShadow: "0 28px 90px rgba(0,0,0,.62), 0 0 0 1px rgba(255,255,255,.025) inset",
             }}
           >
             <div className="border-b border-white/10 px-4 pt-4 sm:px-5 sm:pt-5">
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div>
-                  <p className={`text-base font-semibold ${colors.text}`}>Personalize SouthWe</p>
-                  <p className={`mt-0.5 text-xs ${colors.textSecondary}`}>Appearance and reward feedback</p>
+                  <p className={`text-base font-semibold ${colors.text}`}>Preferences</p>
+                  <p className={`mt-0.5 text-xs ${colors.textSecondary}`}>Theme, accent and sound</p>
                 </div>
                 <div className="h-8 w-16 rounded-full border border-white/10 p-1" style={{ background: useCustomAccent ? "#090b0f" : `linear-gradient(90deg, ${currentTheme.surface}, ${currentTheme.accent}35)` }}>
                   <div className="h-full w-full rounded-full bg-[image:var(--sw-gradient)] opacity-80" />
@@ -244,14 +268,11 @@ export function ThemeSelector() {
                         </div>
                         <p className={`mt-1 text-xs leading-5 ${colors.textSecondary}`}>Uses neutral graphite surfaces so the exact color you choose stays accurate and never mixes with another preset.</p>
                       </div>
-                      <button
-                        onClick={() => setUseCustomAccent(!useCustomAccent)}
-                        className={`relative h-6 w-11 shrink-0 rounded-full border transition ${useCustomAccent ? "border-white/25" : "border-white/10 bg-white/10"}`}
-                        style={useCustomAccent ? { background: "var(--sw-gradient)" } : undefined}
-                        aria-pressed={useCustomAccent}
-                      >
-                        <span className={`absolute top-0.5 h-[18px] w-[18px] rounded-full bg-white shadow transition-transform ${useCustomAccent ? "translate-x-[21px]" : "translate-x-0.5"}`} />
-                      </button>
+                      <ToggleSwitch
+                        checked={useCustomAccent}
+                        onChange={() => setUseCustomAccent(!useCustomAccent)}
+                        label="Toggle custom color"
+                      />
                     </div>
 
                     <div className={`mt-4 grid gap-3 transition-opacity ${useCustomAccent ? "opacity-100" : "opacity-45"}`}>
@@ -292,14 +313,11 @@ export function ThemeSelector() {
                       <h3 className={`text-sm font-semibold ${colors.text}`}>Reward sounds</h3>
                       <p className={`mt-1 text-xs ${colors.textSecondary}`}>Only plays for meaningful actions.</p>
                     </div>
-                    <button
-                      onClick={() => setSoundEnabled(!soundEnabled)}
-                      className={`relative h-6 w-11 rounded-full border transition ${soundEnabled ? "border-white/25" : "border-white/10 bg-white/10"}`}
-                      style={soundEnabled ? { background: "var(--sw-gradient)" } : undefined}
-                      aria-pressed={soundEnabled}
-                    >
-                      <span className={`absolute top-0.5 h-[18px] w-[18px] rounded-full bg-white shadow transition-transform ${soundEnabled ? "translate-x-[21px]" : "translate-x-0.5"}`} />
-                    </button>
+                    <ToggleSwitch
+                      checked={soundEnabled}
+                      onChange={() => setSoundEnabled(!soundEnabled)}
+                      label="Toggle reward sounds"
+                    />
                   </div>
 
                   {soundEnabled && (

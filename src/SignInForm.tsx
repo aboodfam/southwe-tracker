@@ -27,6 +27,16 @@ export function SignInForm() {
           const formData = new FormData(e.target as HTMLFormElement);
           formData.set("flow", flow);
 
+          if (flow === "signUp") {
+            const cleanName = String(formData.get("name") ?? "").trim().replace(/\s+/g, " ");
+            if (cleanName.length < 2) {
+              toast.error("Enter your name.");
+              setSubmitting(false);
+              return;
+            }
+            sessionStorage.setItem("pending_display_name", cleanName);
+          }
+
           void signIn("password", formData).catch((error) => {
             let toastTitle = "";
             if (error.message.includes("Invalid password")) {
@@ -37,11 +47,24 @@ export function SignInForm() {
                   ? "Could not sign in, did you mean to sign up?"
                   : "Could not sign up, did you mean to sign in?";
             }
+            if (flow === "signUp") sessionStorage.removeItem("pending_display_name");
             toast.error(toastTitle);
             setSubmitting(false);
           });
         }}
       >
+        {flow === "signUp" && (
+          <input
+            className={inputClass}
+            type="text"
+            name="name"
+            placeholder="Your name"
+            maxLength={32}
+            autoComplete="name"
+            required
+          />
+        )}
+
         <input
           className={inputClass}
           type="email"
@@ -62,10 +85,6 @@ export function SignInForm() {
         <button className={themedButton} type="submit" disabled={submitting}>
           {flow === "signIn" ? "Sign in" : "Sign up"}
         </button>
-
-        {flow === "signUp" && (
-          <p className="text-center text-xs text-secondary/80">You’ll choose the name shown on your dashboard after signing up.</p>
-        )}
 
         <div className="text-center text-sm text-secondary">
           <span>
