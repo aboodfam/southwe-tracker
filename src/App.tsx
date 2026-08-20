@@ -19,6 +19,7 @@ import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { SoundProvider } from "./contexts/SoundContext";
 import { useSound } from "./contexts/SoundContext";
 import { useDailyReset } from "./hooks/useDailyReset";
+import { TrustedDeviceGate } from "./TrustedDeviceGate";
 
 type Page = "routines" | "workout" | "habits" | "progress" | "athkar" | "macros";
 
@@ -456,12 +457,17 @@ function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>("routines");
   const [swapKey, setSwapKey] = useState(0);
   const [swapDir, setSwapDir] = useState<"left" | "right">("left");
+  const [athkarFocus, setAthkarFocus] = useState(false);
   const { theme, getThemeColors } = useTheme();
   const colors = getThemeColors();
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
 
   // Only touch authenticated daily data after auth has resolved.
   useDailyReset(isAuthenticated);
+
+  useEffect(() => {
+    if (currentPage !== "athkar") setAthkarFocus(false);
+  }, [currentPage]);
 
   const PAGE_ORDER: Page[] = ["routines", "workout", "habits", "progress", "athkar", "macros"];
 
@@ -488,7 +494,7 @@ function AppContent() {
   };
 
   const onTouchStart = (e: any) => {
-    if (!isAuthenticated || shouldIgnoreSwipe(e.target)) return;
+    if (!isAuthenticated || athkarFocus || shouldIgnoreSwipe(e.target)) return;
     const t = e.touches[0];
     swipeRef.current = { x: t.clientX, y: t.clientY, active: true, locked: false };
   };
@@ -526,34 +532,51 @@ function AppContent() {
 
   return (
     <div className={`min-h-screen bg-gradient-to-br ${colors.background} relative overflow-hidden`}>
-      <StarfieldBackground key={theme} />
+      {!authLoading && isAuthenticated && <StarfieldBackground key={theme} />}
 
-      <header className={`relative z-50 ${colors.backgroundSecondary} backdrop-blur-md border-b ${colors.border} shadow-2xl`}>
-        <div className="container mx-auto flex h-16 items-center justify-end px-3 sm:h-20 sm:px-4">
-          <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
-            <ThemeSelector />
-            <DesktopFullscreenButton />
-            <SignOutButton />
-          </div>
+      {authLoading ? (
+        <div className="grid min-h-screen place-items-center bg-black">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-white/70" />
         </div>
-      </header>
+      ) : isAuthenticated ? (
+        <TrustedDeviceGate>
+          <header className={`${athkarFocus ? "hidden sm:block" : ""} relative z-50 ${colors.backgroundSecondary} backdrop-blur-md border-b ${colors.border} shadow-2xl`}>
+            <div className="container mx-auto flex h-16 items-center justify-end px-3 sm:h-20 sm:px-4">
+              <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
+                <ThemeSelector />
+                <DesktopFullscreenButton />
+                <SignOutButton />
+              </div>
+            </div>
+          </header>
 
-      {!authLoading && isAuthenticated && (
-        <Navigation currentPage={currentPage} onPageChange={setCurrentPage} />
-      )}
+          <div className={athkarFocus ? "hidden sm:block" : ""}>
+            <Navigation currentPage={currentPage} onPageChange={setCurrentPage} />
+          </div>
 
-      <main className="relative z-10 container mx-auto px-3 py-4 sm:px-4 sm:py-8 pb-safe" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-          <div key={swapKey} className={swapDir === "left" ? "sw-page-swap-left" : "sw-page-swap-right"}>
-        <Content currentPage={currentPage} />
-                </div>
+          <main
+            className={`relative z-10 container mx-auto pb-safe ${athkarFocus ? "px-0 py-0 sm:px-4 sm:py-8" : "px-3 py-4 sm:px-4 sm:py-8"}`}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
+            <div key={swapKey} className={swapDir === "left" ? "sw-page-swap-left" : "sw-page-swap-right"}>
+              <Content currentPage={currentPage} onAthkarFocusChange={setAthkarFocus} />
+            </div>
+          </main>
+        </TrustedDeviceGate>
+      ) : (
+        <main className="relative z-10 min-h-screen">
+          <Content currentPage={currentPage} onAthkarFocusChange={setAthkarFocus} />
         </main>
+      )}
 
       <Toaster />
     </div>
   );
 }
 
-function Content({ currentPage }: { currentPage: Page }) {
+function Content({ currentPage, onAthkarFocusChange }: { currentPage: Page; onAthkarFocusChange: (focused: boolean) => void }) {
   const loggedInUser = useQuery(api.auth.loggedInUser);
   const userProfile = useQuery(api.auth.getProfile);
   // Keep Athkar subscribed while the user is in the app so opening the page
@@ -625,30 +648,31 @@ function Content({ currentPage }: { currentPage: Page }) {
         {currentPage === "workout" && <WorkoutPage />}
         {currentPage === "habits" && <HabitsPage />}
         {currentPage === "progress" && <ProgressPage />}
-        {currentPage === "athkar" && <AthkarPage prefetchedAthkar={prefetchedAthkar} />}
+        {currentPage === "athkar" && <AthkarPage prefetchedAthkar={prefetchedAthkar} onFocusModeChange={onAthkarFocusChange} />}
         {currentPage === "macros" && <MacrosPage />}
       </Authenticated>
 
       <Unauthenticated>
-        <div className="text-center space-y-6 sm:space-y-8 animate-fade-in px-4">
-<div className="relative">
-  {/* Premium controlled glow (smaller + softer) */}
-  <div className="pointer-events-none absolute inset-0 -z-10 flex items-center justify-center">
-    <div
-      className={`h-16 sm:h-20 w-[320px] sm:w-[520px] rounded-full bg-[image:var(--sw-gradient)] opacity-10 blur-2xl`}
-    />
-  </div>
+        <div className="auth-stage">
+          <div className="auth-shell">
+            <section className="auth-brand-panel">
+              <div className="auth-brand-topline">Personal operating system</div>
+              <h1 className="auth-brand-title">Ceventic<br />System</h1>
+              <p className="auth-brand-copy">One place for the systems you repeat, measure, and improve.</p>
 
-  <h1
-    className={`text-4xl sm:text-5xl md:text-7xl font-bold bg-[image:var(--sw-gradient)] bg-clip-text text-transparent`}
-  >
-    Ceventic System
-  </h1>
-</div>
+              <div className="auth-motion-board" aria-hidden="true">
+                <div className="auth-motion-row"><span>01</span><b>Plan the day</b><i /></div>
+                <div className="auth-motion-row"><span>02</span><b>Do the work</b><i /></div>
+                <div className="auth-motion-row"><span>03</span><b>Track the signal</b><i /></div>
+                <div className="auth-motion-row"><span>04</span><b>Repeat</b><i /></div>
+              </div>
 
-          <p className={`${colors.textSecondary} text-lg sm:text-xl`}>Your Personal Operating System</p>
-          <div className={`w-24 sm:w-32 h-1 bg-[image:var(--sw-gradient)] mx-auto rounded-full`} />
-          <SignInForm />
+              <div className="auth-brand-foot">Your Personal Operating System</div>
+            </section>
+            <section className="auth-form-panel">
+              <SignInForm />
+            </section>
+          </div>
         </div>
       </Unauthenticated>
     </div>

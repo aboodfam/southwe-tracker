@@ -12,6 +12,7 @@ import type * as athkar from "../athkar.js";
 import type * as auth from "../auth.js";
 import type * as daily from "../daily.js";
 import type * as date from "../date.js";
+import type * as deviceAuth from "../deviceAuth.js";
 import type * as habits from "../habits.js";
 import type * as http from "../http.js";
 import type * as migrations from "../migrations.js";
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   daily: typeof daily;
   date: typeof date;
+  deviceAuth: typeof deviceAuth;
   habits: typeof habits;
   http: typeof http;
   migrations: typeof migrations;

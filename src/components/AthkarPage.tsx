@@ -64,7 +64,7 @@ function clampPercent(value: number) {
   return Math.max(0, Math.min(100, value));
 }
 
-export function AthkarPage({ prefetchedAthkar }: { prefetchedAthkar?: Dhikr[] }) {
+export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetchedAthkar?: Dhikr[]; onFocusModeChange?: (focused: boolean) => void }) {
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const { play } = useSound();
@@ -96,6 +96,12 @@ export function AthkarPage({ prefetchedAthkar }: { prefetchedAthkar?: Dhikr[] })
     seededOnceRef.current = true;
     ensureDefaultAthkar().catch(() => {});
   }, [isLoading, ensureDefaultAthkar]);
+
+  useEffect(() => {
+    onFocusModeChange?.(selectedCategory !== null);
+  }, [selectedCategory, onFocusModeChange]);
+
+  useEffect(() => () => onFocusModeChange?.(false), [onFocusModeChange]);
 
   const countFor = (dhikr: Dhikr) => optimisticCounts[dhikr._id] ?? dhikr.currentCount;
 
@@ -351,10 +357,23 @@ export function AthkarPage({ prefetchedAthkar }: { prefetchedAthkar?: Dhikr[] })
           </section>
         </>
       ) : (
-        <div className="mx-auto max-w-5xl space-y-5">
-          <PageHeader title={selectedCategoryDef?.name ?? "Athkar"} subtitle={selectedCategoryDef?.description ?? "Focused remembrance."} />
+        <div className="mx-auto max-w-5xl space-y-5 athkar-focus-view">
+          <div className="sticky top-0 z-40 flex items-center justify-between border-b border-white/10 bg-black/95 px-3 py-3 sm:hidden">
+            <button onClick={() => setSelectedCategory(null)} className="grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-white/[0.03] text-white/70" aria-label="Back to Athkar sections">
+              <Icon name="chevronLeft" className="h-5 w-5" />
+            </button>
+            <div className="min-w-0 px-3 text-center">
+              <div className="truncate text-base font-bold text-white">{selectedCategoryDef?.name ?? "Athkar"}</div>
+              <div className="mt-0.5 text-[11px] text-white/40">{filteredAthkar.length} items</div>
+            </div>
+            <div className="h-11 w-11" />
+          </div>
 
-          <div className="flex items-center justify-between gap-3">
+          <div className="hidden sm:block">
+            <PageHeader title={selectedCategoryDef?.name ?? "Athkar"} subtitle={selectedCategoryDef?.description ?? "Focused remembrance."} />
+          </div>
+
+          <div className="hidden items-center justify-between gap-3 sm:flex">
             <button onClick={() => setSelectedCategory(null)} className={`inline-flex items-center gap-2 rounded-xl border ${colors.border} bg-black/30 px-3 py-2 text-sm ${colors.textSecondary} backdrop-blur-xl transition hover:bg-white/[0.05] hover:text-white`}>
               <Icon name="chevronLeft" className="h-4 w-4" /> Back to sections
             </button>
@@ -362,10 +381,10 @@ export function AthkarPage({ prefetchedAthkar }: { prefetchedAthkar?: Dhikr[] })
           </div>
 
           {currentDhikr ? (
-            <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} className={`relative overflow-hidden rounded-3xl border ${colors.border} ${colors.backgroundSecondary} backdrop-blur-xl`}>
+            <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} className={`relative overflow-hidden border-y border-white/[0.08] bg-black sm:rounded-3xl sm:border ${colors.border} sm:bg-[rgb(var(--sw-surface-rgb)/.92)] sm:backdrop-blur-xl`}>
               <div className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full bg-[image:var(--sw-gradient)] opacity-[0.06] blur-3xl" />
 
-              <div className="relative border-b border-white/[0.08] p-4 sm:p-5">
+              <div className="relative border-b border-white/[0.08] px-4 py-3 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
                   <button onClick={goNext} disabled={currentIndex >= filteredAthkar.length - 1} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-black/25 text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25" aria-label="Next Athkar">
                     <Icon name="chevronLeft" className="h-4 w-4" />
@@ -388,14 +407,14 @@ export function AthkarPage({ prefetchedAthkar }: { prefetchedAthkar?: Dhikr[] })
                 </div>
               </div>
 
-              <div className={`relative px-5 py-7 sm:px-8 sm:py-10 ${slideClass}`}>
-                <div className="mx-auto min-h-[300px] max-w-3xl">
-                  <div dir="rtl" className="text-right text-[1.65rem] leading-[1.95] text-white sm:text-[2rem] lg:text-[2.2rem]">{currentDhikr.text}</div>
+              <div className={`relative px-5 py-8 sm:px-8 sm:py-10 ${slideClass}`}>
+                <div className="mx-auto min-h-[42vh] max-w-3xl sm:min-h-[300px]">
+                  <div dir="rtl" className="text-right text-[1.9rem] leading-[2.05] text-white sm:text-[2rem] lg:text-[2.2rem]">{currentDhikr.text}</div>
                   {currentDhikr.translation && <p className="mt-8 border-t border-white/[0.07] pt-5 text-center text-sm leading-7 text-white/50 sm:text-base">{currentDhikr.translation}</p>}
                 </div>
               </div>
 
-              <div className="relative border-t border-white/[0.08] p-4 sm:p-5">
+              <div className="sticky bottom-0 z-30 border-t border-white/[0.08] bg-black/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:relative sm:bg-transparent sm:p-5">
                 <div className="mb-3 flex items-center justify-between gap-3 text-xs">
                   <span className="text-white/40">{Math.max(0, currentDhikr.targetCount - currentDhikrCount)} remaining</span>
                   <span className={`font-semibold ${currentDhikrCount >= currentDhikr.targetCount ? colors.text : "text-white/50"}`}>{currentDhikrCount >= currentDhikr.targetCount ? "Completed" : "In progress"}</span>
@@ -408,7 +427,7 @@ export function AthkarPage({ prefetchedAthkar }: { prefetchedAthkar?: Dhikr[] })
                   {currentDhikrCount < currentDhikr.targetCount ? "Count +1" : currentIndex < filteredAthkar.length - 1 ? "Continue" : "Completed"}
                 </button>
 
-                <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="mt-3 hidden grid-cols-3 gap-2 sm:grid">
                   <button onClick={() => void handleReset(currentDhikr._id)} className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-black/20 px-2 py-2.5 text-xs text-white/55 transition hover:bg-white/[0.05] hover:text-white">
                     <Icon name="refresh" className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Reset</span>
                   </button>

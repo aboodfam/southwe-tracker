@@ -196,6 +196,30 @@ const applicationTables = {
     weightUnit: v.union(v.literal("kg"), v.literal("lbs")),
   }).index("by_user", ["userId"]),
 
+
+  trustedDevices: defineTable({
+    userId: v.id("users"),
+    tokenHash: v.string(),
+    label: v.string(),
+    createdAt: v.number(),
+    lastVerifiedAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_token", ["userId", "tokenHash"]),
+
+  deviceVerificationChallenges: defineTable({
+    userId: v.id("users"),
+    deviceHash: v.string(),
+    codeHash: v.string(),
+    label: v.string(),
+    expiresAt: v.number(),
+    attempts: v.number(),
+    sentAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_device", ["userId", "deviceHash"]),
+
   // One small rolling document per user/action. This bounds abusive structural
   // mutations without creating an ever-growing request log.
   rateLimits: defineTable({
