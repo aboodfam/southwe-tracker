@@ -261,7 +261,7 @@ export function ThemeSelector() {
                     </div>
                   </div>
 
-                  <div className={`rounded-2xl border p-4 transition ${useCustomAccent ? "border-white/30 bg-white/[0.06] shadow-lg" : "border-white/10 bg-black/20"}`}>
+                  <div className={`min-w-0 overflow-hidden rounded-2xl border p-4 transition ${useCustomAccent ? "border-white/30 bg-white/[0.06] shadow-lg" : "border-white/10 bg-black/20"}`}>
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-2">
@@ -278,8 +278,16 @@ export function ThemeSelector() {
                     </div>
 
                     <div className={`mt-4 grid gap-3 transition-opacity ${useCustomAccent ? "opacity-100" : "opacity-45"}`}>
-                      <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-2.5">
-                        <input type="color" value={customAccent} onChange={(e) => { const exact = e.target.value.toUpperCase(); setCustomAccent(exact); setAccentDraft(exact); }} disabled={!useCustomAccent} className="h-9 w-11 cursor-pointer rounded-lg border-0 bg-transparent p-0" aria-label="Pick exact custom color" />
+                      <div className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_56px] items-center gap-2 overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] p-2.5 sm:gap-3">
+                        <input
+                          type="color"
+                          value={customAccent}
+                          onChange={(e) => { const exact = e.target.value.toUpperCase(); setCustomAccent(exact); setAccentDraft(exact); }}
+                          disabled={!useCustomAccent}
+                          className="h-9 w-11 min-w-0 max-w-[44px] cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                          style={{ width: 44, minWidth: 44, maxWidth: 44 }}
+                          aria-label="Pick exact custom color"
+                        />
                         <input
                           type="text"
                           value={accentDraft}
@@ -292,11 +300,15 @@ export function ThemeSelector() {
                           onBlur={commitAccentDraft}
                           onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur(); }}
                           disabled={!useCustomAccent}
-                          className="min-w-0 flex-1 bg-transparent font-mono text-sm uppercase text-white outline-none"
+                          className="w-full min-w-0 bg-transparent font-mono text-sm uppercase text-white outline-none"
                           spellCheck={false}
                           maxLength={7}
                         />
-                        <div className="h-7 w-16 rounded-lg border border-white/10" style={{ background: customAccent, boxShadow: `0 0 16px ${customAccent}55` }} title={`Exact color ${customAccent}`} />
+                        <div
+                          className="h-7 w-14 max-w-full shrink-0 rounded-lg border border-white/10"
+                          style={{ background: customAccent, boxShadow: `0 0 12px ${customAccent}40` }}
+                          title={`Exact color ${customAccent}`}
+                        />
                       </div>
                       <button
                         onClick={() => { const next = randomNeonHex().toUpperCase(); setCustomAccent(next); setAccentDraft(next); setUseCustomAccent(true); play("notification"); }}

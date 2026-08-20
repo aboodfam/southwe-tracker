@@ -116,6 +116,54 @@ export const deleteWorkoutDay = mutation({
   },
 });
 
+
+export const applyWorkoutSplit = mutation({
+  args: { names: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    if (args.names.length !== 7) throw new Error("A split must contain exactly 7 days");
+    const names = args.names.map((name, index) =>
+      cleanText(name, `Day ${index + 1} name`, LIMITS.workoutDayName),
+    );
+
+    // One rate-limit check and one Convex mutation means the visible workout
+    // week updates atomically instead of flashing through seven separate writes.
+    await enforceRateLimit(ctx, userId, "workouts:structure", 30, 60_000);
+    const activeDays = await ctx.db
+      .query("workoutDays")
+      .withIndex("by_user_active", (q) => q.eq("userId", userId).eq("isActive", true))
+      .take(LIMITS.workoutDays);
+    activeDays.sort((a, b) => a.order - b.order);
+
+    for (let index = 0; index < names.length; index += 1) {
+      const existing = activeDays[index];
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          name: names[index],
+          order: index + 1,
+          warmupNotes: undefined,
+        });
+      } else {
+        await ctx.db.insert("workoutDays", {
+          userId,
+          name: names[index],
+          order: index + 1,
+          exercises: [],
+          isActive: true,
+        });
+      }
+    }
+
+    for (let index = names.length; index < activeDays.length; index += 1) {
+      await ctx.db.delete(activeDays[index]._id);
+    }
+
+    return { count: names.length };
+  },
+});
+
 export const addExercise = mutation({
   args: {
     dayId: v.id("workoutDays"),

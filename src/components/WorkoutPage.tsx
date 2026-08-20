@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -94,6 +95,7 @@ export function WorkoutPage() {
 
   const toggleComplete = useMutation(api.workouts.toggleExerciseComplete);
   const completeWorkout = useMutation(api.workouts.completeWorkout);
+  const applyWorkoutSplit = useMutation(api.workouts.applyWorkoutSplit);
 
   const [selectedIdx, setSelectedIdx] = useState(0);
   const initRef = useRef(false);
@@ -201,6 +203,7 @@ export function WorkoutPage() {
   // ---- Split switcher ----
   const [splitKey, setSplitKey] = useState<keyof typeof SPLITS>("days");
   const [showSplitConfirm, setShowSplitConfirm] = useState(false);
+  const [applyingSplit, setApplyingSplit] = useState(false);
 
   // light inference (no risk if wrong)
   useEffect(() => {
@@ -234,39 +237,27 @@ export function WorkoutPage() {
   }, [daysLoading, days]);
 
   const applySplitTemplate = () => {
-    if (daysLoading) return;
+    if (daysLoading || applyingSplit) return;
     if (days.length === 0) return;
     setShowSplitConfirm(true);
   };
 
   const confirmApplySplit = async () => {
+    if (applyingSplit) return;
+    const template = [...SPLITS[splitKey].names];
 
-    const template = SPLITS[splitKey].names;
-
+    // Close the confirmation immediately. The backend applies the whole split
+    // in one transaction, so users never watch day names update one-by-one.
+    setShowSplitConfirm(false);
+    setApplyingSplit(true);
     try {
-      // Ensure we have at least 7 visible days (template always 7)
-      for (let i = 0; i < template.length; i++) {
-        if (days[i]) {
-          await updateDay({
-            dayId: days[i]._id,
-            name: template[i],
-            warmupNotes: undefined,
-          });
-        } else {
-          await createDay({ name: template[i] });
-        }
-      }
-
-      // Hide extras
-      for (let i = template.length; i < days.length; i++) {
-        await deleteDay({ dayId: days[i]._id });
-      }
-
+      await applyWorkoutSplit({ names: template });
       setSelectedIdx(0);
-      setShowSplitConfirm(false);
       toast.success("Split applied");
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to apply split");
+    } finally {
+      setApplyingSplit(false);
     }
   };
 
@@ -497,7 +488,8 @@ play("notification", 0.9);
             <select
               value={splitKey}
               onChange={(e) => setSplitKey(e.target.value as any)}
-              className="rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-white/20 min-w-0 flex-1 sm:flex-none"
+              disabled={applyingSplit}
+              className="rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-white/20 min-w-0 flex-1 sm:flex-none disabled:cursor-wait disabled:opacity-50"
             >
               {Object.entries(SPLITS).map(([k, v]) => (
                 <option key={k} value={k}>
@@ -508,13 +500,14 @@ play("notification", 0.9);
 
             <button
               onClick={applySplitTemplate}
-              className="px-3 sm:px-4 py-2 rounded-xl font-semibold text-black text-sm whitespace-nowrap"
+              disabled={applyingSplit}
+              className="px-3 sm:px-4 py-2 rounded-xl font-semibold text-black text-sm whitespace-nowrap disabled:cursor-wait disabled:opacity-60"
               style={{
                 background: `linear-gradient(90deg, ${rgbaFromRgb(accent, 1)}, ${rgbaFromRgb(accent, 0.75)})`,
                 boxShadow: `0 0 22px ${rgbaFromRgb(accent, 0.14)}`,
               }}
             >
-              Apply
+              {applyingSplit ? "Applying…" : "Apply"}
             </button>
           </div>
         </div>
@@ -670,7 +663,15 @@ play("notification", 0.9);
           {/* No exercises */}
           {orderedExercises.length === 0 ? (
             <SectionCard title="Exercises" subtitle="" accent={accent}>
-              <div className="text-white/55 text-sm">No exercises yet.</div>
+              <div className="space-y-3">
+                <div className="text-white/55 text-sm">No exercises yet.</div>
+                <button
+                  onClick={() => openAddExercise()}
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/[0.07] hover:text-white"
+                >
+                  + Add Exercise
+                </button>
+              </div>
             </SectionCard>
           ) : (
             grouped.map((g, gi) => (
@@ -770,7 +771,6 @@ play("notification", 0.9);
               onChange={(e) => setExName(e.target.value)}
               className="w-full rounded-xl bg-black/35 border border-white/10 px-3 py-2 text-white/90 placeholder:text-white/30 focus:outline-none focus:border-white/20"
               placeholder="Exercise name"
-              autoFocus
             />
 
             <div className="grid grid-cols-2 gap-3">
@@ -850,7 +850,7 @@ play("notification", 0.9);
       {confirmDeleteDay && (
         <Modal onClose={() => setConfirmDeleteDay(false)} accent={accent} title="Delete this day?">
           <div className="text-white/70 text-sm">
-            This will hide the day (safe delete). You can't undo from the UI.
+            This permanently deletes this workout day and its exercises. Historical progress stays intact.
           </div>
           <div className="flex gap-2 pt-4">
             <button
@@ -998,27 +998,56 @@ function Modal({
   onClose: () => void;
   accent: string;
 }) {
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4">
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose]);
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] grid min-h-[100dvh] place-items-center overflow-hidden p-3 sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
+      <button
+        type="button"
+        className="absolute inset-0 h-full w-full cursor-default bg-black/75"
+        onClick={onClose}
+        aria-label="Close dialog"
+      />
       <div
-        className="relative w-full max-w-lg rounded-2xl border bg-black/70 backdrop-blur-xl p-4 sm:p-5 md:p-6 animate-scale-in max-h-[90vh] overflow-y-auto"
+        className="relative z-10 w-full max-w-lg max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain rounded-2xl border bg-[#090909] p-4 shadow-2xl animate-scale-in sm:max-h-[calc(100dvh-2rem)] sm:p-5 md:p-6"
         style={{
           borderColor: rgbaFromRgb(accent, 0.25),
           boxShadow: `0 0 60px ${rgbaFromRgb(accent, 0.10)}`,
         }}
       >
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div className="text-base sm:text-lg font-bold text-white">{title}</div>
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div className="text-base font-bold text-white sm:text-lg">{title}</div>
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-lg px-2 py-1 text-white/60 hover:text-white/90 hover:bg-white/5 transition flex-shrink-0"
+            className="flex-shrink-0 rounded-lg px-2 py-1 text-white/60 transition hover:bg-white/5 hover:text-white/90"
+            aria-label="Close dialog"
           >
             ✕
           </button>
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
+

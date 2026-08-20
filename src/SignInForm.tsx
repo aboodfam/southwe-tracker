@@ -28,6 +28,7 @@ export function SignInForm() {
   const [email, setEmail] = useState("");
   const [resetCode, setResetCode] = useState("");
   const desktopApp = useMemo(() => isTauri(), []);
+  const passwordRecoveryEnabled = import.meta.env.VITE_PASSWORD_RECOVERY_ENABLED === "true";
 
   const inputClass = "auth-input-field auth-input-modern";
 
@@ -189,8 +190,12 @@ export function SignInForm() {
       <div className="mt-5 flex flex-wrap items-center justify-center gap-x-2 gap-y-2 text-sm text-white/42">
         {mode === "signIn" && (
           <>
-            <button onClick={() => switchMode("forgot")} className="auth-text-button">Forgot password?</button>
-            <span className="text-white/15">•</span>
+            {passwordRecoveryEnabled && (
+              <>
+                <button onClick={() => switchMode("forgot")} className="auth-text-button">Forgot password?</button>
+                <span className="text-white/15">•</span>
+              </>
+            )}
             <span>New here?</span>
             <button onClick={() => switchMode("signUp")} className="auth-text-button">Create account</button>
           </>
