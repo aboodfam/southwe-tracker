@@ -207,6 +207,12 @@ export function SignInForm() {
           <button onClick={() => switchMode("signIn")} className="auth-text-button">← Back to sign in</button>
         )}
       </div>
+
+      <div className="mt-6 flex items-center justify-center gap-3 border-t border-white/[0.06] pt-4 text-[11px] text-white/28">
+        <a href={desktopApp ? "#/privacy" : "/privacy"} className="transition hover:text-white/60">Privacy</a>
+        <span>•</span>
+        <a href={desktopApp ? "#/terms" : "/terms"} className="transition hover:text-white/60">Terms</a>
+      </div>
     </div>
   );
 }

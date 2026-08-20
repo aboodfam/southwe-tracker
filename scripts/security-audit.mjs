@@ -101,6 +101,34 @@ const tauri = JSON.parse(read("src-tauri/tauri.conf.json"));
 const csp = tauri?.app?.security?.csp;
 if (!csp || csp === null) fail("Tauri CSP must not be disabled");
 
+// Tauri only accepts a documented allowlist of response header names. Keep
+// this regression guard in sync with the Tauri v2 HTTP Headers documentation
+// so an unsupported browser-only header cannot break the Windows build.
+const allowedTauriHeaders = new Set([
+  "Access-Control-Allow-Credentials",
+  "Access-Control-Allow-Headers",
+  "Access-Control-Allow-Methods",
+  "Access-Control-Expose-Headers",
+  "Access-Control-Max-Age",
+  "Cross-Origin-Embedder-Policy",
+  "Cross-Origin-Opener-Policy",
+  "Cross-Origin-Resource-Policy",
+  "Permissions-Policy",
+  "Service-Worker-Allowed",
+  "Timing-Allow-Origin",
+  "X-Content-Type-Options",
+  "Tauri-Custom-Header",
+]);
+for (const headerName of Object.keys(tauri?.app?.security?.headers ?? {})) {
+  if (!allowedTauriHeaders.has(headerName)) {
+    fail(`Tauri security header ${headerName} is not supported by the Tauri v2 config schema`);
+  }
+}
+
+
+for (const legalFile of ["src/LegalPage.tsx"]) {
+  if (!fs.existsSync(path.join(root, legalFile))) fail(`${legalFile} is missing`);
+}
 if (!fs.existsSync(path.join(root, "package-lock.json"))) {
   notes.push("package-lock.json is not committed yet; generate it once on a machine with npm registry access.");
 }

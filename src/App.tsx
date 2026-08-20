@@ -2,6 +2,7 @@ import { Authenticated, Unauthenticated, useConvexAuth, useQuery, useMutation } 
 import { api } from "../convex/_generated/api";
 import { SignInForm } from "./SignInForm";
 import { SignOutButton } from "./SignOutButton";
+import { LegalPage } from "./LegalPage";
 import { DesktopFullscreenButton } from "./DesktopFullscreenButton";
 import { Toaster, toast } from "sonner";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -450,6 +451,11 @@ function CreateRoutineCard() {
 /* ========================= */
 
 export default function App() {
+  const legalPath = typeof window !== "undefined" ? window.location.pathname.replace(/\/+$/, "") : "";
+  const legalHash = typeof window !== "undefined" ? window.location.hash : "";
+  if (legalPath === "/privacy" || legalHash === "#/privacy") return <LegalPage kind="privacy" />;
+  if (legalPath === "/terms" || legalHash === "#/terms") return <LegalPage kind="terms" />;
+
   return (
     <ThemeProvider>
       <SoundProvider>
