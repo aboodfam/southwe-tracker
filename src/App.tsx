@@ -104,7 +104,10 @@ function StarfieldBackground() {
     const resize = () => {
       const isMobileViewport = window.innerWidth <= 640;
       const rawDpr = window.devicePixelRatio || 1;
-      dpr = Math.min(rawDpr, isMobileViewport ? 1.5 : 2);
+      // A 3x phone screen makes a full-screen canvas dramatically more expensive.
+      // At mobile sizes the stars are intentionally decorative, so one physical
+      // pixel per CSS pixel is enough and cuts canvas work substantially.
+      dpr = Math.min(rawDpr, isMobileViewport ? 1 : 2);
       w = Math.floor(window.innerWidth);
       h = Math.floor(window.innerHeight);
 
@@ -135,14 +138,17 @@ function StarfieldBackground() {
     // budget on hundreds of particles at 3x device pixel ratio.
     const starCount = isMobileViewport
       ? (isWhite
-          ? clamp(Math.floor(area / 5200), 130, 220)
-          : clamp(Math.floor(area / 7000), 105, 180))
+          ? clamp(Math.floor(area / 10500), 48, 82)
+          : clamp(Math.floor(area / 12500), 42, 72))
       : (isWhite
           ? clamp(Math.floor(area / 6200), 260, 620)
           : clamp(Math.floor(area / 9000), 180, 420));
 
+    // Radial gradients across a full-screen canvas are one of the most expensive
+    // parts of this effect on mobile GPUs. Desktop keeps them; phones don't need
+    // them to preserve the starfield feel.
     const glowCount = isMobileViewport
-      ? (isWhite ? 5 : 3)
+      ? 0
       : (isWhite
           ? clamp(Math.floor(area / 130000), 12, 26)
           : clamp(Math.floor(area / 170000), 7, 16));
@@ -186,7 +192,7 @@ function StarfieldBackground() {
       a: rand(0.06, 0.11),
     }));
 
-    const FPS = isMobileViewport ? 24 : 30;
+    const FPS = isMobileViewport ? 18 : 30;
     const frameInterval = 1000 / FPS;
     let lastTime = 0;
 
@@ -219,7 +225,7 @@ function StarfieldBackground() {
 
         const c = s.mix === "white" ? palette.white : palette.tint;
 
-        if (s.r > 1.5) {
+        if (!isMobileViewport && s.r > 1.5) {
           ctx.fillStyle = rgba(c, s.a * 0.22);
           ctx.beginPath();
           ctx.arc(s.x, s.y, s.r * 3.2, 0, Math.PI * 2);
@@ -532,7 +538,11 @@ function AppContent() {
 
   return (
     <div className={`min-h-screen bg-gradient-to-br ${colors.background} relative overflow-hidden`}>
-      {!authLoading && isAuthenticated && <StarfieldBackground key={theme} />}
+      {!authLoading && isAuthenticated && (
+        <div className={athkarFocus ? "hidden sm:block" : undefined}>
+          <StarfieldBackground key={theme} />
+        </div>
+      )}
 
       {authLoading ? (
         <div className="grid min-h-screen place-items-center bg-black">

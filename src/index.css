@@ -25,6 +25,8 @@ html {
   scroll-behavior: smooth;
   background: #000;
   color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html, body, #root {
@@ -310,20 +312,32 @@ button,
     padding: 0.375rem 0 !important;
   }
 
-  /* Costly full-screen blur layers are toned down on phones while the
-     foreground cards/menus keep their glass treatment. */
+  /* Backdrop blur is expensive on phone GPUs because it continuously samples
+     everything behind each translucent card while the starfield moves. Keep
+     the dark glass colors/borders but remove the live blur pass on phones. */
+  .backdrop-blur-xl,
+  .backdrop-blur-lg,
+  .backdrop-blur-md,
+  .backdrop-blur-sm,
   header.backdrop-blur-md {
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
 
-  .backdrop-blur-xl { --tw-backdrop-blur: blur(10px) !important; }
-  .backdrop-blur-lg { --tw-backdrop-blur: blur(8px) !important; }
-  .backdrop-blur-md { --tw-backdrop-blur: blur(7px) !important; }
-  .backdrop-blur-sm { --tw-backdrop-blur: blur(4px) !important; }
+  /* Avoid asking the browser to consider every CSS property animatable. */
+  .transition-all {
+    transition-property: color, background-color, border-color, opacity, transform !important;
+  }
 }
 
 
+
+
+.athkar-arabic-text {
+  font-size: 1.28rem;
+  line-height: 1.95;
+  font-weight: 400;
+}
 
 /* Additional utility classes */
 .force-ltr {
@@ -764,4 +778,14 @@ body,
     min-height: 100dvh;
     background: #000;
   }
+}
+
+/* Step 17.3: focused mobile Athkar typography/performance. */
+@media (max-width: 639px) {
+  .athkar-arabic-text {
+    font-size: clamp(1.18rem, 5.1vw, 1.32rem);
+    line-height: 1.95;
+    letter-spacing: 0;
+  }
+
 }
