@@ -20,17 +20,19 @@
     "security:audit": "node scripts/security-audit.mjs"
   },
   "dependencies": {
-    "@convex-dev/auth": "^0.0.80",
+    "@auth/core": "0.41.3",
+    "@convex-dev/auth": "0.0.94",
+    "@tauri-apps/api": "^2.0.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sonner": "^2.0.3",
-    "tailwind-merge": "^3.1.0",
-    "@tauri-apps/api": "^2.0.0"
+    "tailwind-merge": "^3.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
+    "@tauri-apps/cli": "^2.0.0",
     "@types/node": "^22.13.10",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
@@ -48,7 +50,10 @@
     "tailwindcss": "~3",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.24.1",
-    "vite": "^6.2.0",
-    "@tauri-apps/cli": "^2.0.0"
+    "vite": "^6.2.0"
+  },
+  "allowScripts": {
+    "esbuild@0.27.0": true,
+    "esbuild@0.25.12": true
   }
 }
