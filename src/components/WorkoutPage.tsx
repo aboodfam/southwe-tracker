@@ -204,6 +204,7 @@ export function WorkoutPage() {
   const [splitKey, setSplitKey] = useState<keyof typeof SPLITS>("days");
   const [showSplitConfirm, setShowSplitConfirm] = useState(false);
   const [applyingSplit, setApplyingSplit] = useState(false);
+  const [splitPreviewNames, setSplitPreviewNames] = useState<string[] | null>(null);
 
   // light inference (no risk if wrong)
   useEffect(() => {
@@ -246,15 +247,34 @@ export function WorkoutPage() {
     if (applyingSplit) return;
     const template = [...SPLITS[splitKey].names];
 
-    // Close the confirmation immediately. The backend applies the whole split
-    // in one transaction, so users never watch day names update one-by-one.
+    // Close the confirmation immediately, but keep the satisfying one-by-one
+    // rename sequence in the UI. The actual database write remains one atomic
+    // Convex mutation so a network failure cannot leave half a split applied.
     setShowSplitConfirm(false);
     setApplyingSplit(true);
+    setSplitPreviewNames(days.map((day) => day.name));
+
+    const applyPromise = applyWorkoutSplit({ names: template });
+
     try {
-      await applyWorkoutSplit({ names: template });
+      for (let index = 0; index < template.length; index += 1) {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 160));
+        setSplitPreviewNames((current) => {
+          const next = current ? [...current] : days.map((day) => day.name);
+          next[index] = template[index];
+          return next;
+        });
+      }
+
+      await applyPromise;
       setSelectedIdx(0);
+      // Give the final rename a moment to land before handing display back to
+      // the live Convex subscription, which now contains the same names.
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 120));
+      setSplitPreviewNames(null);
       toast.success("Split applied");
     } catch (e: any) {
+      setSplitPreviewNames(null);
       toast.error(e?.message ?? "Failed to apply split");
     } finally {
       setApplyingSplit(false);
@@ -531,8 +551,9 @@ play("notification", 0.9);
           <div className="contents">
             {days.map((d, i) => {
               const active = i === selectedIdx;
+              const displayName = splitPreviewNames?.[i] ?? d.name;
               const isRestLike =
-                d.name.toLowerCase().includes("rest") || (d.exercises?.length ?? 0) === 0;
+                displayName.toLowerCase().includes("rest") || (d.exercises?.length ?? 0) === 0;
 
               return (
                 <button
@@ -560,9 +581,9 @@ play("notification", 0.9);
                   <div
                     className="text-xs sm:text-sm font-bold truncate"
                     style={{ color: active ? colors.primary : "rgba(255,255,255,0.80)" }}
-                    title={d.name}
+                    title={displayName}
                   >
-                    {d.name}
+                    {displayName}
                   </div>
                   <div className="text-[10px] sm:text-[11px] mt-1" style={{ color: "rgba(255,255,255,0.45)" }}>
                     {isRestLike ? "Rest" : "Train"}
@@ -594,7 +615,7 @@ play("notification", 0.9);
             <div className="flex items-start justify-between gap-3 sm:gap-4">
               <div className="min-w-0 flex-1">
                 <div className="text-base sm:text-lg md:text-xl font-bold text-white truncate">
-                  Day {selectedIdx + 1}: {selectedDay.name}
+                  Day {selectedIdx + 1}: {splitPreviewNames?.[selectedIdx] ?? selectedDay.name}
                 </div>
                 <div className="mt-1 sm:mt-2 text-sm" style={{ color: "rgba(255,255,255,0.55)" }}>
                   Progress
