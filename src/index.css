@@ -23,6 +23,13 @@
 
 html {
   scroll-behavior: smooth;
+  background: #000;
+  color-scheme: dark;
+}
+
+html, body, #root {
+  min-height: 100%;
+  background: #000;
 }
 
 body {
@@ -512,6 +519,8 @@ body,
 
 .auth-brand-panel {
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 610px;
   padding: 3.25rem;
   border-right: 1px solid rgba(255,255,255,.08);
@@ -556,12 +565,15 @@ body,
 }
 
 .auth-motion-board {
-  position: absolute;
-  left: 3.25rem;
-  right: 3.25rem;
-  bottom: 5.8rem;
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
   display: grid;
   gap: .65rem;
+  margin-top: auto;
+  margin-bottom: 3.15rem;
+  padding-top: 2.1rem;
 }
 
 .auth-motion-row {
@@ -739,6 +751,15 @@ body,
 }
 
 @media (max-width: 639px) {
+  html, body, #root {
+    background-color: #000 !important;
+  }
+
+  body {
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+
   .athkar-focus-view {
     min-height: 100dvh;
     background: #000;

@@ -409,7 +409,7 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
 
               <div className={`relative px-5 py-8 sm:px-8 sm:py-10 ${slideClass}`}>
                 <div className="mx-auto min-h-[42vh] max-w-3xl sm:min-h-[300px]">
-                  <div dir="rtl" className="text-right text-[1.9rem] leading-[2.05] text-white sm:text-[2rem] lg:text-[2.2rem]">{currentDhikr.text}</div>
+                  <div dir="rtl" className="text-right text-[1.6rem] leading-[2] text-white sm:text-[2rem] sm:leading-[2.05] lg:text-[2.2rem]">{currentDhikr.text}</div>
                   {currentDhikr.translation && <p className="mt-8 border-t border-white/[0.07] pt-5 text-center text-sm leading-7 text-white/50 sm:text-base">{currentDhikr.translation}</p>}
                 </div>
               </div>
