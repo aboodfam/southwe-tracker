@@ -138,8 +138,8 @@ function StarfieldBackground() {
     // budget on hundreds of particles at 3x device pixel ratio.
     const starCount = isMobileViewport
       ? (isWhite
-          ? clamp(Math.floor(area / 10500), 48, 82)
-          : clamp(Math.floor(area / 12500), 42, 72))
+          ? clamp(Math.floor(area / 15000), 30, 48)
+          : clamp(Math.floor(area / 17000), 26, 44))
       : (isWhite
           ? clamp(Math.floor(area / 6200), 260, 620)
           : clamp(Math.floor(area / 9000), 180, 420));
@@ -192,7 +192,7 @@ function StarfieldBackground() {
       a: rand(0.06, 0.11),
     }));
 
-    const FPS = isMobileViewport ? 18 : 30;
+    const FPS = isMobileViewport ? 10 : 30;
     const frameInterval = 1000 / FPS;
     let lastTime = 0;
 
@@ -477,16 +477,36 @@ function AppContent() {
 
   const PAGE_ORDER: Page[] = ["routines", "workout", "habits", "progress", "athkar", "macros"];
 
+  const navigateToPage = (page: Page, direction?: "left" | "right") => {
+    if (page === currentPage) {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      return;
+    }
+
+    const fromIndex = PAGE_ORDER.indexOf(currentPage);
+    const toIndex = PAGE_ORDER.indexOf(page);
+    setSwapDir(direction ?? (toIndex >= fromIndex ? "left" : "right"));
+    setCurrentPage(page);
+    setSwapKey((key) => key + 1);
+
+    // Touch browsers can keep the last tapped nav button in a sticky
+    // :hover/:focus state. Clear it after every route change so only the
+    // current page can look selected.
+    requestAnimationFrame(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    });
+  };
+
   const goPrev = () => {
     const idx = PAGE_ORDER.indexOf(currentPage);
     const next = PAGE_ORDER[(idx - 1 + PAGE_ORDER.length) % PAGE_ORDER.length];
-    setCurrentPage(next);
+    navigateToPage(next, "right");
   };
 
   const goNext = () => {
     const idx = PAGE_ORDER.indexOf(currentPage);
     const next = PAGE_ORDER[(idx + 1) % PAGE_ORDER.length];
-    setCurrentPage(next);
+    navigateToPage(next, "left");
   };
 
   const swipeRef = useRef({ x: 0, y: 0, active: false, locked: false });
@@ -561,7 +581,7 @@ function AppContent() {
           </header>
 
           <div className={athkarFocus ? "hidden sm:block" : ""}>
-            <Navigation currentPage={currentPage} onPageChange={setCurrentPage} />
+            <Navigation currentPage={currentPage} onPageChange={navigateToPage} />
           </div>
 
           <main

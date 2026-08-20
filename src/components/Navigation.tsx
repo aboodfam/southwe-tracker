@@ -29,17 +29,21 @@ export function Navigation({ currentPage, onPageChange }: NavigationProps) {
               <button
                 key={page.id}
                 onClick={() => onPageChange(page.id)}
+                onPointerUp={(event) => {
+                  if (event.pointerType !== "mouse") event.currentTarget.blur();
+                }}
+                aria-current={active ? "page" : undefined}
                 className={`sw-nav-button group relative flex w-full min-w-0 items-center justify-center gap-0 rounded-xl border px-0 py-1.5 text-sm font-medium transition-all duration-200 sm:w-auto sm:shrink-0 sm:gap-2 sm:px-3.5 sm:py-2 ${
                   active
                     ? "border-white/15 bg-white/[0.06] text-white shadow-lg"
-                    : `border-transparent ${colors.textSecondary} hover:border-white/10 hover:bg-white/[0.04] hover:text-white`
+                    : `border-transparent ${colors.textSecondary} sm:hover:border-white/10 sm:hover:bg-white/[0.04] sm:hover:text-white`
                 }`}
               >
                 <span
-                  className={`grid h-7 w-7 place-items-center rounded-lg border transition ${active ? colors.border : "border-white/10 bg-white/[0.025] group-hover:bg-white/[0.05]"}`}
+                  className={`grid h-7 w-7 place-items-center rounded-lg border transition ${active ? colors.border : "border-white/10 bg-white/[0.025] sm:group-hover:bg-white/[0.05]"}`}
                   style={active ? { background: "linear-gradient(135deg, rgb(var(--sw-accent-rgb) / 0.18), rgb(var(--sw-accent-rgb) / 0.05))" } : undefined}
                 >
-                  <Icon name={page.icon} className={`h-4 w-4 ${active ? colors.text : "text-white/55 group-hover:text-white/80"}`} />
+                  <Icon name={page.icon} className={`h-4 w-4 ${active ? colors.text : "text-white/55 sm:group-hover:text-white/80"}`} />
                 </span>
                 <span className="hidden sm:inline">{page.name}</span>
                 {active && <span className="absolute inset-x-4 -bottom-1.5 h-px sm:-bottom-2 bg-[image:var(--sw-gradient)] shadow-[0_0_10px_var(--sw-accent)]" />}

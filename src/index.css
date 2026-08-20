@@ -312,6 +312,17 @@ button,
     padding: 0.375rem 0 !important;
   }
 
+  /* Mobile browsers can leave :hover/focus painted on the last tapped tab
+     after a swipe. aria-current is now the only selected-state source. */
+  .sw-nav-button:not([aria-current="page"]) {
+    box-shadow: none !important;
+  }
+
+  .sw-nav-button:not([aria-current="page"]):focus,
+  .sw-nav-button:not([aria-current="page"]):focus-visible {
+    outline: none !important;
+  }
+
   /* Backdrop blur is expensive on phone GPUs because it continuously samples
      everything behind each translucent card while the starfield moves. Keep
      the dark glass colors/borders but remove the live blur pass on phones. */
