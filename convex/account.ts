@@ -74,9 +74,13 @@ export const deleteMyAccount = mutation({
         .collect();
       for (const token of refreshTokens) await ctx.db.delete(token._id);
 
+      // @convex-dev/auth 0.0.94 exposes only the `signature` index on
+      // authVerifiers, so session-owned verifier cleanup must filter by the
+      // sessionId field instead of referring to a non-existent index. Account
+      // deletion is rare and already scoped to this user's sessions.
       const verifiers = await ctx.db
         .query("authVerifiers")
-        .withIndex("sessionId", (q) => q.eq("sessionId", session._id))
+        .filter((q) => q.eq(q.field("sessionId"), session._id))
         .collect();
       for (const verifier of verifiers) await ctx.db.delete(verifier._id);
 
@@ -90,9 +94,12 @@ export const deleteMyAccount = mutation({
       .collect();
 
     for (const account of accounts) {
+      // In @convex-dev/auth 0.0.94, authVerificationCodes does not expose an
+      // `accountId` index in the generated data model. Filter by accountId
+      // rather than depending on an index that is not part of this version.
       const verificationCodes = await ctx.db
         .query("authVerificationCodes")
-        .withIndex("accountId", (q) => q.eq("accountId", account._id))
+        .filter((q) => q.eq(q.field("accountId"), account._id))
         .collect();
       for (const code of verificationCodes) await ctx.db.delete(code._id);
       await ctx.db.delete(account._id);
