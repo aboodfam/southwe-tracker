@@ -23,8 +23,6 @@
 
 html {
   scroll-behavior: smooth;
-  /* Prevent Android/Chromium pull-to-refresh on the root scroller. */
-  overscroll-behavior-y: none;
   background: #000;
   color-scheme: dark;
   -webkit-text-size-adjust: 100%;
@@ -34,7 +32,6 @@ html {
 html, body, #root {
   min-height: 100%;
   background: #000;
-  overscroll-behavior-y: none;
 }
 
 body {
@@ -47,9 +44,7 @@ body {
   background: #000;
   color: #fff;
   overflow-x: hidden;
-  overscroll-behavior-y: none;
 }
-
 
 /* Hide scrollbars for horizontal scrolling */
 .scrollbar-hide {
