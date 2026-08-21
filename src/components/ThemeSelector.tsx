@@ -1,8 +1,143 @@
 import { useEffect, useRef, useState } from "react";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { useMutation } from "convex/react";
+import { toast } from "sonner";
 import { createPortal } from "react-dom";
 import { useTheme, Theme } from "../contexts/ThemeContext";
 import { useSound, SOUND_PACKS, SfxName, SoundPack } from "../contexts/SoundContext";
 import { Icon, IconName } from "./icons";
+import { api } from "../../convex/_generated/api";
+
+
+const SUPPORT_EMAIL = "ceventic1@gmail.com";
+
+function clearLocalAccountData() {
+  const remove: string[] = [];
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (!key) continue;
+    if (
+      key === "theme" ||
+      key.startsWith("sw_") ||
+      key.startsWith("ceventic_") ||
+      key.startsWith("athkar_completed_dates_")
+    ) {
+      remove.push(key);
+    }
+  }
+  for (const key of remove) localStorage.removeItem(key);
+
+  const sessionRemove: string[] = [];
+  for (let index = 0; index < sessionStorage.length; index += 1) {
+    const key = sessionStorage.key(index);
+    if (key && key.startsWith("ceventic_")) sessionRemove.push(key);
+  }
+  for (const key of sessionRemove) sessionStorage.removeItem(key);
+}
+
+function AccountSettingsPanel() {
+  const { getThemeColors } = useTheme();
+  const colors = getThemeColors();
+  const { signOut } = useAuthActions();
+  const deleteMyAccount = useMutation(api.account.deleteMyAccount);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const desktopApp = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+  const href = (path: string) => (desktopApp ? `#${path}` : path);
+
+  const deleteAccount = async () => {
+    if (deleting || confirmation.trim().toUpperCase() !== "DELETE") return;
+    setDeleting(true);
+    try {
+      await deleteMyAccount({ confirmation });
+      clearLocalAccountData();
+      try {
+        await signOut();
+      } catch {
+        // The deletion mutation already removed every auth session. signOut is
+        // only used here to clear the auth client's local token state.
+      }
+      toast.success("Ceventic account deleted");
+      window.setTimeout(() => window.location.assign(desktopApp ? "#/" : "/"), 250);
+    } catch (error: any) {
+      toast.error(error?.message ?? "Could not delete your account");
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+        <div className="flex items-start gap-3">
+          <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl border ${colors.border} bg-white/[0.04]`}>
+            <Icon name="shield" className={`h-4 w-4 ${colors.text}`} />
+          </span>
+          <div>
+            <h3 className={`text-sm font-semibold ${colors.text}`}>Account & privacy</h3>
+            <p className={`mt-1 text-xs leading-5 ${colors.textSecondary}`}>Ceventic beta support: {SUPPORT_EMAIL}</p>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <a href={href("/privacy")} className="rounded-xl border border-white/10 bg-white/[0.035] px-2 py-2 text-center text-xs text-white/65 transition hover:bg-white/[0.07] hover:text-white">Privacy</a>
+          <a href={href("/terms")} className="rounded-xl border border-white/10 bg-white/[0.035] px-2 py-2 text-center text-xs text-white/65 transition hover:bg-white/[0.07] hover:text-white">Terms</a>
+          <a href={href("/delete-account")} className="rounded-xl border border-white/10 bg-white/[0.035] px-2 py-2 text-center text-xs text-white/65 transition hover:bg-white/[0.07] hover:text-white">Deletion</a>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-rose-400/20 bg-rose-500/[0.035] p-4">
+        <div className="flex items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-rose-400/20 bg-rose-400/[0.06] text-rose-300">
+            <Icon name="trash" className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-white">Delete account & data</h3>
+            <p className="mt-1 text-xs leading-5 text-white/45">Permanently removes your account, sign-in links, routines, habits, workouts, progress, Athkar data, macros and other Ceventic data. This cannot be undone.</p>
+          </div>
+        </div>
+
+        {!confirmingDelete ? (
+          <button
+            type="button"
+            onClick={() => setConfirmingDelete(true)}
+            className="mt-4 w-full rounded-xl border border-rose-400/25 bg-rose-400/[0.07] px-3 py-2.5 text-sm font-semibold text-rose-200 transition hover:bg-rose-400/[0.12]"
+          >
+            Delete account & data
+          </button>
+        ) : (
+          <div className="mt-4 space-y-3 rounded-xl border border-rose-400/15 bg-black/25 p-3">
+            <p className="text-xs leading-5 text-white/55">Type <strong className="text-white">DELETE</strong> to confirm permanent deletion.</p>
+            <input
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.target.value.slice(0, 16))}
+              placeholder="DELETE"
+              autoComplete="off"
+              className="w-full rounded-xl border border-white/12 bg-black/50 px-3 py-2.5 text-sm font-semibold tracking-[0.08em] text-white outline-none transition focus:border-rose-300/45"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => { setConfirmingDelete(false); setConfirmation(""); }}
+                disabled={deleting}
+                className="rounded-xl border border-white/10 px-3 py-2.5 text-sm font-medium text-white/60 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void deleteAccount()}
+                disabled={deleting || confirmation.trim().toUpperCase() !== "DELETE"}
+                className="rounded-xl border border-rose-400/25 bg-rose-500/15 px-3 py-2.5 text-sm font-semibold text-rose-100 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                {deleting ? "Deleting…" : "Delete forever"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 type ThemeOption = {
   id: Theme;
@@ -123,7 +258,7 @@ export function ThemeSelector() {
   } = useSound();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"themes" | "sounds">("themes");
+  const [activeTab, setActiveTab] = useState<"themes" | "sounds" | "account">("themes");
   const [uploadingSfx, setUploadingSfx] = useState<SfxName | null>(null);
   const [accentDraft, setAccentDraft] = useState(customAccent);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -203,24 +338,25 @@ export function ThemeSelector() {
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div>
                   <p className={`text-base font-semibold ${colors.text}`}>Preferences</p>
-                  <p className={`mt-0.5 text-xs ${colors.textSecondary}`}>Theme, accent and sound</p>
+                  <p className={`mt-0.5 text-xs ${colors.textSecondary}`}>Appearance, sound and account</p>
                 </div>
                 <div className="h-8 w-16 rounded-full border border-white/10 p-1" style={{ background: useCustomAccent ? "#090b0f" : `linear-gradient(90deg, ${currentTheme.surface}, ${currentTheme.accent}35)` }}>
                   <div className="h-full w-full rounded-full bg-[image:var(--sw-gradient)] opacity-80" />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 rounded-xl border border-white/10 bg-black/20 p-1">
+              <div className="grid grid-cols-3 rounded-xl border border-white/10 bg-black/20 p-1">
                 {([
                   ["themes", "palette", "Appearance"],
                   ["sounds", "volume", "Sounds"],
+                  ["account", "shield", "Account"],
                 ] as const).map(([id, icon, label]) => (
                   <button
                     key={id}
                     onClick={() => setActiveTab(id)}
-                    className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${activeTab === id ? "bg-white/10 text-white shadow-sm" : `${colors.textSecondary} hover:bg-white/5 hover:text-white`}`}
+                    className={`flex items-center justify-center gap-1.5 rounded-lg px-1.5 py-2 text-[11px] font-medium transition sm:gap-2 sm:px-3 sm:text-sm ${activeTab === id ? "bg-white/10 text-white shadow-sm" : `${colors.textSecondary} hover:bg-white/5 hover:text-white`}`}
                   >
-                    <Icon name={icon} className="h-4 w-4" />
+                    <Icon name={icon} className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     {label}
                   </button>
                 ))}
@@ -320,7 +456,7 @@ export function ThemeSelector() {
                     </div>
                   </div>
                 </div>
-              ) : (
+              ) : activeTab === "sounds" ? (
                 <div className="space-y-5">
                   <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4">
                     <div>
@@ -400,6 +536,8 @@ export function ThemeSelector() {
                     </>
                   )}
                 </div>
+              ) : (
+                <AccountSettingsPanel />
               )}
             </div>
           </div>
@@ -415,7 +553,7 @@ export function ThemeSelector() {
         onClick={() => setIsOpen((value) => !value)}
         className={`sw-theme-hover-border group relative z-[120] flex shrink-0 items-center gap-2 rounded-xl border px-2.5 py-2 sm:px-3 ${colors.border} transition duration-200`}
         style={{ background: "rgba(7, 10, 14, 0.98)" }}
-        title="Appearance and sound settings"
+        title="Appearance, sound and account settings"
         aria-expanded={isOpen}
       >
         <span className="relative grid h-7 w-7 place-items-center rounded-lg border border-white/10 bg-white/[0.04]">

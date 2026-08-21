@@ -455,6 +455,7 @@ export default function App() {
   const legalHash = typeof window !== "undefined" ? window.location.hash : "";
   if (legalPath === "/privacy" || legalHash === "#/privacy") return <LegalPage kind="privacy" />;
   if (legalPath === "/terms" || legalHash === "#/terms") return <LegalPage kind="terms" />;
+  if (legalPath === "/delete-account" || legalHash === "#/delete-account") return <LegalPage kind="delete" />;
 
   return (
     <ThemeProvider>

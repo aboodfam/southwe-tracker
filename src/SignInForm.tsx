@@ -208,10 +208,12 @@ export function SignInForm() {
         )}
       </div>
 
-      <div className="mt-6 flex items-center justify-center gap-3 border-t border-white/[0.06] pt-4 text-[11px] text-white/28">
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3 border-t border-white/[0.06] pt-4 text-[11px] text-white/28">
         <a href={desktopApp ? "#/privacy" : "/privacy"} className="transition hover:text-white/60">Privacy</a>
         <span>•</span>
         <a href={desktopApp ? "#/terms" : "/terms"} className="transition hover:text-white/60">Terms</a>
+        <span>•</span>
+        <a href={desktopApp ? "#/delete-account" : "/delete-account"} className="transition hover:text-white/60">Delete account</a>
       </div>
     </div>
   );
