@@ -4,8 +4,6 @@ import { api } from "../../convex/_generated/api";
 import { useTheme } from "../contexts/ThemeContext";
 import { PageHeader } from "./PageHeader";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
-import { useSaveAction } from "../hooks/useSaveAction";
-import { toast } from "sonner";
 
 type Sex = "male" | "female";
 type Goal = "maintain" | "cut" | "bulk";
@@ -149,7 +147,7 @@ function MacroForm({ userId, savedProfile }: { userId: Id<"users">; savedProfile
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const saveMacroProfile = useMutation(api.userData.saveMacroProfile);
-  const action = useSaveAction();
+  const [saveError, setSaveError] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   const [sex, setSex] = useState<Sex>("male");
@@ -184,10 +182,23 @@ function MacroForm({ userId, savedProfile }: { userId: Id<"users">; savedProfile
     setHydrated(true);
   }, [savedProfile, hydrated]);
 
-  const save = () => void action.run(async () => {
-    await saveMacroProfile({ expectedUserId: userId, sex, age, heightCm, weightKg, activityId, goal, pace });
-    toast.success("Macros saved to this account.");
-  });
+  useEffect(() => {
+    if (!hydrated) return;
+    setSaveError(false);
+    const validNumber = (value: string, min: number, max: number) =>
+      value.trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= min && Number(value) <= max;
+    // Incomplete typing is not a save attempt. Never revive the shared browser cache.
+    if (!validNumber(age, 13, 120) || !validNumber(heightCm, 80, 260) || !validNumber(weightKg, 20, 500)) return;
+    const payload = { sex, age: age.trim(), heightCm: heightCm.trim(), weightKg: weightKg.trim(), activityId, goal, pace };
+    if (savedProfile && Object.entries(payload).every(([key, value]) => savedProfile[key as keyof typeof payload] === value)) return;
+    let active = true;
+    const timer = window.setTimeout(() => {
+      void saveMacroProfile({ expectedUserId: userId, ...payload }).catch(() => {
+        if (active) setSaveError(true);
+      });
+    }, 800);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [hydrated, userId, sex, age, heightCm, weightKg, activityId, goal, pace, savedProfile, saveMacroProfile]);
 
   const activity = ACTIVITY.find((a) => a.id === activityId) ?? ACTIVITY[2];
 
@@ -272,11 +283,7 @@ function MacroForm({ userId, savedProfile }: { userId: Id<"users">; savedProfile
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in">
       <PageHeader title="Macros Calculator" subtitle="Enter your stats and get calories + protein, carbs, fat" />
-      <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-        <p className="text-sm text-white/65">Your saved information belongs only to this account. Changes stay unsaved until you choose Save.</p>
-        <button type="button" disabled={!hydrated || action.busy} onClick={save} className="mt-3 min-h-11 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{action.busy ? "Saving…" : "Save to my account"}</button>
-        {action.error && <p role="alert" className="mt-3 text-sm text-red-300">{action.error}</p>}
-      </div>
+      {saveError && <p role="alert" className="text-center text-sm text-red-300">Couldn’t save your latest changes. Check your connection, then edit a field to retry.</p>}
 
       {/* Main Panel */}
       <div className="max-w-5xl mx-auto">
