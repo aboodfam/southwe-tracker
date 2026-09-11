@@ -3,7 +3,6 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useLocalDateKey } from "../hooks/useLocalDateKey";
 import { PageHeader } from "./PageHeader";
-import { Icon } from "./icons";
 import { toast } from "sonner";
 import { GuidedSetup } from "./WorkspacePage";
 import { TodayWorkout } from "./TodayWorkout";
@@ -39,8 +38,6 @@ export function TodayPage({ onNavigate, displayName }: {
   const completedTasks = tasks.length - remaining.length;
   const doneHabits = activeHabits.filter(habit => habit.entries.some(entry => entry.date === dateKey && entry.completed)).length;
   const total = tasks.length + activeHabits.length;
-  const done = completedTasks + doneHabits;
-  const percentage = total ? Math.round(done / total * 100) : 0;
   const configured = total > 0 || (visible("workout") && days.some(day => day.exercises.length > 0));
   const run = async (id: string, action: () => Promise<unknown>) => {
     if (lock.current) return;
@@ -54,46 +51,26 @@ export function TodayPage({ onNavigate, displayName }: {
 
   return <div className="mx-auto max-w-6xl space-y-5 animate-fade-in">
     <PageHeader title="Today" subtitle={new Date(`${dateKey}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })} />
-    <section className="sw-holo relative overflow-hidden rounded-3xl border border-white/10 bg-black/35 p-6 sm:p-8">
-      <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
-        <div className="max-w-xl">
-          <p className="text-sm text-[rgb(var(--sw-accent-rgb))]">Your day, at your pace{displayName ? ` · ${displayName}` : ""}</p>
-          <h2 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">{!configured ? "Start with one small promise." : total > 0 && done === total ? "You showed up for yourself." : "One next step. Then another."}</h2>
-          <p className="mt-3 text-sm leading-6 text-white/60">{!configured ? "Choose one area below. You can add the rest whenever you're ready." : total ? `${done} of ${total} routine tasks and habits done today. ${total - done ? "Pick your next small win below." : "Your daily checklist is complete. Training is tracked separately."}` : "Your workout is ready. Open it when you're ready to train."}</p>
-        </div>
-        {total > 0 && <div className="relative grid h-32 w-32 shrink-0 place-items-center rounded-full" style={{ background: `conic-gradient(rgb(var(--sw-accent-rgb)) ${percentage * 3.6}deg, rgba(255,255,255,.07) 0deg)` }}>
-          <div className="grid h-28 w-28 place-content-center rounded-full bg-[#090b0c] text-center"><span className="text-3xl font-black">{percentage}%</span><span className="text-xs text-white/60">Daily checklist</span></div>
-        </div>}
-      </div>
-      {total > 0 && <p className="mt-5 text-xs text-white/50">A new day is a fresh checklist, not a loss of your past progress.</p>}
-    </section>
-
-    <GuidedSetup />
-    {!configured && preferences?.setupDone && <section className="grid gap-3 sm:grid-cols-3" aria-label="Choose where to start">
-      {([
-        ["routines", "Build a routine", "Add one task you want to repeat."],
-        ["workout", "Set up training", "Choose a split, then add your exercises."],
-        ["habits", "Start a habit", "Choose one habit to build or break."],
-      ] as const).filter(([page]) => visible(page)).map(([page, title, copy]) => <button key={page} onClick={() => onNavigate(page)} className={`${button} p-5 text-left`}><Icon name={page === "workout" ? "workout" : page} className="mb-4 h-6 w-6 text-[rgb(var(--sw-accent-rgb))]" /><span className="block text-base font-bold">{title}</span><span className="mt-2 block text-sm font-normal text-white/60">{copy}</span></button>)}
-    </section>}
+    {displayName && <p className="text-sm text-white/60">Ready when you are, {displayName}.</p>}
+    {!configured && <GuidedSetup />}
 
     <div className="grid gap-5 lg:grid-cols-2">
       {visible("routines") && <section className="rounded-3xl border border-white/10 bg-black/30 p-5 sm:p-6">
-        <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Next in your routines</h2><span className="text-sm text-white/60">{completedTasks}/{tasks.length}</span></div>
+        <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Routine tasks</h2><span className="text-sm text-white/60">{completedTasks}/{tasks.length} done</span></div>
         {remaining.length ? <ul className="space-y-2">{remaining.slice(0, 5).map(task => <li key={`${task.routineId}-${task.id}`}>
           <button disabled={pending !== null || routineDay?.countedInStats === true} onClick={() => void run(task.id, () => toggleTask({ routineId: task.routineId, taskId: task.id, dateKey }))} className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[.025] p-3 text-left transition hover:bg-white/5 disabled:opacity-50" aria-label={`Complete ${task.name}`}>
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/20 text-xs">{pending === task.id ? "…" : ""}</span><span className="min-w-0"><span className="block break-words text-sm font-semibold">{task.name}</span><span className="text-xs text-white/50">{task.routineName}</span></span>
           </button>
         </li>)}</ul> : <p className="py-5 text-sm text-white/60">{tasks.length ? "All routine tasks are done. Nice work." : "No tasks yet. Start with something manageable."}</p>}
-        <button onClick={() => onNavigate("routines")} className={`${button} mt-4 w-full`}>{tasks.length ? "Open routines & completed tasks" : "Create a routine"}</button>
+        <button onClick={() => onNavigate("routines")} className="mt-4 min-h-11 text-sm font-semibold text-[rgb(var(--sw-accent-rgb))]">{tasks.length ? "View all tasks" : "Create a routine"}</button>
         {routineDay?.countedInStats ? <p className="mt-3 text-xs text-white/60">Routine day saved. Its checklist is locked until tomorrow.</p> : tasks.length > 0 && completedTasks / tasks.length >= 0.8 && <div className="mt-4">
-          <p className="mb-2 text-xs text-white/60">Ready to finish? Saving counts this routine day toward milestones and locks today's routine checklist.</p>
+          <p className="mb-2 text-xs text-white/60">Finishing locks today's routine checklist.</p>
           <button disabled={pending !== null} onClick={() => void run("save-day", async () => { await ensureStats({}); await completeDay({ dateKey }); toast.success("Routine day saved. Another day in your story."); })} className={`${button} w-full`}>{pending === "save-day" ? "Saving…" : "Save routine day"}</button>
         </div>}
       </section>}
 
       {visible("habits") && <section className="rounded-3xl border border-white/10 bg-black/30 p-5 sm:p-6">
-        <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-bold">Small habits, repeated</h2><span className="text-sm text-white/60">{doneHabits}/{activeHabits.length}</span></div>
+        <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-bold">Habits</h2><span className="text-sm text-white/60">{doneHabits}/{activeHabits.length} done</span></div>
         <ul className="space-y-2">{activeHabits.slice(0, 5).map(habit => {
           const checked = habit.entries.some(entry => entry.date === dateKey && entry.completed);
           return <li key={habit._id}><button aria-pressed={checked} disabled={pending !== null} onClick={() => void run(habit._id, () => logHabit({ habitId: habit._id, completed: !checked, dateKey }))} className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[.025] p-3 text-left transition hover:bg-white/5 disabled:opacity-50">
@@ -102,11 +79,10 @@ export function TodayPage({ onNavigate, displayName }: {
           </button></li>;
         })}</ul>
         {!activeHabits.length && <p className="py-5 text-sm text-white/60">One habit is enough to begin.</p>}
-        <button onClick={() => onNavigate("habits")} className={`${button} mt-4 w-full`}>{activeHabits.length ? "Open all habits" : "Choose a habit"}</button>
+        <button onClick={() => onNavigate("habits")} className="mt-4 min-h-11 text-sm font-semibold text-[rgb(var(--sw-accent-rgb))]">{activeHabits.length ? "View all habits" : "Choose a habit"}</button>
       </section>}
     </div>
 
     {visible("workout") && <TodayWorkout onOpen={() => onNavigate("workout")} />}
-    {visible("progress") && <button onClick={() => onNavigate("progress")} className={`${button} w-full`}>See how your work is adding up →</button>}
   </div>;
 }
