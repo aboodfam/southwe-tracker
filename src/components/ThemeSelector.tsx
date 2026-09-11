@@ -241,7 +241,7 @@ function ThemePreview({ option, selected }: { option: ThemeOption; selected: boo
   );
 }
 
-export function ThemeSelector() {
+export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void }) {
   const { theme, setTheme, getThemeColors, useCustomAccent, setUseCustomAccent, customAccent, setCustomAccent } = useTheme();
   const {
     enabled: soundEnabled,
@@ -365,6 +365,14 @@ export function ThemeSelector() {
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:max-h-[68vh] sm:flex-none sm:p-5">
+              <button
+                type="button"
+                onClick={() => { setIsOpen(false); onOpenWorkspace(); }}
+                className="mb-5 flex min-h-11 w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm font-semibold text-white/85 transition hover:bg-white/10"
+              >
+                My workspace
+                <span aria-hidden="true">›</span>
+              </button>
               {activeTab === "themes" ? (
                 <div className="space-y-5">
                   <div>

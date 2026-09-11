@@ -598,8 +598,7 @@ function AppContent() {
           <header className={`${athkarFocus ? "hidden sm:block" : ""} relative z-50 ${colors.backgroundSecondary} backdrop-blur-md border-b ${colors.border} shadow-2xl`}>
             <div className="container mx-auto flex h-16 items-center justify-end px-3 sm:h-20 sm:px-4">
               <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
-                <button onClick={() => navigateToPage("workspace")} aria-current={currentPage === "workspace" ? "page" : undefined} className="min-h-11 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/80 hover:bg-white/10">My workspace</button>
-                <ThemeSelector />
+                <ThemeSelector onOpenWorkspace={() => navigateToPage("workspace")} />
                 <DesktopFullscreenButton />
                 <SignOutButton />
               </div>
