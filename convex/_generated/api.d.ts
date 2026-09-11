@@ -22,6 +22,8 @@ import type * as router from "../router.js";
 import type * as routines from "../routines.js";
 import type * as userData from "../userData.js";
 import type * as workouts from "../workouts.js";
+import type * as workspace from "../workspace.js";
+import type * as recovery from "../recovery.js";
 
 import type {
   ApiFromModules,
@@ -44,6 +46,8 @@ declare const fullApi: ApiFromModules<{
   routines: typeof routines;
   userData: typeof userData;
   workouts: typeof workouts;
+  workspace: typeof workspace;
+  recovery: typeof recovery;
 }>;
 
 /**

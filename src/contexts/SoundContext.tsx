@@ -558,7 +558,7 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
 
   const play = useCallback(
     (sfx: SfxName, gainBoost: number = 1) => {
-      if (!enabled) return;
+      if (!enabled || document.documentElement.dataset.ceventicQuiet === "true") return;
       const g = clamp(volume * gainBoost, 0, 2);
       playPack(soundPack, sfx, g);
     },

@@ -75,3 +75,16 @@ export function compareResults(current: ExerciseResult, previous: ExerciseResult
   }
   return null;
 }
+
+export function compareCompletedWeeks(days: ProgressDay[], metric: ProgressMetric) {
+  const summarize = (week: ProgressDay[]) => ({
+    start: week[0]?.date, end: week[week.length - 1]?.date,
+    average: meanRecorded(week.map(day => day[metric])),
+    recordedDays: week.filter(day => day[metric] !== null).length,
+    completions: week.reduce((sum, day) => sum + (metric === "routines" ? day.tasksDone : metric === "habits" ? day.habitsDone : day.workoutsCompleted), 0),
+  });
+  // Exclude the in-progress current day. Compare two equal seven-calendar-day windows.
+  const current = summarize(days.slice(-8, -1));
+  const previous = summarize(days.slice(-15, -8));
+  return { current, previous, delta: current.average === null || previous.average === null ? null : current.average - previous.average };
+}

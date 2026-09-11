@@ -5,6 +5,8 @@ import { useLocalDateKey } from "../hooks/useLocalDateKey";
 import { PageHeader } from "./PageHeader";
 import { Icon } from "./icons";
 import { toast } from "sonner";
+import { GuidedSetup } from "./WorkspacePage";
+import { TodayWorkout } from "./TodayWorkout";
 
 type Destination = "routines" | "habits" | "workout" | "progress";
 
@@ -13,10 +15,10 @@ export function TodayPage({ onNavigate, displayName }: {
   displayName: string;
 }) {
   const dateKey = useLocalDateKey();
+  const preferences = useQuery(api.workspace.getPreferences);
   const routines = useQuery(api.routines.getRoutines);
   const habits = useQuery(api.habits.getHabits);
   const days = useQuery(api.workouts.getWorkoutDays);
-  const activity = useQuery(api.progress.getProgressData, { timeFrame: "daily", dateKey });
   const routineDay = useQuery(api.routines.getTodayProgress, { dateKey });
   const toggleTask = useMutation(api.routines.toggleTask);
   const logHabit = useMutation(api.habits.logHabit);
@@ -25,21 +27,21 @@ export function TodayPage({ onNavigate, displayName }: {
   const lock = useRef(false);
   const [pending, setPending] = useState<string | null>(null);
 
-  if (!routines || !habits || !days || !activity || routineDay === undefined) {
+  if (!routines || !habits || !days || routineDay === undefined || preferences === undefined) {
     return <p className="p-10 text-center text-white/60" role="status">Getting your day ready…</p>;
   }
 
-  const tasks = routines.flatMap(routine => [...routine.tasks].sort((a, b) => a.order - b.order)
+  const visible = (page: Destination) => !preferences?.hiddenPages.includes(page);
+  const tasks = (visible("routines") ? routines : []).flatMap(routine => [...routine.tasks].sort((a, b) => a.order - b.order)
     .map(task => ({ ...task, routineId: routine._id, routineName: routine.name })));
-  const activeHabits = habits.filter(habit => habit.isActive !== false);
+  const activeHabits = visible("habits") ? habits.filter(habit => habit.isActive !== false) : [];
   const remaining = tasks.filter(task => !task.completed);
   const completedTasks = tasks.length - remaining.length;
   const doneHabits = activeHabits.filter(habit => habit.entries.some(entry => entry.date === dateKey && entry.completed)).length;
   const total = tasks.length + activeHabits.length;
   const done = completedTasks + doneHabits;
   const percentage = total ? Math.round(done / total * 100) : 0;
-  const today = activity.find(day => day.date === dateKey);
-  const configured = total > 0 || days.some(day => day.exercises.length > 0);
+  const configured = total > 0 || (visible("workout") && days.some(day => day.exercises.length > 0));
   const run = async (id: string, action: () => Promise<unknown>) => {
     if (lock.current) return;
     lock.current = true;
@@ -66,16 +68,17 @@ export function TodayPage({ onNavigate, displayName }: {
       {total > 0 && <p className="mt-5 text-xs text-white/50">A new day is a fresh checklist, not a loss of your past progress.</p>}
     </section>
 
-    {!configured && <section className="grid gap-3 sm:grid-cols-3" aria-label="Choose where to start">
+    <GuidedSetup />
+    {!configured && preferences?.setupDone && <section className="grid gap-3 sm:grid-cols-3" aria-label="Choose where to start">
       {([
         ["routines", "Build a routine", "Add one task you want to repeat."],
         ["workout", "Set up training", "Choose a split, then add your exercises."],
         ["habits", "Start a habit", "Choose one habit to build or break."],
-      ] as const).map(([page, title, copy]) => <button key={page} onClick={() => onNavigate(page)} className={`${button} p-5 text-left`}><Icon name={page === "workout" ? "workout" : page} className="mb-4 h-6 w-6 text-[rgb(var(--sw-accent-rgb))]" /><span className="block text-base font-bold">{title}</span><span className="mt-2 block text-sm font-normal text-white/60">{copy}</span></button>)}
+      ] as const).filter(([page]) => visible(page)).map(([page, title, copy]) => <button key={page} onClick={() => onNavigate(page)} className={`${button} p-5 text-left`}><Icon name={page === "workout" ? "workout" : page} className="mb-4 h-6 w-6 text-[rgb(var(--sw-accent-rgb))]" /><span className="block text-base font-bold">{title}</span><span className="mt-2 block text-sm font-normal text-white/60">{copy}</span></button>)}
     </section>}
 
     <div className="grid gap-5 lg:grid-cols-2">
-      <section className="rounded-3xl border border-white/10 bg-black/30 p-5 sm:p-6">
+      {visible("routines") && <section className="rounded-3xl border border-white/10 bg-black/30 p-5 sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Next in your routines</h2><span className="text-sm text-white/60">{completedTasks}/{tasks.length}</span></div>
         {remaining.length ? <ul className="space-y-2">{remaining.slice(0, 5).map(task => <li key={`${task.routineId}-${task.id}`}>
           <button disabled={pending !== null || routineDay?.countedInStats === true} onClick={() => void run(task.id, () => toggleTask({ routineId: task.routineId, taskId: task.id, dateKey }))} className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[.025] p-3 text-left transition hover:bg-white/5 disabled:opacity-50" aria-label={`Complete ${task.name}`}>
@@ -87,9 +90,9 @@ export function TodayPage({ onNavigate, displayName }: {
           <p className="mb-2 text-xs text-white/60">Ready to finish? Saving counts this routine day toward milestones and locks today's routine checklist.</p>
           <button disabled={pending !== null} onClick={() => void run("save-day", async () => { await ensureStats({}); await completeDay({ dateKey }); toast.success("Routine day saved. Another day in your story."); })} className={`${button} w-full`}>{pending === "save-day" ? "Saving…" : "Save routine day"}</button>
         </div>}
-      </section>
+      </section>}
 
-      <section className="rounded-3xl border border-white/10 bg-black/30 p-5 sm:p-6">
+      {visible("habits") && <section className="rounded-3xl border border-white/10 bg-black/30 p-5 sm:p-6">
         <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-bold">Small habits, repeated</h2><span className="text-sm text-white/60">{doneHabits}/{activeHabits.length}</span></div>
         <ul className="space-y-2">{activeHabits.slice(0, 5).map(habit => {
           const checked = habit.entries.some(entry => entry.date === dateKey && entry.completed);
@@ -100,13 +103,10 @@ export function TodayPage({ onNavigate, displayName }: {
         })}</ul>
         {!activeHabits.length && <p className="py-5 text-sm text-white/60">One habit is enough to begin.</p>}
         <button onClick={() => onNavigate("habits")} className={`${button} mt-4 w-full`}>{activeHabits.length ? "Open all habits" : "Choose a habit"}</button>
-      </section>
+      </section>}
     </div>
 
-    <section className="flex flex-col justify-between gap-4 rounded-3xl border border-white/10 bg-black/30 p-5 sm:flex-row sm:items-center sm:p-6">
-      <div><h2 className="text-lg font-bold">Training, on your terms</h2><p className="mt-2 text-sm text-white/60">{today?.workoutsCompleted ? `${today.workoutsCompleted} workout${today.workoutsCompleted === 1 ? "" : "s"} saved today.` : "Choose your workout when you train. A day without a workout log isn't automatically a missed workout."}</p></div>
-      <button className={`${button} shrink-0`} onClick={() => onNavigate("workout")}>Open workout</button>
-    </section>
-    <button onClick={() => onNavigate("progress")} className={`${button} w-full`}>See how your work is adding up →</button>
+    {visible("workout") && <TodayWorkout onOpen={() => onNavigate("workout")} />}
+    {visible("progress") && <button onClick={() => onNavigate("progress")} className={`${button} w-full`}>See how your work is adding up →</button>}
   </div>;
 }

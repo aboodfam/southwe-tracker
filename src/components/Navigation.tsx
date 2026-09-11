@@ -2,11 +2,12 @@ import { useTheme } from "../contexts/ThemeContext";
 import { Icon, IconName } from "./icons";
 
 interface NavigationProps {
-  currentPage: "today" | "routines" | "workout" | "habits" | "progress" | "athkar" | "macros";
+  currentPage: "today" | "routines" | "workout" | "habits" | "progress" | "athkar" | "macros" | "workspace";
+  hiddenPages: string[];
   onPageChange: (page: NavigationProps["currentPage"]) => void;
 }
 
-export function Navigation({ currentPage, onPageChange }: NavigationProps) {
+export function Navigation({ currentPage, onPageChange, hiddenPages }: NavigationProps) {
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
 
@@ -24,7 +25,7 @@ export function Navigation({ currentPage, onPageChange }: NavigationProps) {
     <nav className={`sticky top-16 sm:top-20 z-40 border-b ${colors.border} ${colors.backgroundSecondary} backdrop-blur-xl`}>
       <div className="container mx-auto px-2 sm:px-4">
         <div className="scrollbar-hide flex items-center gap-1 overflow-x-auto py-2 sm:justify-center sm:gap-1.5">
-          {pages.map((page) => {
+          {pages.filter(page => !hiddenPages.includes(page.id)).map((page) => {
             const active = currentPage === page.id;
             return (
               <button

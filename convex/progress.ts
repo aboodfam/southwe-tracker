@@ -21,7 +21,7 @@ export const getProgressData = query({
     const [routineLogs, workoutLogs, habits, routines] = await Promise.all([
       ctx.db.query("dailyProgress").withIndex("by_user_date", q => q.eq("userId", userId).gte("date", start).lte("date", today)).collect(),
       ctx.db.query("workoutProgress").withIndex("by_user_date", q => q.eq("userId", userId).gte("date", start).lte("date", today)).collect(),
-      ctx.db.query("habits").withIndex("by_user", q => q.eq("userId", userId)).take(LIMITS.habits),
+      ctx.db.query("habits").withIndex("by_user", q => q.eq("userId", userId)).filter(q => q.eq(q.field("deletedAt"), undefined)).take(LIMITS.habits),
       ctx.db.query("routines").withIndex("by_user_active", q => q.eq("userId", userId).eq("isActive", true)).take(LIMITS.routines),
     ]);
     const activeHabits = habits.filter(habit => habit.isActive !== false).map(habit => ({

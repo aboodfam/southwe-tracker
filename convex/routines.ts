@@ -2,6 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
+import { keepDeleted } from "./recovery";
 import { assertDateKey } from "./date";
 import { LIMITS, assertCurrentLocalDate, assertShortId, cleanText, enforceRateLimit } from "./security";
 
@@ -142,7 +143,7 @@ export const toggleTask = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const routine = await ctx.db.get(args.routineId);
-    if (!routine || routine.userId !== userId) {
+    if (!routine || routine.userId !== userId || routine.deletedAt !== undefined) {
       throw new Error("Routine not found");
     }
 
@@ -183,7 +184,7 @@ export const updateTask = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const routine = await ctx.db.get(args.routineId);
-    if (!routine || routine.userId !== userId) {
+    if (!routine || routine.userId !== userId || routine.deletedAt !== undefined) {
       throw new Error("Routine not found");
     }
 
@@ -209,7 +210,7 @@ export const addTask = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const routine = await ctx.db.get(args.routineId);
-    if (!routine || routine.userId !== userId) {
+    if (!routine || routine.userId !== userId || routine.deletedAt !== undefined) {
       throw new Error("Routine not found");
     }
 
@@ -241,13 +242,15 @@ export const deleteTask = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const routine = await ctx.db.get(args.routineId);
-    if (!routine || routine.userId !== userId) {
+    if (!routine || routine.userId !== userId || routine.deletedAt !== undefined) {
       throw new Error("Routine not found");
     }
 
     await enforceRateLimit(ctx, userId, "routines:structure", 30, 60_000);
     const taskId = assertShortId(args.taskId, "Task id", 100);
     if (!routine.tasks.some((task) => task.id === taskId)) throw new Error("Task not found");
+    const deletedTask = routine.tasks.find(task => task.id === taskId)!;
+    await keepDeleted(ctx, userId, { kind: "task", itemId: taskId, parentId: routine._id, title: deletedTask.name, snapshot: deletedTask });
     const updatedTasks = routine.tasks.filter((task) => task.id !== taskId);
     await ctx.db.patch(args.routineId, { tasks: updatedTasks });
   },
@@ -267,7 +270,7 @@ export const reorderTasks = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const routine = await ctx.db.get(args.routineId);
-    if (!routine || routine.userId !== userId) {
+    if (!routine || routine.userId !== userId || routine.deletedAt !== undefined) {
       throw new Error("Routine not found");
     }
 
@@ -408,10 +411,11 @@ export const deleteRoutine = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const routine = await ctx.db.get(args.routineId);
-    if (!routine || routine.userId !== userId) throw new Error("Routine not found");
+    if (!routine || routine.userId !== userId || routine.deletedAt !== undefined) throw new Error("Routine not found");
 
     await enforceRateLimit(ctx, userId, "routines:structure", 30, 60_000);
-    await ctx.db.delete(args.routineId);
+    await keepDeleted(ctx, userId, { kind: "routine", itemId: routine._id, title: routine.name });
+    await ctx.db.patch(args.routineId, { isActive: false, deletedAt: Date.now() });
   },
 });
 
@@ -426,7 +430,7 @@ export const updateRoutine = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const routine = await ctx.db.get(args.routineId);
-    if (!routine || routine.userId !== userId) throw new Error("Routine not found");
+    if (!routine || routine.userId !== userId || routine.deletedAt !== undefined) throw new Error("Routine not found");
 
     await enforceRateLimit(ctx, userId, "routines:structure", 30, 60_000);
     const name = cleanText(args.name, "Routine name", LIMITS.routineName);

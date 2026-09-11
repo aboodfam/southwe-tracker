@@ -131,16 +131,20 @@ const tasksToRender = useMemo(() => {
     setEditValue(task.name);
   };
 
-  const handleEditSave = () => {
+  const taskSaveLock = useRef(false);
+  const handleEditSave = async () => {
+    if (taskSaveLock.current) return;
     if (editingTask && editValue.trim()) {
-      updateTask({
+      taskSaveLock.current = true;
+      try { await updateTask({
         routineId: routine._id,
         taskId: editingTask,
         name: editValue.trim(),
       });
+        setEditingTask(null); setEditValue(""); toast.success("Task updated.");
+      } catch (error: any) { toast.error(error?.message ?? "Couldn't update the task. Your text is still here."); }
+      finally { taskSaveLock.current = false; }
     }
-    setEditingTask(null);
-    setEditValue("");
   };
 
   const handleEditCancel = () => {
@@ -148,22 +152,27 @@ const tasksToRender = useMemo(() => {
     setEditValue("");
   };
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
+    if (taskSaveLock.current) return;
     if (newTaskName.trim()) {
-      addTask({ routineId: routine._id, name: newTaskName.trim() });
+      taskSaveLock.current = true;
+      try { await addTask({ routineId: routine._id, name: newTaskName.trim() });
       setNewTaskName("");
       setShowAddTask(false);
 
       // Small reward when creating something
       play("notification", 0.85);
+      } catch (error: any) { toast.error(error?.message ?? "Couldn't add the task. Your text is still here."); }
+      finally { taskSaveLock.current = false; }
     }
   };
 
   const handleDeleteTask = (taskId: string) => {
     // play exit animation first, then delete
     setRemovingTaskIds((m) => ({ ...m, [taskId]: true }));
-    window.setTimeout(() => {
-      deleteTask({ routineId: routine._id, taskId });
+    window.setTimeout(async () => {
+      try { await deleteTask({ routineId: routine._id, taskId }); toast.success("Task moved to My workspace → Recently deleted."); }
+      catch (error: any) { toast.error(error?.message ?? "Couldn't delete the task."); }
       // cleanup flag (in case deletion fails / slow)
       setRemovingTaskIds((m) => {
         const next = { ...m };
@@ -184,7 +193,7 @@ const tasksToRender = useMemo(() => {
             <div className="min-w-0">
               <p className="text-sm font-semibold text-white">Delete this block?</p>
               <p className="mt-1 text-xs text-white/60">
-                It will be removed from your active blocks.
+                You can restore it in My workspace → Recently deleted.
               </p>
             </div>
 
@@ -203,7 +212,7 @@ const tasksToRender = useMemo(() => {
                 try {
                   await deleteRoutine({ routineId: routine._id });
                   toast.dismiss(t);
-                  toast.success("Block deleted");
+                  toast.success("Block moved to My workspace → Recently deleted.");
                 } catch (err: any) {
                   toast.dismiss(t);
                   toast.error(err?.message ?? "Failed to delete block");

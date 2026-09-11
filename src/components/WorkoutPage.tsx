@@ -390,7 +390,7 @@ play("notification", 0.9);
     if (!selectedDay || !exEditId) return;
     try {
       await deleteExercise({ dayId: selectedDay._id, exerciseId: exEditId });
-      toast.success("Exercise deleted");
+      toast.success("Exercise moved to My workspace → Recently deleted.");
       setExModalOpen(false);
     } catch (e: any) {
       toast.error(e?.message ?? "Failed");
@@ -444,7 +444,7 @@ play("notification", 0.9);
     if (!selectedDay) return;
     try {
       await deleteDay({ dayId: selectedDay._id });
-      toast.success("Day deleted");
+      toast.success("Day moved to My workspace → Recently deleted.");
       setConfirmDeleteDay(false);
     } catch (e: any) {
       toast.error(e?.message ?? "Failed");
@@ -894,7 +894,7 @@ play("notification", 0.9);
       {confirmDeleteDay && (
         <Modal onClose={() => setConfirmDeleteDay(false)} accent={accent} title="Delete this day?">
           <div className="text-white/70 text-sm">
-            This permanently deletes this workout day and its exercises. Historical progress stays intact.
+            This removes the day from your active workouts. Restore it in My workspace → Recently deleted. Historical progress stays intact.
           </div>
           <div className="flex gap-2 pt-4">
             <button

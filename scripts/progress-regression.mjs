@@ -21,6 +21,12 @@ async function load(relative) {
 const math = await load("convex/progressMath.ts");
 const workouts = await load("convex/workouts.ts");
 const progress = await load("convex/progress.ts");
+const workspace = await load("convex/workspace.ts");
+const recovery = await load("convex/recovery.ts");
+const routines = await load("convex/routines.ts");
+const habits = await load("convex/habits.ts");
+const account = await load("convex/account.ts");
+const plans = await load("convex/planFormat.ts");
 const today = new Date().toISOString().slice(0, 10);
 const before = days => new Date(Date.parse(today) - days * 86400000).toISOString().slice(0, 10);
 const exercise = { id: "exercise-one", name: "Pull ups", sets: 3, reps: "8-12", isWarmup: false };
@@ -30,6 +36,7 @@ function fakeContext(seed = {}, userId = "user-one") {
   const tables = structuredClone(seed);
   let count = 100;
   const db = {
+    normalizeId(table, id) { return tables[table]?.some(row => row._id === id) ? id : null; },
     async get(id) { return Object.values(tables).flat().find(row => row._id === id) ?? null; },
     async insert(table, value) {
       const row = { ...structuredClone(value), _id: `row-${++count}`, _creationTime: Date.now() };
@@ -40,6 +47,10 @@ function fakeContext(seed = {}, userId = "user-one") {
     query(table) {
       let rows = [...(tables[table] ?? [])];
       const query = {
+        filter(callback) {
+          const expressions = { field: key => row => row[key], eq: (a, b) => row => (typeof a === "function" ? a(row) : a) === (typeof b === "function" ? b(row) : b) };
+          rows = rows.filter(callback(expressions)); return query;
+        },
         withIndex(_name, callback) {
           const index = {
             eq(key, value) { rows = rows.filter(row => row[key] === value); return index; },
@@ -165,4 +176,135 @@ test("finishing an already-saved workout preserves its original snapshot", async
   const ctx = fakeContext({ workoutDays: [source], workoutProgress: [saved] });
   assert.deepEqual(await workouts.completeWorkout._handler(ctx, { dayId: source._id, dateKey: today }), { completionRate: 70 });
   assert.deepEqual(await ctx.db.get("p"), saved);
+});
+
+const samplePlan = { version: 1, routines: [{ name: "Morning", timeSlot: "Any time", tasks: ["Plan one priority"] }], workouts: [{ name: "Pull", exercises: [{ name: "Pull up", sets: 3, reps: "5", notes: "Keep this", isWarmup: false }] }] };
+test("plan validation strips IDs and checkmarks; rejects malformed and excessive files", () => {
+  const input = structuredClone(samplePlan);
+  input.userId = "other"; input.routines[0].tasks = ["<script>text only</script>"];
+  input.workouts[0].exercises[0].id = "bad"; input.workouts[0].exercises[0].completed = true;
+  const clean = plans.validatePlan(input);
+  assert.equal(clean.userId, undefined); assert.equal(clean.workouts[0].exercises[0].id, undefined);
+  assert.equal(clean.workouts[0].exercises[0].completed, undefined);
+  for (const invalid of [{}, { ...samplePlan, version: 2 }, { ...samplePlan, routines: "bad" }, { ...samplePlan, workouts: [{ name: "Bad", exercises: [{ name: "Bad", sets: 10000, reps: "5" }] }] }, { ...samplePlan, ignored: "x".repeat(500001) }]) assert.throws(() => plans.validatePlan(invalid));
+});
+test("imports append atomically-shaped plans and retries do not duplicate them", async () => {
+  const ctx = fakeContext({ workoutDays: [source] });
+  const args = { plan: samplePlan, requestId: "request-one" };
+  assert.deepEqual(await workspace.importPlan._handler(ctx, args), { routines: 1, workouts: 1 });
+  await workspace.importPlan._handler(ctx, args);
+  assert.equal(ctx.tables.routines.length, 1); assert.equal(ctx.tables.workoutDays.length, 2);
+  assert.deepEqual(await ctx.db.get(source._id), source);
+  assert.equal(ctx.tables.routines[0].tasks[0].completed, false);
+  assert.equal(ctx.tables.planApplications.length, 1);
+});
+test("import quota and validation failures occur before any plan is written", async () => {
+  const ctx = fakeContext({ workoutDays: Array.from({ length: 14 }, (_, i) => ({ ...source, _id: `day${i}` })) });
+  await assert.rejects(workspace.importPlan._handler(ctx, { plan: samplePlan, requestId: "full" }), /Nothing was imported/);
+  assert.equal(ctx.tables.routines, undefined); assert.equal(ctx.tables.planApplications, undefined);
+});
+test("setup is optional, non-destructive and idempotent", async () => {
+  const ctx = fakeContext({ workoutDays: [source] });
+  await workspace.finishSetup._handler(ctx, { focus: "daily", useStarter: true });
+  await workspace.finishSetup._handler(ctx, { focus: "daily", useStarter: true });
+  assert.equal(ctx.tables.routines.length, 1);
+  assert.deepEqual(await ctx.db.get(source._id), source);
+  const blank = fakeContext();
+  await workspace.finishSetup._handler(blank, { focus: "training", useStarter: false });
+  assert.equal(blank.tables.routines, undefined); assert.equal(blank.tables.workspacePreferences[0].setupDone, true);
+});
+test("workspace preferences enforce a visible starting page and leave plans alone", async () => {
+  const ctx = fakeContext({ workoutDays: [source] });
+  await assert.rejects(workspace.savePreferences._handler(ctx, { hiddenPages: ["workout"], startPage: "workout", quiet: false }), /visible/);
+  await assert.rejects(workspace.savePreferences._handler(ctx, { hiddenPages: ["today"], startPage: "today", quiet: false }), /available/);
+  await workspace.savePreferences._handler(ctx, { hiddenPages: ["athkar", "macros"], startPage: "workout", quiet: true });
+  const saved = await workspace.getPreferences._handler(ctx, {});
+  assert.equal(saved.startPage, "workout"); assert.equal(saved.quiet, true);
+  assert.deepEqual(await ctx.db.get(source._id), source);
+  assert.equal(await workspace.getPreferences._handler(fakeContext({}, null), {}), null);
+});
+test("saved templates are reusable snapshots scoped to the account", async () => {
+  const ctx = fakeContext();
+  const id = await workspace.saveTemplate._handler(ctx, { name: "My plan", plan: samplePlan });
+  const listed = await workspace.listTemplates._handler(ctx, {});
+  assert.equal(listed.length, 1);
+  await workspace.importPlan._handler(ctx, { plan: listed[0].plan, requestId: "template-use" });
+  assert.equal(ctx.tables.planTemplates.length, 1);
+  const other = fakeContext(ctx.tables, "other");
+  assert.deepEqual(await workspace.listTemplates._handler(other, {}), []);
+  await assert.rejects(workspace.deleteTemplate._handler(other, { id }), /not found/);
+});
+test("export omits account IDs, deleted items and completion flags", async () => {
+  const ctx = fakeContext({ workoutDays: [source, { ...source, _id: "removed", isActive: false, deletedAt: Date.now() }], routines: [{ _id: "routine", userId: "user-one", isActive: true, name: "Daily", timeSlot: "AM", tasks: [{ id: "task", name: "Hello", order: 0, completed: true }] }] });
+  const exported = await workspace.getCurrentPlan._handler(ctx, {});
+  assert.equal(exported.workouts.length, 1);
+  assert.deepEqual(exported.routines[0].tasks, ["Hello"]);
+  assert.equal(exported.workouts[0].exercises[0].id, undefined);
+  assert.deepEqual(plans.validatePlan(exported).routines, exported.routines);
+});
+test("workout and rest choices persist by date without changing session logs", async () => {
+  const ctx = fakeContext({ workoutDays: [source], workoutProgress: [{ _id: "progress", userId: "user-one", date: today, completedExercises: [exercise.id] }] });
+  await workspace.chooseTodayWorkout._handler(ctx, { dateKey: today, rest: false, dayId: source._id });
+  await workspace.chooseTodayWorkout._handler(ctx, { dateKey: today, rest: true });
+  assert.equal(ctx.tables.todayPlans.length, 1);
+  assert.equal((await workspace.getTodayPlan._handler(ctx, { dateKey: today })).rest, true);
+  assert.deepEqual(ctx.tables.workoutProgress[0].completedExercises, [exercise.id]);
+  await assert.rejects(workspace.chooseTodayWorkout._handler(fakeContext({ workoutDays: [source] }, "other"), { dateKey: today, rest: false, dayId: source._id }), /not found/);
+});
+test("deleting and restoring a workout preserves its ID and history", async () => {
+  const ctx = fakeContext({ workoutDays: [source], workoutProgress: [{ _id: "p", userId: "user-one", workoutDayId: source._id, date: before(1), completedExercises: [exercise.id] }] });
+  await workouts.deleteWorkoutDay._handler(ctx, { dayId: source._id });
+  assert.equal((await ctx.db.get(source._id)).isActive, false);
+  assert.deepEqual(await workouts.getWorkoutDays._handler(ctx, {}), []);
+  const entry = ctx.tables.recycleBin[0];
+  await recovery.restore._handler(ctx, { id: entry._id });
+  assert.equal((await ctx.db.get(source._id)).isActive, true);
+  assert.equal(ctx.tables.workoutProgress[0].workoutDayId, source._id);
+  assert.equal(ctx.tables.recycleBin.length, 0);
+});
+test("task and exercise restoration respects parent state and original IDs", async () => {
+  const routine = { _id: "routine", userId: "user-one", name: "Daily", timeSlot: "Any", isActive: true, tasks: [{ id: "task", name: "Plan", order: 0, completed: true }] };
+  const ctx = fakeContext({ routines: [routine], workoutDays: [source] });
+  await routines.deleteTask._handler(ctx, { routineId: routine._id, taskId: "task" });
+  await routines.deleteRoutine._handler(ctx, { routineId: routine._id });
+  const taskEntry = ctx.tables.recycleBin.find(row => row.kind === "task");
+  await assert.rejects(recovery.restore._handler(ctx, { id: taskEntry._id }), /parent routine first/);
+  await recovery.restore._handler(ctx, { id: ctx.tables.recycleBin.find(row => row.kind === "routine")._id });
+  await recovery.restore._handler(ctx, { id: taskEntry._id });
+  assert.equal((await ctx.db.get(routine._id)).tasks[0].id, "task");
+  assert.equal((await ctx.db.get(routine._id)).tasks[0].completed, false);
+  await workouts.deleteExercise._handler(ctx, { dayId: source._id, exerciseId: exercise.id });
+  await recovery.restore._handler(ctx, { id: ctx.tables.recycleBin[0]._id });
+  assert.equal((await ctx.db.get(source._id)).exercises[0].id, exercise.id);
+});
+test("habit recovery preserves entries while deleted habits leave active queries", async () => {
+  const habit = { _id: "h", _creationTime: 1, userId: "user-one", isActive: true, name: "Read", type: "build", entries: [{ date: today, completed: true }], longestStreak: 5, currentStreak: 1 };
+  const ctx = fakeContext({ habits: [habit] });
+  await habits.deleteHabit._handler(ctx, { habitId: habit._id });
+  assert.deepEqual(await habits.getHabits._handler(ctx, {}), []);
+  await recovery.restore._handler(ctx, { id: ctx.tables.recycleBin[0]._id });
+  assert.deepEqual((await habits.getHabits._handler(ctx, {}))[0].entries, habit.entries);
+});
+test("a full recycle bin prevents deletion; foreign restores and purges are rejected", async () => {
+  const full = fakeContext({ workoutDays: [source], recycleBin: Array.from({ length: 100 }, (_, i) => ({ _id: `bin${i}`, userId: "user-one", kind: "task", itemId: `task${i}` })) });
+  await assert.rejects(workouts.deleteWorkoutDay._handler(full, { dayId: source._id }), /full/);
+  assert.equal((await full.db.get(source._id)).isActive, true);
+  const ctx = fakeContext({ recycleBin: [{ _id: "bin", userId: "other", kind: "task", itemId: "task" }] });
+  await assert.rejects(recovery.restore._handler(ctx, { id: "bin" }), /not found/);
+  await assert.rejects(recovery.removePermanently._handler(ctx, { id: "bin", confirm: "DELETE" }), /not found/);
+});
+test("account deletion removes new account-owned tables, but no other account data", async () => {
+  const seed = { users: [{ _id: "user-one" }] };
+  for (const table of ["workspacePreferences", "planTemplates", "planApplications", "todayPlans", "recycleBin"]) seed[table] = [{ _id: `${table}one`, userId: "user-one" }, { _id: `${table}other`, userId: "other" }];
+  const ctx = fakeContext(seed);
+  await account.deleteMyAccount._handler(ctx, { confirmation: "DELETE" });
+  for (const table of Object.keys(seed).filter(key => key !== "users")) assert.deepEqual(ctx.tables[table], [{ _id: `${table}other`, userId: "other" }]);
+});
+test("weekly comparisons use equal full windows and omit today's partial data", () => {
+  const days = Array.from({ length: 28 }, (_, i) => ({ date: before(27 - i), routines: i === 27 ? 0 : 100, habits: null, workouts: null, tasksDone: i === 27 ? 999 : 2, habitsDone: 0, exercisesDone: 0, workoutsCompleted: 0 }));
+  const compared = math.compareCompletedWeeks(days, "routines");
+  assert.equal(compared.current.completions, 14); assert.equal(compared.previous.completions, 14);
+  assert.equal(compared.current.end, before(1)); assert.equal(compared.previous.end, before(8));
+  assert.equal(compared.current.recordedDays, 7); assert.equal(compared.delta, 0);
+  assert.equal(math.compareCompletedWeeks(days, "habits").delta, null);
 });

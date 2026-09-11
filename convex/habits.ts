@@ -2,6 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { shiftUtcDateKey } from "./date";
+import { keepDeleted } from "./recovery";
 import {
   LIMITS,
   assertCurrentLocalDate,
@@ -62,6 +63,7 @@ export const getHabits = query({
     return await ctx.db
       .query("habits")
       .withIndex("by_user", (q) => q.eq("userId", userId))
+      .filter(q => q.eq(q.field("deletedAt"), undefined))
       .take(LIMITS.habits);
   },
 });
@@ -76,6 +78,7 @@ export const getHabitStats = query({
     const habits = await ctx.db
       .query("habits")
       .withIndex("by_user", (q) => q.eq("userId", userId))
+      .filter(q => q.eq(q.field("deletedAt"), undefined))
       .take(LIMITS.habits);
 
     if (habits.length === 0) {
@@ -131,6 +134,7 @@ export const createHabit = mutation({
     const existing = await ctx.db
       .query("habits")
       .withIndex("by_user", (q) => q.eq("userId", userId))
+      .filter(q => q.eq(q.field("deletedAt"), undefined))
       .take(LIMITS.habits);
     if (existing.length >= LIMITS.habits) {
       throw new Error(`You can have up to ${LIMITS.habits} habits`);
@@ -166,7 +170,7 @@ export const logHabit = mutation({
 
     await enforceRateLimit(ctx, userId, "habits:log", 120, 60_000);
     const habit = await ctx.db.get(args.habitId);
-    if (!habit || habit.userId !== userId) throw new Error("Habit not found");
+    if (!habit || habit.userId !== userId || habit.deletedAt !== undefined) throw new Error("Habit not found");
 
     const today = assertCurrentLocalDate(args.dateKey);
     const existingEntryIndex = habit.entries.findIndex((entry) => entry.date === today);
@@ -202,7 +206,8 @@ export const deleteHabit = mutation({
 
     await enforceRateLimit(ctx, userId, "habits:structure", 20, 60_000);
     const habit = await ctx.db.get(args.habitId);
-    if (!habit || habit.userId !== userId) throw new Error("Habit not found");
-    await ctx.db.delete(args.habitId);
+    if (!habit || habit.userId !== userId || habit.deletedAt !== undefined) throw new Error("Habit not found");
+    await keepDeleted(ctx, userId, { kind: "habit", itemId: habit._id, title: habit.name });
+    await ctx.db.patch(args.habitId, { isActive: false, deletedAt: Date.now() });
   },
 });

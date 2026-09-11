@@ -11,6 +11,8 @@ import { StatsPanel } from "./components/StatsPanel";
 import { CompleteButton } from "./components/CompleteButton";
 import { WorkoutPage } from "./components/WorkoutPage";
 import { TodayPage } from "./components/TodayPage";
+import { WorkspacePage } from "./components/WorkspacePage";
+import { ConnectionNotice, ScreenBoundary } from "./components/ScreenBoundary";
 import { HabitsPage } from "./components/HabitsPage";
 import { ProgressPage } from "./components/ProgressPage";
 import { AthkarPage } from "./components/AthkarPage";
@@ -23,7 +25,7 @@ import { useSound } from "./contexts/SoundContext";
 import { useDailyReset } from "./hooks/useDailyReset";
 import { TrustedDeviceGate } from "./TrustedDeviceGate";
 
-type Page = "today" | "routines" | "workout" | "habits" | "progress" | "athkar" | "macros";
+type Page = "today" | "routines" | "workout" | "habits" | "progress" | "athkar" | "macros" | "workspace";
 
 /* =========================
    Helpers
@@ -475,6 +477,20 @@ function AppContent() {
   const { theme, getThemeColors } = useTheme();
   const colors = getThemeColors();
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const preferences = useQuery(api.workspace.getPreferences, isAuthenticated ? {} : "skip");
+  const initialAccount = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isAuthenticated) { initialAccount.current = null; return; }
+    if (!preferences) return;
+    if (initialAccount.current !== preferences.userId) {
+      initialAccount.current = preferences.userId;
+      setCurrentPage(preferences.startPage);
+    } else if (currentPage !== "workspace" && preferences.hiddenPages.includes(currentPage)) setCurrentPage("today");
+  }, [isAuthenticated, preferences, currentPage]);
+  useEffect(() => {
+    document.documentElement.dataset.ceventicQuiet = String(preferences?.quiet ?? false);
+    return () => { delete document.documentElement.dataset.ceventicQuiet; };
+  }, [preferences?.quiet]);
 
   // Only touch authenticated daily data after auth has resolved.
   useDailyReset(isAuthenticated);
@@ -483,9 +499,10 @@ function AppContent() {
     if (currentPage !== "athkar") setAthkarFocus(false);
   }, [currentPage]);
 
-  const PAGE_ORDER: Page[] = ["today", "routines", "workout", "habits", "progress", "athkar", "macros"];
+  const PAGE_ORDER: Page[] = (["today", "routines", "workout", "habits", "progress", "athkar", "macros"] as const).filter(page => !preferences?.hiddenPages.includes(page));
 
   const navigateToPage = (page: Page, direction?: "left" | "right") => {
+    if (page !== "workspace" && preferences?.hiddenPages.includes(page)) return;
     if (page === currentPage) {
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
       return;
@@ -572,7 +589,7 @@ function AppContent() {
         </div>
       )}
 
-      {authLoading ? (
+      {authLoading || (isAuthenticated && preferences === undefined) ? (
         <div className="grid min-h-screen place-items-center bg-black">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-white/70" />
         </div>
@@ -581,6 +598,7 @@ function AppContent() {
           <header className={`${athkarFocus ? "hidden sm:block" : ""} relative z-50 ${colors.backgroundSecondary} backdrop-blur-md border-b ${colors.border} shadow-2xl`}>
             <div className="container mx-auto flex h-16 items-center justify-end px-3 sm:h-20 sm:px-4">
               <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
+                <button onClick={() => navigateToPage("workspace")} aria-current={currentPage === "workspace" ? "page" : undefined} className="min-h-11 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/80 hover:bg-white/10">My workspace</button>
                 <ThemeSelector />
                 <DesktopFullscreenButton />
                 <SignOutButton />
@@ -589,7 +607,8 @@ function AppContent() {
           </header>
 
           <div className={athkarFocus ? "hidden sm:block" : ""}>
-            <Navigation currentPage={currentPage} onPageChange={navigateToPage} />
+            <Navigation currentPage={currentPage} onPageChange={navigateToPage} hiddenPages={preferences?.hiddenPages ?? []} />
+            <ConnectionNotice />
           </div>
 
           <main
@@ -599,7 +618,7 @@ function AppContent() {
             onTouchEnd={onTouchEnd}
           >
             <div key={swapKey} className={swapDir === "left" ? "sw-page-swap-left" : "sw-page-swap-right"}>
-              <Content currentPage={currentPage} onNavigate={navigateToPage} onAthkarFocusChange={setAthkarFocus} />
+              <ScreenBoundary key={currentPage}><Content currentPage={currentPage} onNavigate={navigateToPage} onAthkarFocusChange={setAthkarFocus} /></ScreenBoundary>
             </div>
           </main>
         </TrustedDeviceGate>
@@ -678,6 +697,7 @@ function Content({ currentPage, onNavigate, onAthkarFocusChange }: { currentPage
           <NameSetupModal onSaved={(savedName) => setConfirmedNameThisSession(savedName)} />
         )}
         {currentPage === "today" && <TodayPage displayName={needsRealName ? "" : displayName} onNavigate={onNavigate} />}
+        {currentPage === "workspace" && <WorkspacePage />}
         {currentPage === "routines" && (
           <RoutinesContent
             loggedInUser={loggedInUser}

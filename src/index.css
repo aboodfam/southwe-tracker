@@ -819,6 +819,21 @@ body,
   }
 }
 
+/* Account-level quiet mode keeps feedback readable without decorative motion. */
+html[data-ceventic-quiet="true"] *,
+html[data-ceventic-quiet="true"] *::before,
+html[data-ceventic-quiet="true"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
+  outline: 2px solid rgb(var(--sw-accent-rgb));
+  outline-offset: 3px;
+}
+
 /* Step 17.3: focused mobile Athkar typography/performance. */
 @media (max-width: 639px) {
   .athkar-arabic-text {

@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { LIMITS, assertCurrentLocalDate, assertIntegerInRange, assertShortId, cleanLongText, cleanText, enforceRateLimit } from "./security";
 import { shiftUtcDateKey } from "./date";
+import { keepDeleted } from "./recovery";
 
 const uid = () =>
   `${Date.now().toString(36)}-${Math.random().toString(16).slice(2)}`;
@@ -39,7 +40,7 @@ export const logExerciseResult = mutation({
     if (!userId) throw new Error("Not authenticated");
     const today = assertCurrentLocalDate(args.dateKey);
     const day = await ctx.db.get(args.dayId);
-    if (!day || day.userId !== userId || !day.isActive) throw new Error("Workout day not found");
+    if (!day || day.userId !== userId || day.deletedAt !== undefined || !day.isActive) throw new Error("Workout day not found");
     const exerciseId = assertShortId(args.exerciseId, "Exercise id", 100);
     const exercise = day.exercises.find(item => item.id === exerciseId);
     if (!exercise) throw new Error("Exercise not found");
@@ -168,7 +169,7 @@ export const updateWorkoutDay = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const day = await ctx.db.get(args.dayId);
-    if (!day || day.userId !== userId) throw new Error("Workout day not found");
+    if (!day || day.userId !== userId || day.deletedAt !== undefined) throw new Error("Workout day not found");
 
     await enforceRateLimit(ctx, userId, "workouts:structure", 30, 60_000);
     const name = cleanText(args.name, "Workout day name", LIMITS.workoutDayName);
@@ -184,10 +185,11 @@ export const deleteWorkoutDay = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const day = await ctx.db.get(args.dayId);
-    if (!day || day.userId !== userId) throw new Error("Workout day not found");
+    if (!day || day.userId !== userId || day.deletedAt !== undefined) throw new Error("Workout day not found");
 
     await enforceRateLimit(ctx, userId, "workouts:structure", 30, 60_000);
-    await ctx.db.delete(args.dayId);
+    await keepDeleted(ctx, userId, { kind: "workoutDay", itemId: day._id, title: day.name });
+    await ctx.db.patch(args.dayId, { isActive: false, deletedAt: Date.now() });
   },
 });
 
@@ -251,7 +253,7 @@ export const addExercise = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const day = await ctx.db.get(args.dayId);
-    if (!day || day.userId !== userId) throw new Error("Workout day not found");
+    if (!day || day.userId !== userId || day.deletedAt !== undefined) throw new Error("Workout day not found");
 
     await enforceRateLimit(ctx, userId, "workouts:structure", 30, 60_000);
     const name = cleanText(args.name, "Exercise name", LIMITS.exerciseName);
@@ -303,7 +305,7 @@ export const updateExercise = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const day = await ctx.db.get(args.dayId);
-    if (!day || day.userId !== userId) throw new Error("Workout day not found");
+    if (!day || day.userId !== userId || day.deletedAt !== undefined) throw new Error("Workout day not found");
 
     await enforceRateLimit(ctx, userId, "workouts:structure", 30, 60_000);
     const exerciseId = assertShortId(args.exerciseId, "Exercise id", 100);
@@ -339,12 +341,14 @@ export const deleteExercise = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const day = await ctx.db.get(args.dayId);
-    if (!day || day.userId !== userId) throw new Error("Workout day not found");
+    if (!day || day.userId !== userId || day.deletedAt !== undefined) throw new Error("Workout day not found");
 
     await enforceRateLimit(ctx, userId, "workouts:structure", 30, 60_000);
     const exerciseId = assertShortId(args.exerciseId, "Exercise id", 100);
     if (!day.exercises.some((ex) => ex.id === exerciseId)) throw new Error("Exercise not found");
     const updated = day.exercises.filter((ex) => ex.id !== exerciseId);
+    const deletedExercise = day.exercises.find(ex => ex.id === exerciseId)!;
+    await keepDeleted(ctx, userId, { kind: "exercise", itemId: exerciseId, parentId: day._id, title: deletedExercise.name, snapshot: deletedExercise });
     await ctx.db.patch(args.dayId, { exercises: updated });
   },
 });
@@ -387,7 +391,7 @@ export const toggleExerciseComplete = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const day = await ctx.db.get(args.dayId);
-    if (!day || day.userId !== userId) throw new Error("Workout day not found");
+    if (!day || day.userId !== userId || day.deletedAt !== undefined) throw new Error("Workout day not found");
     const exerciseId = assertShortId(args.exerciseId, "Exercise id", 100);
     if (!day.exercises.some((ex) => ex.id === exerciseId)) throw new Error("Exercise not found");
 
@@ -459,7 +463,7 @@ export const completeWorkout = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const day = await ctx.db.get(args.dayId);
-    if (!day || day.userId !== userId) throw new Error("Workout day not found");
+    if (!day || day.userId !== userId || day.deletedAt !== undefined) throw new Error("Workout day not found");
 
     const today = assertCurrentLocalDate(args.dateKey);
     const eligibleIds = new Set(day.exercises.filter(exercise => !exercise.isWarmup).map(exercise => exercise.id));

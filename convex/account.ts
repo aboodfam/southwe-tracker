@@ -1,4 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
+import type { Doc } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 
@@ -57,6 +58,10 @@ export const deleteMyAccount = mutation({
     for (const doc of macroProfiles) await ctx.db.delete(doc._id);
     for (const doc of weightEntries) await ctx.db.delete(doc._id);
     for (const doc of preferences) await ctx.db.delete(doc._id);
+    for (const table of ["workspacePreferences", "planTemplates", "planApplications", "todayPlans", "recycleBin"] as const) {
+      const rows: Doc<typeof table>[] = await ctx.db.query(table).withIndex("by_user", q => q.eq("userId", userId)).collect();
+      for (const row of rows) if (row.userId === userId) await ctx.db.delete(row._id);
+    }
     for (const doc of trustedDevices) await ctx.db.delete(doc._id);
     for (const doc of deviceChallenges) await ctx.db.delete(doc._id);
     for (const doc of rateLimits) await ctx.db.delete(doc._id);

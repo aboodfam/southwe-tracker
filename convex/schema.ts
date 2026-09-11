@@ -1,9 +1,11 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
+import { pageValidator, planValidator } from "./planFormat";
 
 const applicationTables = {
   routines: defineTable({
+    deletedAt: v.optional(v.number()),
     userId: v.id("users"),
     name: v.string(),
     timeSlot: v.string(),
@@ -38,6 +40,7 @@ const applicationTables = {
   }).index("by_user", ["userId"]),
 
   habits: defineTable({
+    deletedAt: v.optional(v.number()),
     userId: v.id("users"),
     name: v.string(),
     description: v.optional(v.string()),
@@ -82,6 +85,7 @@ const applicationTables = {
   }).index("by_user", ["userId"]),
 
   workoutDays: defineTable({
+    deletedAt: v.optional(v.number()),
     userId: v.id("users"),
     name: v.string(),
     exercises: v.array(
@@ -201,6 +205,18 @@ const applicationTables = {
   userPreferences: defineTable({
     userId: v.id("users"),
     weightUnit: v.union(v.literal("kg"), v.literal("lbs")),
+  }).index("by_user", ["userId"]),
+
+  workspacePreferences: defineTable({
+    userId: v.id("users"), hiddenPages: v.array(pageValidator), startPage: pageValidator,
+    setupDone: v.boolean(), focus: v.optional(v.string()), quiet: v.boolean(),
+  }).index("by_user", ["userId"]),
+  planTemplates: defineTable({ userId: v.id("users"), name: v.string(), plan: planValidator }).index("by_user", ["userId"]),
+  planApplications: defineTable({ userId: v.id("users"), requestId: v.string(), routines: v.number(), workouts: v.number() }).index("by_user", ["userId"]).index("by_user_request", ["userId", "requestId"]),
+  todayPlans: defineTable({ userId: v.id("users"), date: v.string(), dayId: v.optional(v.id("workoutDays")), rest: v.boolean() }).index("by_user_date", ["userId", "date"]).index("by_user", ["userId"]),
+  recycleBin: defineTable({
+    userId: v.id("users"), kind: v.union(v.literal("routine"), v.literal("habit"), v.literal("workoutDay"), v.literal("task"), v.literal("exercise")),
+    itemId: v.string(), parentId: v.optional(v.string()), title: v.string(), snapshot: v.string(), deletedAt: v.number(),
   }).index("by_user", ["userId"]),
 
 

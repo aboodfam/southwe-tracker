@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { aggregateProgress, compareResults, meanRecorded, type ProgressMetric } from "../../convex/progressMath";
+import { aggregateProgress, compareResults, compareCompletedWeeks, meanRecorded, type ProgressMetric } from "../../convex/progressMath";
 import { PageHeader } from "./PageHeader";
 import { Icon } from "./icons";
 import { useLocalDateKey } from "../hooks/useLocalDateKey";
@@ -86,6 +86,23 @@ export function ProgressPage() {
           <div className="mt-2 text-lg text-[rgb(var(--sw-accent-rgb))]">{active ? "✓" : "—"}</div>
           <span className="sr-only">{active ? "Completions recorded" : "No completions recorded"}</span>
         </div>;
+      })}</div>
+    </section>
+
+    <section className={card}>
+      <h2 className="text-xl font-bold">Week against week</h2>
+      <p className="mt-2 text-sm text-white/65">Two full seven-day windows ending yesterday. Today's unfinished checklist is excluded.</p>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">{(["routines", "habits"] as const).map(category => {
+        const comparison = compareCompletedWeeks(month, category);
+        return <article key={category} className="rounded-2xl border border-white/10 bg-white/[.025] p-4">
+          <h3 className="font-bold">{labels[category]}</h3>
+          <div className="mt-4 grid grid-cols-2 gap-3">{[["Previous", comparison.previous], ["Latest", comparison.current]].map(([label, summary]) => {
+            const week = summary as typeof comparison.current;
+            return <div key={String(label)}><p className="text-sm text-white/65">{String(label)}</p><p className="mt-1 text-2xl font-black">{week.completions}</p><p className="text-xs text-white/55">{category === "routines" ? "tasks completed" : "habit check-ins"}</p><p className="mt-2 text-sm">{pct(week.average)} average</p><p className="mt-1 text-xs text-white/55">{week.recordedDays}/7 days recorded<br />{week.start && shortDate(week.start)} – {week.end && shortDate(week.end)}</p></div>;
+          })}</div>
+          <p className="mt-4 text-sm text-[rgb(var(--sw-accent-rgb))]">{comparison.delta === null ? "Record activity in both weeks to compare completion rates." : `${comparison.delta > 0 ? "+" : ""}${Math.round(comparison.delta)} percentage points in recorded-day completion.`}</p>
+          <p className="mt-2 text-xs leading-5 text-white/55">Counts include recorded completions only. Average percentages exclude unrecorded days; compare the coverage above too.{category === "habits" ? " Habit history reflects currently active habits." : ""}</p>
+        </article>;
       })}</div>
     </section>
 

@@ -204,7 +204,7 @@ export function HabitsPage() {
     window.setTimeout(async () => {
       try {
         await deleteHabit({ habitId });
-        toast.success("Habit deleted.");
+        toast.success("Habit moved to My workspace → Recently deleted.");
       } catch {
         toast.error("Failed to delete habit.");
       } finally {
