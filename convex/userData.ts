@@ -27,6 +27,7 @@ export const getMacroProfile = query({
 
 export const saveMacroProfile = mutation({
   args: {
+    expectedUserId: v.id("users"),
     sex: v.union(v.literal("male"), v.literal("female")),
     age: v.string(),
     heightCm: v.string(),
@@ -44,6 +45,8 @@ export const saveMacroProfile = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+
+    if (userId !== args.expectedUserId) throw new Error("Your account changed. Reopen Macros before saving.");
 
     await enforceRateLimit(ctx, userId, "macros:save", 40, 60_000);
 

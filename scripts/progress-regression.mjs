@@ -27,6 +27,25 @@ const routines = await load("convex/routines.ts");
 const habits = await load("convex/habits.ts");
 const account = await load("convex/account.ts");
 const plans = await load("convex/planFormat.ts");
+const userData = await load("convex/userData.ts");
+
+test("macro profiles only read and update the signed-in account", async () => {
+  const payload = { expectedUserId: "user-one", sex: "male", age: "25", heightCm: "180", weightKg: "80", activityId: "moderate", goal: "maintain", pace: "moderate" };
+  const ctx = fakeContext({ macroProfiles: [{ _id: "other-profile", userId: "user-two", ...payload, weightKg: "60" }] });
+  assert.equal(await userData.getMacroProfile._handler(ctx, {}), null);
+  await userData.saveMacroProfile._handler(ctx, payload);
+  assert.equal((await userData.getMacroProfile._handler(ctx, {})).weightKg, "80");
+  assert.equal(ctx.tables.macroProfiles.find(row => row.userId === "user-two").weightKg, "60");
+});
+
+test("stale macro saves cannot cross an account change", async () => {
+  const ctx = fakeContext({}, "user-two");
+  await assert.rejects(() => userData.saveMacroProfile._handler(ctx, { expectedUserId: "user-one" }), /account changed/);
+  assert.equal(ctx.tables.macroProfiles, undefined);
+  const signedOut = fakeContext({}, null);
+  assert.equal(await userData.getMacroProfile._handler(signedOut, {}), null);
+  await assert.rejects(() => userData.saveMacroProfile._handler(signedOut, { expectedUserId: "user-one" }), /Not authenticated/);
+});
 const today = new Date().toISOString().slice(0, 10);
 const before = days => new Date(Date.parse(today) - days * 86400000).toISOString().slice(0, 10);
 const exercise = { id: "exercise-one", name: "Pull ups", sets: 3, reps: "8-12", isWarmup: false };

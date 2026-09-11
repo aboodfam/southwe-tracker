@@ -68,10 +68,9 @@ export const loggedInUser = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
 
-    // getAuthUserId already proves this request has an authenticated user. The
-    // UI only needs a truthy result, so avoid an extra auth-table read and do
-    // not expose the raw user/email document.
-    return { authenticated: true as const };
+    // Return the authenticated identity so account-owned forms reset on account
+    // changes, without exposing the raw user/email document or another DB read.
+    return { authenticated: true as const, userId };
   },
 });
 

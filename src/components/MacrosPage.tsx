@@ -3,6 +3,9 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useTheme } from "../contexts/ThemeContext";
 import { PageHeader } from "./PageHeader";
+import type { Doc, Id } from "../../convex/_generated/dataModel";
+import { useSaveAction } from "../hooks/useSaveAction";
+import { toast } from "sonner";
 
 type Sex = "male" | "female";
 type Goal = "maintain" | "cut" | "bulk";
@@ -78,8 +81,6 @@ const FAT_G_PER_KG: Record<Goal, number> = {
 const FAT_MIN_G_PER_KG = 0.6;
 
 
-const STORAGE_KEY = "sw_macros_form_v1";
-
 function isOneOf<T extends string>(v: any, allowed: readonly T[]): v is T {
   return typeof v === "string" && (allowed as readonly string[]).includes(v);
 }
@@ -135,10 +136,20 @@ function MacroCard({
 
 
 export function MacrosPage() {
+  const account = useQuery(api.auth.loggedInUser);
+  const savedProfile = useQuery(api.userData.getMacroProfile);
+  if (!account || savedProfile === undefined || (savedProfile && savedProfile.userId !== account.userId)) {
+    return <p role="status" className="p-10 text-center text-white/60">Loading your account’s macros…</p>;
+  }
+  // A new account always mounts a fresh form, even when React keeps this page open.
+  return <MacroForm key={account.userId} userId={account.userId} savedProfile={savedProfile} />;
+}
+
+function MacroForm({ userId, savedProfile }: { userId: Id<"users">; savedProfile: Doc<"macroProfiles"> | null }) {
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
-  const savedProfile = useQuery(api.userData.getMacroProfile);
   const saveMacroProfile = useMutation(api.userData.saveMacroProfile);
+  const action = useSaveAction();
   const [hydrated, setHydrated] = useState(false);
 
   const [sex, setSex] = useState<Sex>("male");
@@ -151,20 +162,12 @@ export function MacrosPage() {
   const [goal, setGoal] = useState<Goal>("maintain");
   const [pace, setPace] = useState<Pace>("moderate");
 
-  // Hydrate from the account first so calculator inputs follow the user across
-  // refreshes/devices. localStorage remains a fallback for old installs/offline use.
+  // Only use the authenticated account's profile. Legacy browser data has no
+  // provable owner and must never be imported into another account.
   useEffect(() => {
     if (savedProfile === undefined || hydrated) return;
 
-    let data: any = savedProfile;
-    if (!data && typeof window !== "undefined") {
-      try {
-        const raw = window.localStorage.getItem(STORAGE_KEY);
-        data = raw ? JSON.parse(raw) : null;
-      } catch {
-        data = null;
-      }
-    }
+    const data = savedProfile;
 
     if (data) {
       if (isOneOf<Sex>(data.sex, ["male", "female"])) setSex(data.sex);
@@ -181,46 +184,10 @@ export function MacrosPage() {
     setHydrated(true);
   }, [savedProfile, hydrated]);
 
-  // Persist locally immediately and sync to Convex with a small debounce.
-  useEffect(() => {
-    if (!hydrated) return;
-
-    const payload = {
-      sex,
-      age,
-      heightCm,
-      weightKg,
-      activityId,
-      goal,
-      pace,
-    };
-
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch {}
-
-    const ageNumber = Number(age);
-    const heightNumber = Number(heightCm);
-    const weightNumber = Number(weightKg);
-    const canSync =
-      age.trim() !== "" &&
-      heightCm.trim() !== "" &&
-      weightKg.trim() !== "" &&
-      Number.isFinite(ageNumber) && ageNumber >= 13 && ageNumber <= 120 &&
-      Number.isFinite(heightNumber) && heightNumber >= 80 && heightNumber <= 260 &&
-      Number.isFinite(weightNumber) && weightNumber >= 20 && weightNumber <= 500;
-
-    // Keep drafts locally, but don't send incomplete/invalid form states to the backend.
-    if (!canSync) return;
-
-    const timer = window.setTimeout(() => {
-      void saveMacroProfile(payload).catch(() => {
-        // Keep the local copy; Convex will be retried on the next valid edit.
-      });
-    }, 1200);
-
-    return () => window.clearTimeout(timer);
-  }, [hydrated, sex, age, heightCm, weightKg, activityId, goal, pace, saveMacroProfile]);
+  const save = () => void action.run(async () => {
+    await saveMacroProfile({ expectedUserId: userId, sex, age, heightCm, weightKg, activityId, goal, pace });
+    toast.success("Macros saved to this account.");
+  });
 
   const activity = ACTIVITY.find((a) => a.id === activityId) ?? ACTIVITY[2];
 
@@ -305,6 +272,11 @@ export function MacrosPage() {
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in">
       <PageHeader title="Macros Calculator" subtitle="Enter your stats and get calories + protein, carbs, fat" />
+      <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+        <p className="text-sm text-white/65">Your saved information belongs only to this account. Changes stay unsaved until you choose Save.</p>
+        <button type="button" disabled={!hydrated || action.busy} onClick={save} className="mt-3 min-h-11 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{action.busy ? "Saving…" : "Save to my account"}</button>
+        {action.error && <p role="alert" className="mt-3 text-sm text-red-300">{action.error}</p>}
+      </div>
 
       {/* Main Panel */}
       <div className="max-w-5xl mx-auto">
