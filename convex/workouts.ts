@@ -2,9 +2,84 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { LIMITS, assertCurrentLocalDate, assertIntegerInRange, assertShortId, cleanLongText, cleanText, enforceRateLimit } from "./security";
+import { shiftUtcDateKey } from "./date";
 
 const uid = () =>
   `${Date.now().toString(36)}-${Math.random().toString(16).slice(2)}`;
+
+// Copying a day is atomic and never touches the source or its recorded history.
+export const copyWorkoutDay = mutation({
+  args: { dayId: v.id("workoutDays"), name: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const source = await ctx.db.get(args.dayId);
+    if (!source || source.userId !== userId || !source.isActive) throw new Error("Workout day not found");
+    const name = cleanText(args.name, "Workout day name", LIMITS.workoutDayName);
+    await enforceRateLimit(ctx, userId, "workouts:structure", 30, 60_000);
+    const days = await ctx.db.query("workoutDays").withIndex("by_user_active", q => q.eq("userId", userId).eq("isActive", true)).take(LIMITS.workoutDays);
+    if (days.length >= LIMITS.workoutDays) throw new Error("Workout day limit reached. Edit an existing day instead.");
+    return await ctx.db.insert("workoutDays", {
+      userId, name, isActive: true, warmupNotes: source.warmupNotes,
+      order: Math.max(0, ...days.map(day => day.order)) + 1,
+      exercises: source.exercises.map((exercise, index) => ({
+        ...exercise, id: uid(), completed: false, order: index + 1,
+      })),
+    });
+  },
+});
+
+export const logExerciseResult = mutation({
+  args: {
+    dayId: v.id("workoutDays"), exerciseId: v.string(), dateKey: v.string(),
+    reps: v.optional(v.number()), weightKg: v.optional(v.number()), holdSeconds: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const today = assertCurrentLocalDate(args.dateKey);
+    const day = await ctx.db.get(args.dayId);
+    if (!day || day.userId !== userId || !day.isActive) throw new Error("Workout day not found");
+    const exerciseId = assertShortId(args.exerciseId, "Exercise id", 100);
+    const exercise = day.exercises.find(item => item.id === exerciseId);
+    if (!exercise) throw new Error("Exercise not found");
+    if ((args.reps === undefined) === (args.holdSeconds === undefined)) throw new Error("Enter either reps or a hold time.");
+    if (args.reps !== undefined) assertIntegerInRange(args.reps, "Reps", 1, 1000);
+    if (args.holdSeconds !== undefined && (!Number.isFinite(args.holdSeconds) || args.holdSeconds <= 0 || args.holdSeconds > 3600)) throw new Error("Hold time must be between 0 and 3600 seconds.");
+    if (args.weightKg !== undefined && (args.reps === undefined || !Number.isFinite(args.weightKg) || args.weightKg < 0 || args.weightKg > 1000)) throw new Error("Load must be between 0 and 1000 kg and used with reps.");
+    await enforceRateLimit(ctx, userId, "workouts:results", 60, 60_000);
+    const result = { exerciseId, name: exercise.name, reps: args.reps, weightKg: args.weightKg, holdSeconds: args.holdSeconds };
+    const existing = await ctx.db.query("workoutProgress").withIndex("by_user_date_day", q => q.eq("userId", userId).eq("date", today).eq("workoutDayId", args.dayId)).first();
+    if (existing) {
+      const results = (existing.exerciseResults ?? []).filter(item => item.exerciseId !== exerciseId);
+      if (results.length >= LIMITS.exercisesPerWorkoutDay) throw new Error("Result limit reached for today.");
+      await ctx.db.patch(existing._id, { exerciseResults: [...results, result] });
+    } else {
+      await assertWorkoutProgressQuota(ctx, userId, today);
+      await ctx.db.insert("workoutProgress", {
+        userId, date: today, workoutDayId: args.dayId, dayLabel: day.name,
+        completedExercises: [], totalExercises: day.exercises.filter(item => !item.isWarmup).length,
+        completionRate: 0, completedWorkout: false, exerciseResults: [result],
+      });
+    }
+    return result;
+  },
+});
+
+export const getExerciseResults = query({
+  args: { dateKey: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const today = assertCurrentLocalDate(args.dateKey);
+    const rows = await ctx.db.query("workoutProgress")
+      .withIndex("by_user_date", q => q.eq("userId", userId).gte("date", shiftUtcDateKey(today, -89)).lte("date", today))
+      .order("desc").take(120);
+    return rows.flatMap(row => (row.exerciseResults ?? []).map(result => ({
+      ...result, date: row.date, dayId: row.workoutDayId, dayName: row.dayLabel,
+    })));
+  },
+});
 
 // TS helper
 function assertExists<T>(
@@ -143,7 +218,6 @@ export const applyWorkoutSplit = mutation({
         await ctx.db.patch(existing._id, {
           name: names[index],
           order: index + 1,
-          warmupNotes: undefined,
         });
       } else {
         await ctx.db.insert("workoutDays", {
@@ -156,9 +230,7 @@ export const applyWorkoutSplit = mutation({
       }
     }
 
-    for (let index = names.length; index < activeDays.length; index += 1) {
-      await ctx.db.delete(activeDays[index]._id);
-    }
+    // Extra/custom days belong to the user; changing split labels must not delete them.
 
     return { count: names.length };
   },
@@ -320,7 +392,9 @@ export const toggleExerciseComplete = mutation({
     if (!day.exercises.some((ex) => ex.id === exerciseId)) throw new Error("Exercise not found");
 
     const today = assertCurrentLocalDate(args.dateKey);
-    const totalExercises = day.exercises.length;
+    const eligibleIds = new Set(day.exercises.filter(exercise => !exercise.isWarmup).map(exercise => exercise.id));
+    if (!eligibleIds.has(exerciseId)) throw new Error("Warmups are not included in workout completion.");
+    const totalExercises = eligibleIds.size;
 
     const existing = await ctx.db
       .query("workoutProgress")
@@ -354,7 +428,7 @@ export const toggleExerciseComplete = mutation({
       progress = created;
     }
 
-    const nowCompleted = safeCompleted(progress);
+    const nowCompleted = [...new Set(safeCompleted(progress))].filter(id => eligibleIds.has(id));
     const exists = nowCompleted.includes(exerciseId);
 
     const nextCompleted = exists
@@ -388,7 +462,8 @@ export const completeWorkout = mutation({
     if (!day || day.userId !== userId) throw new Error("Workout day not found");
 
     const today = assertCurrentLocalDate(args.dateKey);
-    const totalExercises = day.exercises.length;
+    const eligibleIds = new Set(day.exercises.filter(exercise => !exercise.isWarmup).map(exercise => exercise.id));
+    const totalExercises = eligibleIds.size;
 
     const existing = await ctx.db
       .query("workoutProgress")
@@ -398,6 +473,9 @@ export const completeWorkout = mutation({
       .first();
 
     let progress = existing;
+
+    // Already-saved historical snapshots must not be recalculated after editing a template.
+    if (progress?.completedWorkout) return { completionRate: progress.completionRate };
 
     if (!progress) {
       await assertWorkoutProgressQuota(ctx, userId, today);
@@ -417,12 +495,13 @@ export const completeWorkout = mutation({
       progress = created;
     }
 
-    const completedExercises = safeCompleted(progress);
+    const completedExercises = [...new Set(safeCompleted(progress))].filter(id => eligibleIds.has(id));
     const completedCount = completedExercises.length;
     const completionRate =
       totalExercises > 0 ? (completedCount / totalExercises) * 100 : 0;
 
     await ctx.db.patch(progress._id, {
+      completedExercises,
       totalExercises,
       completionRate,
       dayLabel: day.name,

@@ -2,8 +2,8 @@ import { useTheme } from "../contexts/ThemeContext";
 import { Icon, IconName } from "./icons";
 
 interface NavigationProps {
-  currentPage: "routines" | "workout" | "habits" | "progress" | "athkar" | "macros";
-  onPageChange: (page: "routines" | "workout" | "habits" | "progress" | "athkar" | "macros") => void;
+  currentPage: "today" | "routines" | "workout" | "habits" | "progress" | "athkar" | "macros";
+  onPageChange: (page: NavigationProps["currentPage"]) => void;
 }
 
 export function Navigation({ currentPage, onPageChange }: NavigationProps) {
@@ -11,6 +11,7 @@ export function Navigation({ currentPage, onPageChange }: NavigationProps) {
   const colors = getThemeColors();
 
   const pages: { id: NavigationProps["currentPage"]; name: string; icon: IconName }[] = [
+    { id: "today", name: "Today", icon: "calendar" },
     { id: "routines", name: "Routines", icon: "routines" },
     { id: "workout", name: "Workout", icon: "workout" },
     { id: "habits", name: "Habits", icon: "habits" },
@@ -22,7 +23,7 @@ export function Navigation({ currentPage, onPageChange }: NavigationProps) {
   return (
     <nav className={`sticky top-16 sm:top-20 z-40 border-b ${colors.border} ${colors.backgroundSecondary} backdrop-blur-xl`}>
       <div className="container mx-auto px-2 sm:px-4">
-        <div className="scrollbar-hide grid grid-cols-6 items-center gap-1 py-1 sm:flex sm:justify-center sm:gap-1.5 sm:overflow-x-auto sm:py-2">
+        <div className="scrollbar-hide flex items-center gap-1 overflow-x-auto py-2 sm:justify-center sm:gap-1.5">
           {pages.map((page) => {
             const active = currentPage === page.id;
             return (
@@ -33,7 +34,8 @@ export function Navigation({ currentPage, onPageChange }: NavigationProps) {
                   if (event.pointerType !== "mouse") event.currentTarget.blur();
                 }}
                 aria-current={active ? "page" : undefined}
-                className={`sw-nav-button group relative flex w-full min-w-0 items-center justify-center gap-0 rounded-xl border px-0 py-1.5 text-sm font-medium transition-all duration-200 sm:w-auto sm:shrink-0 sm:gap-2 sm:px-3.5 sm:py-2 ${
+                aria-label={page.name}
+                className={`sw-nav-button group relative flex min-w-[60px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl border px-2 py-1.5 text-sm font-medium transition-all duration-200 sm:flex-row sm:gap-2 sm:px-3.5 sm:py-2 ${
                   active
                     ? "border-white/15 bg-white/[0.06] text-white shadow-lg"
                     : `border-transparent ${colors.textSecondary} sm:hover:border-white/10 sm:hover:bg-white/[0.04] sm:hover:text-white`
@@ -45,7 +47,7 @@ export function Navigation({ currentPage, onPageChange }: NavigationProps) {
                 >
                   <Icon name={page.icon} className={`h-4 w-4 ${active ? colors.text : "text-white/55 sm:group-hover:text-white/80"}`} />
                 </span>
-                <span className="hidden sm:inline">{page.name}</span>
+                <span className="text-[10px] sm:text-sm">{page.name}</span>
                 {active && <span className="absolute inset-x-4 -bottom-1.5 h-px sm:-bottom-2 bg-[image:var(--sw-gradient)] shadow-[0_0_10px_var(--sw-accent)]" />}
               </button>
             );

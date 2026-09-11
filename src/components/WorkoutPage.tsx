@@ -7,6 +7,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import { useSound } from "../contexts/SoundContext";
 import { toast } from "sonner";
 import { useLocalDateKey } from "../hooks/useLocalDateKey";
+import { ExerciseResultLog } from "./ExerciseResultLog";
 
 type WorkoutDay = {
   _id: Id<"workoutDays">;
@@ -84,8 +85,15 @@ export function WorkoutPage() {
   const days = (rawDays ?? []) as WorkoutDay[];
 
   const stats = useQuery(api.workouts.getWorkoutStats);
+  const resultHistory = useQuery(api.workouts.getExerciseResults, { dateKey });
+  const copyDay = useMutation(api.workouts.copyWorkoutDay);
+  const [copyName, setCopyName] = useState("");
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const copyLock = useRef(false);
+  const workoutLock = useRef(false);
+  const [workoutBusy, setWorkoutBusy] = useState(false);
 
-  const createDay = useMutation(api.workouts.createWorkoutDay);
   const updateDay = useMutation(api.workouts.updateWorkoutDay);
   const deleteDay = useMutation(api.workouts.deleteWorkoutDay);
 
@@ -98,32 +106,12 @@ export function WorkoutPage() {
   const applyWorkoutSplit = useMutation(api.workouts.applyWorkoutSplit);
 
   const [selectedIdx, setSelectedIdx] = useState(0);
-  const initRef = useRef(false);
 
   // Optimistic exercises (fallback if Convex sync is slow / mobile network hiccups)
   const [optimisticExercises, setOptimisticExercises] = useState<Record<string, WorkoutDay["exercises"]>>({});
 
 
-  // Create default days ONCE, after the first successful load that returns zero days.
-  useEffect(() => {
-    if (daysLoading) return;
-    if (initRef.current) return;
-    if (days.length > 0) return;
-
-    initRef.current = true;
-    (async () => {
-      try {
-        for (const name of SPLITS.days.names) {
-          await createDay({ name });
-        }
-        toast.success("Default workout days created");
-      } catch (e: any) {
-        // allow retry if auth wasn't ready yet
-        initRef.current = false;
-        toast.error(e?.message ?? "Failed to create default days");
-      }
-    })();
-  }, [daysLoading, days.length, createDay]);
+  // Setup is explicit and atomic: opening the page never creates or resets data.
 
   useEffect(() => {
     if (selectedIdx >= days.length) setSelectedIdx(0);
@@ -204,6 +192,7 @@ export function WorkoutPage() {
   const [splitKey, setSplitKey] = useState<keyof typeof SPLITS>("days");
   const [showSplitConfirm, setShowSplitConfirm] = useState(false);
   const [applyingSplit, setApplyingSplit] = useState(false);
+  const splitLock = useRef(false);
   const [splitPreviewNames, setSplitPreviewNames] = useState<string[] | null>(null);
 
   // light inference (no risk if wrong)
@@ -239,44 +228,25 @@ export function WorkoutPage() {
 
   const applySplitTemplate = () => {
     if (daysLoading || applyingSplit) return;
-    if (days.length === 0) return;
     setShowSplitConfirm(true);
   };
 
   const confirmApplySplit = async () => {
-    if (applyingSplit) return;
+    if (splitLock.current) return;
+    splitLock.current = true;
     const template = [...SPLITS[splitKey].names];
-
-    // Close the confirmation immediately, but keep the satisfying one-by-one
-    // rename sequence in the UI. The actual database write remains one atomic
-    // Convex mutation so a network failure cannot leave half a split applied.
     setShowSplitConfirm(false);
     setApplyingSplit(true);
-    setSplitPreviewNames(days.map((day) => day.name));
-
-    const applyPromise = applyWorkoutSplit({ names: template });
-
     try {
-      for (let index = 0; index < template.length; index += 1) {
-        await new Promise<void>((resolve) => window.setTimeout(resolve, 160));
-        setSplitPreviewNames((current) => {
-          const next = current ? [...current] : days.map((day) => day.name);
-          next[index] = template[index];
-          return next;
-        });
-      }
-
-      await applyPromise;
+      await applyWorkoutSplit({ names: template });
       setSelectedIdx(0);
-      // Give the final rename a moment to land before handing display back to
-      // the live Convex subscription, which now contains the same names.
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 120));
       setSplitPreviewNames(null);
       toast.success("Split applied");
     } catch (e: any) {
       setSplitPreviewNames(null);
       toast.error(e?.message ?? "Failed to apply split");
     } finally {
+      splitLock.current = false;
       setApplyingSplit(false);
     }
   };
@@ -317,9 +287,13 @@ export function WorkoutPage() {
     "Chest"
   );
   const [exNotes, setExNotes] = useState("");
+  const [savingExercise, setSavingExercise] = useState(false);
+  const saveExerciseLock = useRef(false);
+  const [exerciseError, setExerciseError] = useState("");
 
   const openAddExercise = (prefillMuscle?: string) => {
     if (!selectedDay) return;
+    setExerciseError("");
     setExEditId(null);
     setExName("");
     setExSets(3);
@@ -335,6 +309,7 @@ export function WorkoutPage() {
   };
 
   const openEditExercise = (ex: WorkoutDay["exercises"][number]) => {
+    setExerciseError("");
     setExEditId(ex.id);
     setExName(ex.name);
     setExSets(ex.sets);
@@ -350,14 +325,21 @@ export function WorkoutPage() {
   };
 
   const saveExercise = async () => {
-    if (!selectedDay) return;
+    if (!selectedDay || saveExerciseLock.current) return;
+    setExerciseError("");
     const n = exName.trim();
     const r = exReps.trim();
     const m = String(exMuscles).trim();
     if (!n) return toast.error("Exercise name is required");
     if (!r) return toast.error("Reps is required");
     if (!m) return toast.error("Muscles is required");
+    if (!Number.isInteger(exSets) || exSets < 1 || exSets > 100) {
+      setExerciseError("Sets must be a whole number from 1 to 100.");
+      return;
+    }
 
+    saveExerciseLock.current = true;
+    setSavingExercise(true);
     try {
       if (exEditId) {
         await updateExercise({
@@ -397,7 +379,10 @@ play("notification", 0.9);
       }
       setExModalOpen(false);
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed");
+      setExerciseError(e?.message ?? "Couldn't save. Your entry is still here—please try again.");
+    } finally {
+      saveExerciseLock.current = false;
+      setSavingExercise(false);
     }
   };
 
@@ -413,7 +398,9 @@ play("notification", 0.9);
   };
 
   const doToggle = async (exerciseId: string) => {
-    if (!selectedDay) return;
+    if (!selectedDay || workoutLock.current || todayProgress === undefined) return;
+    workoutLock.current = true;
+    setWorkoutBusy(true);
     const willComplete = !completedSet.has(exerciseId);
     try {
       const res: any = await toggleComplete({ dayId: selectedDay._id, exerciseId, dateKey });
@@ -429,17 +416,25 @@ play("notification", 0.9);
       }
     } catch (e: any) {
       toast.error(e?.message ?? "Failed");
+    } finally {
+      workoutLock.current = false;
+      setWorkoutBusy(false);
     }
   };
 
   const doCompleteWorkout = async () => {
-    if (!selectedDay) return;
+    if (!selectedDay || workoutLock.current || todayProgress === undefined) return;
+    workoutLock.current = true;
+    setWorkoutBusy(true);
     try {
       await completeWorkout({ dayId: selectedDay._id, dateKey });
       play("complete", 1.15);
       toast.success("Workout saved as complete.");
     } catch (e: any) {
       toast.error(e?.message ?? "Could not complete workout");
+    } finally {
+      workoutLock.current = false;
+      setWorkoutBusy(false);
     }
   };
 
@@ -508,7 +503,7 @@ play("notification", 0.9);
             <select
               value={splitKey}
               onChange={(e) => setSplitKey(e.target.value as any)}
-              disabled={applyingSplit}
+              disabled={applyingSplit || daysLoading}
               className="rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-white/20 min-w-0 flex-1 sm:flex-none disabled:cursor-wait disabled:opacity-50"
             >
               {Object.entries(SPLITS).map(([k, v]) => (
@@ -520,7 +515,7 @@ play("notification", 0.9);
 
             <button
               onClick={applySplitTemplate}
-              disabled={applyingSplit}
+              disabled={applyingSplit || daysLoading}
               className="px-3 sm:px-4 py-2 rounded-xl font-semibold text-black text-sm whitespace-nowrap disabled:cursor-wait disabled:opacity-60"
               style={{
                 background: `linear-gradient(90deg, ${rgbaFromRgb(accent, 1)}, ${rgbaFromRgb(accent, 0.75)})`,
@@ -552,8 +547,7 @@ play("notification", 0.9);
             {days.map((d, i) => {
               const active = i === selectedIdx;
               const displayName = splitPreviewNames?.[i] ?? d.name;
-              const isRestLike =
-                displayName.toLowerCase().includes("rest") || (d.exercises?.length ?? 0) === 0;
+              const isRestLike = displayName.toLowerCase().includes("rest");
 
               return (
                 <button
@@ -586,7 +580,7 @@ play("notification", 0.9);
                     {displayName}
                   </div>
                   <div className="text-[10px] sm:text-[11px] mt-1" style={{ color: "rgba(255,255,255,0.45)" }}>
-                    {isRestLike ? "Rest" : "Train"}
+                    {isRestLike ? "Rest" : d.exercises.length ? "Train" : "Not set up"}
                   </div>
                 </button>
               );
@@ -596,6 +590,7 @@ play("notification", 0.9);
       </div>
 
       {/* Loading hint */}
+      {!daysLoading && days.length === 0 && <div className="rounded-2xl border border-dashed border-white/15 p-6 text-center"><h2 className="font-bold text-white">Build your first training week</h2><p className="mt-2 text-sm text-white/60">Choose a split above and apply it. Then add exercises to each day. Nothing is created until you choose.</p></div>}
       {daysLoading && (
         <div className="text-center text-white/50 text-sm">Loading workout…</div>
       )}
@@ -622,7 +617,8 @@ play("notification", 0.9);
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+              <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
+                <button onClick={() => { setCopyName(`${selectedDay.name} copy`); setCopyOpen(true); }} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/80">Copy day</button>
                 <button
                   onClick={openEditDay}
                   className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 transition text-xs sm:text-sm"
@@ -657,7 +653,7 @@ play("notification", 0.9);
             {total > 0 && (
               <button
                 onClick={() => void doCompleteWorkout()}
-                disabled={(todayProgress as any)?.completedWorkout === true || rate < 70}
+                disabled={workoutBusy || todayProgress === undefined || todayProgress?.completedWorkout === true || rate < 70}
                 className={[
                   "mt-4 w-full rounded-xl px-4 py-3 text-sm font-semibold transition",
                   (todayProgress as any)?.completedWorkout === true
@@ -672,7 +668,7 @@ play("notification", 0.9);
                     : undefined
                 }
               >
-                {(todayProgress as any)?.completedWorkout === true
+                {workoutBusy ? "Saving…" : (todayProgress as any)?.completedWorkout === true
                   ? "Workout Completed"
                   : rate >= 70
                     ? "Complete Workout"
@@ -712,10 +708,12 @@ play("notification", 0.9);
                       <ExerciseRow
                         ex={ex}
                         checked={completedSet.has(ex.id)}
+                        disabled={workoutBusy || todayProgress === undefined || todayProgress?.completedWorkout === true}
                         onToggle={() => doToggle(ex.id)}
                         onEdit={() => openEditExercise(ex)}
                         accent={accent}
                       />
+                      <ExerciseResultLog dayId={selectedDay._id} exerciseId={ex.id} dateKey={dateKey} history={resultHistory?.filter(result => result.dayId === selectedDay._id && result.exerciseId === ex.id)} />
                     </div>
                   ))}
                   <button
@@ -744,6 +742,22 @@ play("notification", 0.9);
         </div>
       )}
 
+      {copyOpen && selectedDay && <Modal title="Copy workout day" accent={accent} onClose={() => { if (!copyLock.current) setCopyOpen(false); }}>
+        <form className="space-y-4" onSubmit={async event => {
+          event.preventDefault();
+          if (copyLock.current || !copyName.trim()) return;
+          copyLock.current = true; setCopying(true);
+          try {
+            await copyDay({ dayId: selectedDay._id, name: copyName.trim() });
+            setCopyOpen(false); toast.success("Day copied. The original and its history are unchanged.");
+          } catch (error: any) { toast.error(error?.message ?? "Could not copy this day."); }
+          finally { copyLock.current = false; setCopying(false); }
+        }}>
+          <p className="text-sm text-white/60">Creates a new day with the same {selectedDay.exercises.length} exercises. Completion checkmarks and result history are not copied.</p>
+          <label className="block text-sm text-white/70">New day name<input autoFocus required maxLength={80} value={copyName} onChange={event => setCopyName(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-white" /></label>
+          <button disabled={copying} className="w-full rounded-xl bg-[rgb(var(--sw-accent-rgb))] px-4 py-3 font-bold text-black disabled:opacity-50">{copying ? "Copying…" : "Create copy"}</button>
+        </form>
+      </Modal>}
       {/* Day modal */}
       {dayModalOpen && (
         <Modal onClose={() => setDayModalOpen(false)} accent={accent} title="Edit Day">
@@ -781,7 +795,7 @@ play("notification", 0.9);
       {/* Exercise modal */}
       {exModalOpen && selectedDay && (
         <Modal
-          onClose={() => setExModalOpen(false)}
+          onClose={() => { if (!saveExerciseLock.current) setExModalOpen(false); }}
           accent={accent}
           title={exEditId ? "Edit Exercise" : "Add Exercise"}
         >
@@ -799,8 +813,11 @@ play("notification", 0.9);
                 <label className="text-xs text-white/55">Sets</label>
                 <input
                   type="number"
+                  min={1}
+                  max={100}
+                  step={1}
                   value={exSets}
-                  onChange={(e) => setExSets(Math.max(1, Number(e.target.value)))}
+                  onChange={(e) => setExSets(Number(e.target.value))}
                   className="w-full rounded-xl bg-black/35 border border-white/10 px-3 py-2 text-white/90 focus:outline-none focus:border-white/20"
                 />
               </div>
@@ -836,19 +853,25 @@ play("notification", 0.9);
               placeholder="Optional notes"
             />
 
+            {exerciseError && <p role="alert" className="text-sm text-red-300">{exerciseError}</p>}
             <div className="flex gap-2 pt-2">
               <button
+                disabled={savingExercise}
                 onClick={saveExercise}
                 className="flex-1 rounded-xl py-2 font-semibold text-black"
                 style={{
                   background: `linear-gradient(90deg, ${rgbaFromRgb(accent, 1)}, ${rgbaFromRgb(accent, 0.75)})`,
                 }}
               >
-                Save
+                {savingExercise ? "Saving…" : "Save"}
               </button>
 
               {exEditId ? (
+                <button disabled={savingExercise} onClick={() => { setExEditId(null); setExName(`${exName} copy`); }} className="rounded-xl border border-white/10 px-3 py-2 text-sm text-white/80">Save as copy</button>
+              ) : null}
+              {exEditId ? (
                 <button
+                  disabled={savingExercise}
                   onClick={doDeleteExercise}
                   className="rounded-xl py-2 px-4 font-semibold bg-red-500/12 border border-red-500/20 text-red-200 hover:bg-red-500/18 transition"
                 >
@@ -894,7 +917,7 @@ play("notification", 0.9);
       {showSplitConfirm && (
         <Modal onClose={() => setShowSplitConfirm(false)} accent={accent} title="Apply Split?">
           <div className="text-white/70 text-sm mb-4">
-            Rename days to <strong className="text-white">{SPLITS[splitKey].label}</strong> template?
+            {days.length ? "Rename the first seven days using the " : "Create seven days using the "}<strong className="text-white">{SPLITS[splitKey].label}</strong> template? Existing exercises, notes, extra days and history will be kept.
           </div>
           <div className="flex gap-2">
             <button onClick={confirmApplySplit} className="flex-1 rounded-xl py-2 font-semibold text-black" style={{ background: `linear-gradient(90deg, ${rgbaFromRgb(accent, 1)}, ${rgbaFromRgb(accent, 0.75)})` }}>Apply</button>
@@ -954,6 +977,7 @@ function SectionCard({
 function ExerciseRow({
   ex,
   checked,
+  disabled,
   onToggle,
   onEdit,
   accent,
@@ -972,6 +996,7 @@ function ExerciseRow({
     order?: number;
   };
   checked: boolean;
+  disabled: boolean;
   onToggle: () => void;
   onEdit: () => void;
   accent: string;
@@ -980,6 +1005,9 @@ function ExerciseRow({
     <div className="rounded-xl border border-white/10 bg-black/25 hover:bg-black/35 transition p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
       <button
         onClick={onToggle}
+        disabled={disabled}
+        aria-pressed={checked}
+        aria-label={`${checked ? "Uncheck" : "Complete"} ${ex.name}`}
         className="mt-0.5 sm:mt-1 w-5 h-5 sm:w-6 sm:h-6 rounded-md border flex items-center justify-center flex-shrink-0"
         style={{
           borderColor: checked ? rgbaFromRgb(accent, 0.8) : "rgba(255,255,255,0.18)",
@@ -1019,18 +1047,34 @@ function Modal({
   onClose: () => void;
   accent: string;
 }) {
+  const panel = useRef<HTMLDivElement>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement as HTMLElement | null;
     document.body.style.overflow = "hidden";
+    const focusables = () => Array.from(panel.current?.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex='0']") ?? []);
+    const initial = panel.current?.querySelector<HTMLElement>("[autofocus], input, select") ?? focusables()[0];
+    initial?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") { event.preventDefault(); close.current(); }
+      if (event.key === "Tab") {
+        const items = focusables();
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (!first) { event.preventDefault(); return; }
+        if (event.shiftKey && (document.activeElement === first || !panel.current?.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || !panel.current?.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
+      previousFocus?.focus();
     };
-  }, [onClose]);
+  }, []);
 
   if (typeof document === "undefined") return null;
 
@@ -1048,6 +1092,7 @@ function Modal({
         aria-label="Close dialog"
       />
       <div
+        ref={panel}
         className="relative z-10 w-full max-w-lg max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain rounded-2xl border bg-[#090909] p-4 shadow-2xl animate-scale-in sm:max-h-[calc(100dvh-2rem)] sm:p-5 md:p-6"
         style={{
           borderColor: rgbaFromRgb(accent, 0.25),
@@ -1071,4 +1116,3 @@ function Modal({
     document.body,
   );
 }
-

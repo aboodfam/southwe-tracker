@@ -124,6 +124,13 @@ const applicationTables = {
     totalExercises: v.number(),
     completionRate: v.number(),
     completedWorkout: v.boolean(),
+    exerciseResults: v.optional(v.array(v.object({
+      exerciseId: v.string(),
+      name: v.string(),
+      reps: v.optional(v.number()),
+      weightKg: v.optional(v.number()),
+      holdSeconds: v.optional(v.number()),
+    }))),
     day: v.optional(v.number()),
   })
     .index("by_user_date", ["userId", "date"])

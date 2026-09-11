@@ -10,6 +10,7 @@ import { RoutineCard } from "./components/RoutineCard";
 import { StatsPanel } from "./components/StatsPanel";
 import { CompleteButton } from "./components/CompleteButton";
 import { WorkoutPage } from "./components/WorkoutPage";
+import { TodayPage } from "./components/TodayPage";
 import { HabitsPage } from "./components/HabitsPage";
 import { ProgressPage } from "./components/ProgressPage";
 import { AthkarPage } from "./components/AthkarPage";
@@ -22,7 +23,7 @@ import { useSound } from "./contexts/SoundContext";
 import { useDailyReset } from "./hooks/useDailyReset";
 import { TrustedDeviceGate } from "./TrustedDeviceGate";
 
-type Page = "routines" | "workout" | "habits" | "progress" | "athkar" | "macros";
+type Page = "today" | "routines" | "workout" | "habits" | "progress" | "athkar" | "macros";
 
 /* =========================
    Helpers
@@ -467,7 +468,7 @@ export default function App() {
 }
 
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<Page>("routines");
+  const [currentPage, setCurrentPage] = useState<Page>("today");
   const [swapKey, setSwapKey] = useState(0);
   const [swapDir, setSwapDir] = useState<"left" | "right">("left");
   const [athkarFocus, setAthkarFocus] = useState(false);
@@ -482,7 +483,7 @@ function AppContent() {
     if (currentPage !== "athkar") setAthkarFocus(false);
   }, [currentPage]);
 
-  const PAGE_ORDER: Page[] = ["routines", "workout", "habits", "progress", "athkar", "macros"];
+  const PAGE_ORDER: Page[] = ["today", "routines", "workout", "habits", "progress", "athkar", "macros"];
 
   const navigateToPage = (page: Page, direction?: "left" | "right") => {
     if (page === currentPage) {
@@ -598,13 +599,13 @@ function AppContent() {
             onTouchEnd={onTouchEnd}
           >
             <div key={swapKey} className={swapDir === "left" ? "sw-page-swap-left" : "sw-page-swap-right"}>
-              <Content currentPage={currentPage} onAthkarFocusChange={setAthkarFocus} />
+              <Content currentPage={currentPage} onNavigate={navigateToPage} onAthkarFocusChange={setAthkarFocus} />
             </div>
           </main>
         </TrustedDeviceGate>
       ) : (
         <main className="relative z-10 min-h-screen">
-          <Content currentPage={currentPage} onAthkarFocusChange={setAthkarFocus} />
+          <Content currentPage={currentPage} onNavigate={navigateToPage} onAthkarFocusChange={setAthkarFocus} />
         </main>
       )}
 
@@ -613,7 +614,7 @@ function AppContent() {
   );
 }
 
-function Content({ currentPage, onAthkarFocusChange }: { currentPage: Page; onAthkarFocusChange: (focused: boolean) => void }) {
+function Content({ currentPage, onNavigate, onAthkarFocusChange }: { currentPage: Page; onNavigate: (page: Page) => void; onAthkarFocusChange: (focused: boolean) => void }) {
   const loggedInUser = useQuery(api.auth.loggedInUser);
   const userProfile = useQuery(api.auth.getProfile);
   // Keep Athkar subscribed while the user is in the app so opening the page
@@ -676,6 +677,7 @@ function Content({ currentPage, onAthkarFocusChange }: { currentPage: Page; onAt
         {loggedInUser && needsRealName && !applyingPendingName && (
           <NameSetupModal onSaved={(savedName) => setConfirmedNameThisSession(savedName)} />
         )}
+        {currentPage === "today" && <TodayPage displayName={needsRealName ? "" : displayName} onNavigate={onNavigate} />}
         {currentPage === "routines" && (
           <RoutinesContent
             loggedInUser={loggedInUser}
