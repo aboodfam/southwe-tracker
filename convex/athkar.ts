@@ -162,7 +162,6 @@ const DEFAULT_ATHKAR: DefaultDhikr[] = [
   {
     "category": "morning",
     "text": "سبحان الله وبحمده.",
-    "translation": "كانت له عدد عشر رقاب، وكتبت له مئة حسنة، ومحيت عنه مئة سيئة، وكانت له حرزًا من الشيطان.",
     "targetCount": 100
   },
   {
@@ -322,6 +321,72 @@ const DEFAULT_ATHKAR: DefaultDhikr[] = [
   }
 ];
 
+// Compared with the user's Khatmah recording (2026-09-14). Keep existing
+// split cards (e.g. the three surahs) rather than duplicate combined cards.
+// Quran text: https://quran.com/al-baqarah/285-286
+// Prayer/sleep/waking references: https://sunnah.com/hisn (chapters 25, 28, 1).
+const LAST_TWO_VERSES = "آمن الرسول بما أنزل إليه من ربه والمؤمنون كل آمن بالله وملائكته وكتبه ورسله لا نفرق بين أحد من رسله وقالوا سمعنا وأطعنا غفرانك ربنا وإليك المصير ﴿٢٨٥﴾\nلا يكلف الله نفسا إلا وسعها لها ما كسبت وعليها ما اكتسبت ربنا لا تؤاخذنا إن نسينا أو أخطأنا ربنا ولا تحمل علينا إصرا كما حملته على الذين من قبلنا ربنا ولا تحملنا ما لا طاقة لنا به واعف عنا واغفر لنا وارحمنا أنت مولانا فانصرنا على القوم الكافرين ﴿٢٨٦﴾";
+const OLD_VERSES = "امن الرسول بما انزل اليه من ربه والمؤمنون... (اخر ايتين من سورة البقرة).";
+const oldVersesDefault = DEFAULT_ATHKAR.find(d => d.text === OLD_VERSES)!;
+oldVersesDefault.text = LAST_TWO_VERSES;
+const wakingTahlil = DEFAULT_ATHKAR.find(d => d.category === "waking_up" && d.text.startsWith("لا اله"))!;
+const OLD_WAKING_TAHLIL = wakingTahlil.text;
+wakingTahlil.text = "حسبي الله لا إله إلا هو عليه توكلت وهو رب العرش العظيم. لا إله إلا الله وحده لا شريك له، له الملك وله الحمد، وهو على كل شيء قدير. سبحان الله، والحمد لله، ولا إله إلا الله، والله أكبر، ولا حول ولا قوة إلا بالله العلي العظيم. رب اغفر لي.";
+wakingTahlil.translation = "يتضمن ذكر من تعار من الليل (صحيح البخاري 1154)؛ جملة حسبي الله من الآية 129 من سورة التوبة كما في التسجيل، وليست من لفظ ذلك الحديث.";
+for (const item of DEFAULT_ATHKAR) {
+  if (item.category === "before_sleep" && item.text.startsWith("قل ")) {
+    item.translation = "تجمع الكفين وتنفث فيهما وتقرأ الإخلاص والفلق والناس، ثم تمسح بهما ما استطعت من جسدك، بدءا بالرأس والوجه؛ ثلاث مرات. صحيح البخاري 5017.";
+  }
+  // Use the recording's 33/33/33 + tahlil for new accounts. Existing saved
+  // targets (including the valid 33/33/34 variant) are not overwritten.
+  if (item.category === "prayer" && item.text === "الله اكبر.") item.targetCount = 33;
+}
+
+function fromMorning(prefix: string, category: string, targetCount?: number): DefaultDhikr {
+  const source = DEFAULT_ATHKAR.find(d => d.category === "morning" && d.text.startsWith(prefix));
+  if (!source) throw new Error(`Missing Athkar source: ${prefix}`);
+  return { text: source.text, category, targetCount: targetCount ?? source.targetCount };
+}
+
+DEFAULT_ATHKAR.push(
+  ...[
+    "اللهم أنت ربي لا إله إلا أنت، خلقتني", "سبحان الله وبحمده، عدد خلقه",
+    "اللهم عافني", "اللهم إني أعوذ بك من الكفر", "يا حي يا قيوم",
+    "اللهم عالم الغيب", "أعوذ بكلمات", "اللهم صل وسلم",
+    "اللهم إني أعوذ بك من أن أشرك", "اللهم إني أعوذ بك من الهم",
+    "أستغفر الله العظيم", "يا رب، لك الحمد", "اللهم أنت ربي لا إله إلا أنت، عليك",
+    "لا إله إلا الله وحده",
+  ].map(prefix => fromMorning(prefix, "evening")),
+  { category: "evening", text: LAST_TWO_VERSES, targetCount: 1 },
+  { category: "evening", text: "اللهم إني أمسيت أشهدك، وأشهد حملة عرشك، وملائكتك، وجميع خلقك، أنك أنت الله لا إله إلا أنت وحدك لا شريك لك، وأن محمدا عبدك ورسولك.", targetCount: 4 },
+  { category: "evening", text: "اللهم ما أمسى بي من نعمة أو بأحد من خلقك فمنك وحدك لا شريك لك، فلك الحمد ولك الشكر.", targetCount: 1 },
+  { category: "evening", text: "أمسينا على فطرة الإسلام، وعلى كلمة الإخلاص، وعلى دين نبينا محمد صلى الله عليه وسلم، وعلى ملة أبينا إبراهيم حنيفا مسلما وما كان من المشركين.", targetCount: 1 },
+  { category: "evening", text: "أمسينا وأمسى الملك لله رب العالمين، اللهم إني أسألك خير هذه الليلة: فتحها ونصرها ونورها وبركتها وهداها، وأعوذ بك من شر ما فيها وشر ما بعدها.", targetCount: 1 },
+  { category: "prayer", text: "لا إله إلا الله وحده لا شريك له، له الملك وله الحمد، وهو على كل شيء قدير. لا حول ولا قوة إلا بالله، لا إله إلا الله، ولا نعبد إلا إياه، له النعمة وله الفضل وله الثناء الحسن، لا إله إلا الله مخلصين له الدين ولو كره الكافرون.", targetCount: 1 },
+  { ...fromMorning("لا إله إلا الله وحده", "prayer", 1), translation: "تمام المائة بعد التسبيح والتحميد والتكبير ثلاثا وثلاثين. صحيح مسلم 597." },
+  ...DEFAULT_ATHKAR.filter(d => d.category === "evening" && d.text.startsWith("قل ")).map(d => ({ ...d, category: "prayer", translation: "تقرأ مرة بعد كل صلاة، وثلاث مرات بعد الفجر والمغرب." })),
+  { category: "prayer", text: "لا إله إلا الله وحده لا شريك له، له الملك وله الحمد، يحيي ويميت وهو على كل شيء قدير.", targetCount: 10, translation: "بعد الفجر والمغرب." },
+  { ...fromMorning("اللهم إني أسألك علماً", "prayer"), translation: "بعد السلام من صلاة الفجر." },
+  { category: "prayer", text: "اللهم أجرني من النار.", targetCount: 7, translation: "ورد في التسجيل بعد الفجر والمغرب؛ حديث تخصيصه بسبع مرات ضعفه الألباني (ضعيف الترغيب 250)." },
+  { category: "prayer", text: "اللهم أعني على ذكرك وشكرك وحسن عبادتك.", targetCount: 1 },
+  { category: "before_sleep", text: "باسمك ربي وضعت جنبي وبك أرفعه، فإن أمسكت نفسي فارحمها، وإن أرسلتها فاحفظها بما تحفظ به عبادك الصالحين.", targetCount: 1 },
+  { category: "before_sleep", text: "اللهم إنك خلقت نفسي وأنت توفاها، لك مماتها ومحياها، إن أحييتها فاحفظها، وإن أمتها فاغفر لها، اللهم إني أسألك العافية.", targetCount: 1 },
+  { category: "before_sleep", text: "اللهم قني عذابك يوم تبعث عبادك.", targetCount: 3 },
+  { category: "before_sleep", text: "الحمد لله الذي أطعمنا وسقانا وكفانا وآوانا، فكم ممن لا كافي له ولا مؤوي.", targetCount: 1 },
+  fromMorning("اللهم عالم الغيب", "before_sleep"),
+  { category: "before_sleep", text: "اللهم أسلمت نفسي إليك، وفوضت أمري إليك، ووجهت وجهي إليك، وألجأت ظهري إليك، رغبة ورهبة إليك، لا ملجأ ولا منجا منك إلا إليك، آمنت بكتابك الذي أنزلت، وبنبيك الذي أرسلت.", targetCount: 1 },
+  { ...fromMorning("بسم الله الذي", "waking_up", 1), translation: "كما ورد في التسجيل؛ الذكر مأثور صباحا ومساء ثلاث مرات، وليس تخصيصه بالاستيقاظ مرة واحدة ثابتا بهذا الحديث." },
+  { ...fromMorning("حسبي الله", "waking_up", 1), translation: "دعاء قرآني (التوبة: 129)، مدرج في قسم الاستيقاظ في التسجيل دون نسبة تخصيصه بهذا الوقت إلى السنة." },
+  { category: "waking_up", text: "الحمد لله الذي عافاني في جسدي، ورد علي روحي، وأذن لي بذكره.", targetCount: 1 },
+);
+
+// Match cosmetic spelling differences, but never deduplicate across categories.
+function dhikrKey(category: string, text: string) {
+  return category + ":" + text.normalize("NFKC")
+    .replace(/[\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06edـ]/g, "")
+    .replace(/[أإآٱ]/g, "ا").replace(/[^\p{L}\p{N}]/gu, "");
+}
+
 export const getAthkar = query({
   args: {},
   handler: async (ctx) => {
@@ -347,39 +412,32 @@ export const ensureDefaultAthkar = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .take(LIMITS.athkarTotal);
 
-    const MORNING_SENTINEL =
-      "سبحان الله وبحمده، عدد خلقه، ورضا نفسه، وزنة عرشه، ومداد كلماته.";
-
-    const existingMorning = existing.filter((d) => d.category === "morning");
-    const hasMorningSentinel = existingMorning.some((d) => d.text === MORNING_SENTINEL);
-    const didReplaceMorning = existingMorning.length > 0 && !hasMorningSentinel;
-
-    if (didReplaceMorning) {
-      for (const d of existingMorning) await ctx.db.delete(d._id);
-      const morningDefaults = DEFAULT_ATHKAR.filter((d) => d.category === "morning");
-      for (const item of morningDefaults) {
-        await ctx.db.insert("athkar", {
-          userId,
-          text: item.text,
-          translation: item.translation,
-          targetCount: item.targetCount,
-          currentCount: 0,
-          category: item.category,
-          isCompleted: false,
-        });
+    // Repair only the exact old built-in placeholder, in place. Never reset
+    // counts, delete custom entries, or replace a whole category on upgrade.
+    for (const row of existing) {
+      if (row.category === "before_sleep" && row.text === OLD_VERSES) {
+        await ctx.db.patch(row._id, { text: LAST_TWO_VERSES });
+        row.text = LAST_TWO_VERSES;
+      }
+      if (row.category === "waking_up" && row.text === OLD_WAKING_TAHLIL) {
+        await ctx.db.patch(row._id, { text: wakingTahlil.text });
+        row.text = wakingTahlil.text;
+      }
+      const matchingDefault = DEFAULT_ATHKAR.find(d => d.category === row.category && d.text === row.text);
+      if (!row.translation && matchingDefault?.translation) {
+        await ctx.db.patch(row._id, { translation: matchingDefault.translation });
+      }
+      if (row.category === "morning" && row.text === "سبحان الله وبحمده." && row.translation === "كانت له عدد عشر رقاب، وكتبت له مئة حسنة، ومحيت عنه مئة سيئة، وكانت له حرزًا من الشيطان.") {
+        // This old note belongs to tahlil, not tasbih. Leave personal notes alone.
+        await ctx.db.patch(row._id, { translation: undefined });
       }
     }
-
-    const after = await ctx.db
-      .query("athkar")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .take(LIMITS.athkarTotal);
-
-    const existingTexts = new Set(after.map((d) => d.text));
+    const existingTexts = new Set(existing.map(d => dhikrKey(d.category, d.text)));
     let added = 0;
     for (const item of DEFAULT_ATHKAR) {
-      if (existingTexts.has(item.text)) continue;
-      if (after.length + added >= LIMITS.athkarTotal) break;
+      const key = dhikrKey(item.category, item.text);
+      if (existingTexts.has(key)) continue;
+      if (existing.length + added >= LIMITS.athkarTotal) break;
       await ctx.db.insert("athkar", {
         userId,
         text: item.text,
@@ -390,9 +448,10 @@ export const ensureDefaultAthkar = mutation({
         isCompleted: false,
       });
       added += 1;
+      existingTexts.add(key);
     }
 
-    return { seeded: added > 0 || didReplaceMorning, count: added };
+    return { seeded: added > 0, count: added };
   },
 });
 

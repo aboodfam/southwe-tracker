@@ -28,6 +28,52 @@ const habits = await load("convex/habits.ts");
 const account = await load("convex/account.ts");
 const plans = await load("convex/planFormat.ts");
 const userData = await load("convex/userData.ts");
+const athkar = await load("convex/athkar.ts");
+
+test("Athkar seeds every video section and is repeatable without duplicates", async () => {
+  const ctx = fakeContext();
+  await athkar.ensureDefaultAthkar._handler(ctx, {});
+  const rows = ctx.tables.athkar;
+  const totals = Object.fromEntries(["morning", "evening", "prayer", "before_sleep", "waking_up"].map(category => [category, rows.filter(d => d.category === category).length]));
+  assert.deepEqual(totals, { morning: 31, evening: 30, prayer: 16, before_sleep: 15, waking_up: 5 });
+  assert.equal(rows.filter(d => d.text === "سبحان الله وبحمده.").length, 2);
+  assert.equal(rows.filter(d => d.text.startsWith("اية الكرسي:")).length, 3);
+  assert.equal(rows.filter(d => d.text.includes("فانصرنا على القوم الكافرين")).length, 2);
+  assert.equal(rows.find(d => d.category === "prayer" && d.text === "الله اكبر.").targetCount, 33);
+  assert.equal(rows.find(d => d.category === "before_sleep" && d.text === "الله اكبر.").targetCount, 34);
+  const before = structuredClone(rows);
+  assert.deepEqual(await athkar.ensureDefaultAthkar._handler(ctx, {}), { seeded: false, count: 0 });
+  assert.deepEqual(rows, before);
+});
+
+test("Athkar upgrades preserve custom entries, IDs, counts and other accounts", async () => {
+  const original = [
+    { _id: "custom", userId: "user-one", category: "morning", text: "دعائي الخاص", targetCount: 8, currentCount: 6, isCompleted: false },
+    { _id: "tasbih", userId: "user-one", category: "evening", text: "سُبْحَانَ اللهِ وَبِحَمْدِهِ", targetCount: 100, currentCount: 70, isCompleted: false },
+    { _id: "verses", userId: "user-one", category: "before_sleep", text: "امن الرسول بما انزل اليه من ربه والمؤمنون... (اخر ايتين من سورة البقرة).", targetCount: 1, currentCount: 1, isCompleted: true },
+    { _id: "other", userId: "user-two", category: "morning", text: "دعاء", targetCount: 2, currentCount: 2, isCompleted: true },
+  ];
+  const ctx = fakeContext({ athkar: original });
+  await athkar.ensureDefaultAthkar._handler(ctx, {});
+  for (const id of ["custom", "tasbih", "other"]) assert.deepEqual(await ctx.db.get(id), original.find(d => d._id === id));
+  const verses = await ctx.db.get("verses");
+  assert.ok(verses.text.includes("فانصرنا على القوم الكافرين"));
+  assert.equal(verses.currentCount, 1); assert.equal(verses.isCompleted, true);
+  assert.equal(ctx.tables.athkar.filter(d => d.category === "evening" && d.text === "سبحان الله وبحمده.").length, 0);
+  const snapshot = structuredClone(ctx.tables.athkar);
+  await athkar.ensureDefaultAthkar._handler(ctx, {});
+  assert.deepEqual(ctx.tables.athkar, snapshot);
+});
+
+test("Athkar seeding respects account limits and signed-out state", async () => {
+  const ctx = fakeContext({ athkar: Array.from({ length: 160 }, (_, i) => ({ _id: `custom-${i}`, userId: "user-one", category: "custom", text: `ذكر ${i}`, targetCount: 1, currentCount: 0, isCompleted: false })) });
+  const before = structuredClone(ctx.tables.athkar);
+  await athkar.ensureDefaultAthkar._handler(ctx, {});
+  assert.deepEqual(ctx.tables.athkar, before);
+  const signedOut = fakeContext({}, null);
+  assert.deepEqual(await athkar.ensureDefaultAthkar._handler(signedOut, {}), { seeded: false, count: 0 });
+  assert.equal(signedOut.tables.athkar, undefined);
+});
 
 test("macro profiles only read and update the signed-in account", async () => {
   const payload = { expectedUserId: "user-one", sex: "male", age: "25", heightCm: "180", weightKg: "80", activityId: "moderate", goal: "maintain", pace: "moderate" };
