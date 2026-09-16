@@ -36,11 +36,15 @@ gain optional time/fallback metadata. Version-1 plan transfers accept optional
 tables. Existing records require no destructive migration.
 
 Deploy the Convex schema and functions together with this frontend. Publishing
-only the frontend would leave the new API calls unavailable. This local checkout
-had no `CONVEX_DEPLOYMENT` configuration during implementation; no production
-deployment, production login, or real-account mutation was performed. Connect
-the intended development deployment before live integration testing. The normal
-Convex code-generation command regenerates the checked-in API types then.
+only the frontend would leave the new API calls unavailable. This checkout is
+now connected through ignored `.env.local` configuration to the cloud development
+deployment `clear-koala-220`, in the same project as production. The schema and
+functions have been synced there and the generated API types refreshed. Production
+(`resolute-mallard-430`) was not changed. Development accounts and data are separate.
+
+Run `npm run dev` to keep both the development backend and frontend running.
+Password signup is configured on development. Google sign-in and email-based
+recovery/device verification were not configured or tested in this setup.
 
 ## Verification
 
@@ -52,6 +56,10 @@ Convex code-generation command regenerates the checked-in API types then.
 - Desktop/mobile browser interaction checks against a separate sample-data
   fixture, including template exclusion, step completion/Undo, review saving,
   pause/restore, and horizontal overflow. These do not replace live-backend QA.
+- Live development-backend integration passed: password signup/authentication,
+  profile saving, template persistence and duplicate retry protection, smaller-step
+  persistence without completing the original action, weekly review saving, and
+  routine-time updates. The temporary development account and its data were removed.
 
 Automatic deadline scheduling, workout-volume adaptation, and automatic changes
 to ongoing habit targets are outside this release. They need a richer scheduling
