@@ -3,6 +3,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { aggregateProgress, compareResults, compareCompletedWeeks, meanRecorded, type ProgressMetric } from "../../convex/progressMath";
 import { PageHeader } from "./PageHeader";
+import { WeeklyReview } from "./WeeklyReview";
 import { Icon } from "./icons";
 import { useLocalDateKey } from "../hooks/useLocalDateKey";
 import { resultLabel } from "./ExerciseResultLog";
@@ -20,6 +21,7 @@ export function ProgressPage() {
   const [metric, setMetric] = useState<ProgressMetric>("routines");
   const [selected, setSelected] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [milestoneView, setMilestoneView] = useState<"next" | "earned" | "all">("next");
   const month = useQuery(api.progress.getProgressData, { timeFrame: "weekly", dateKey });
   const other = useQuery(api.progress.getProgressData, range === "weekly" ? "skip" : { timeFrame: range, dateKey });
@@ -66,6 +68,7 @@ export function ProgressPage() {
 
   return <div className="mx-auto flex max-w-6xl flex-col gap-5 animate-fade-in">
     <PageHeader title="Progress" subtitle="Your progress, day by day." />
+    <details className={card} onToggle={event => setReviewOpen(event.currentTarget.open)}><summary className="cursor-pointer font-semibold">Weekly summary</summary>{reviewOpen && <div className="mt-4"><WeeklyReview dateKey={dateKey} /></div>}</details>
     <section className={card + " sw-holo relative overflow-hidden"}>
       <div className="grid items-center gap-6 md:grid-cols-[1.25fr_1fr]">
         <div>

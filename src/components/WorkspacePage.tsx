@@ -83,6 +83,8 @@ function DeletedItems() {
 }
 
 export function WorkspacePage() {
+  const dateKey = useLocalDateKey();
+  const [showTemplates, setShowTemplates] = useState(false);
   const prefs = useQuery(api.workspace.getPreferences);
   const save = useMutation(api.workspace.savePreferences);
   const [hidden, setHidden] = useState<Page[]>([]);
@@ -97,6 +99,6 @@ export function WorkspacePage() {
       <label className="mt-5 block text-sm">Open Ceventic on<select className={field} value={start} onChange={event => setStart(event.target.value as Page)}>{PAGES.filter(page => !hidden.includes(page.id)).map(page => <option key={page.id} value={page.id}>{page.name}</option>)}</select></label>
       <label className="mt-4 flex items-center gap-3 text-sm"><input type="checkbox" className="h-5 w-5" checked={quiet} onChange={event => setQuiet(event.target.checked)} />Quiet mode: reduce decorative motion and mute reward sounds</label>
       <button disabled={action.busy} className={`${button} mt-5`} onClick={() => void action.run(async () => { await save({ hiddenPages: hidden, startPage: start, quiet }); toast.success("Workspace preferences saved across your account."); })}>{action.busy ? "Saving…" : "Save preferences"}</button>{errorText(action.error)}
-    </section><GuidedSetup /><PlanLibrary /><DeletedItems />
+    </section><details className={card} onToggle={event => setShowTemplates(event.currentTarget.open)}><summary className="cursor-pointer font-semibold">Ready-made routines</summary>{showTemplates && <div className="mt-4"><TemplateGallery dateKey={dateKey} onDone={() => toast.success("Added to Today.")} /></div>}</details><details className={card}><summary className="cursor-pointer font-semibold">Saved plans & imports</summary><div className="mt-4"><PlanLibrary /></div></details><DeletedItems />
   </div>;
 }

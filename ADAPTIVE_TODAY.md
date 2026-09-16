@@ -1,5 +1,21 @@
 # Adaptive Today and starter templates
 
+## Simplified interface (current)
+
+Today now shows a single checklist with direct completion. Completed actions and
+actions set aside are collapsed. “Make today lighter” opens a keep/uncheck list;
+unchecked actions are paused only for today, never counted as complete. Undo and
+Bring back restore them. Workouts open on demand.
+
+Ready templates appear on an empty Today and under My workspace. Setup exposes
+action names and inclusion, with routine name/timing optional. The weekly summary
+is collapsed inside Progress. Priority, start, friction, experiment and review
+prompts are no longer displayed on Today. Existing support records and older
+smaller-step completions remain supported; no history is removed.
+
+The description below documents the underlying support capabilities retained
+from the initial release, including features no longer exposed in this interface.
+
 This release adds editable daily starter templates, a main action on Today,
 manual adjustment of routine tasks and habits, repeated-friction suggestions,
 a welcoming return after seven days away, and a rolling seven-day review.

@@ -1,19 +1,11 @@
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import {
-  READY_TEMPLATES,
-  type Starter,
-  type StarterTask,
-} from "../../convex/supportModel";
+import { READY_TEMPLATES, type Starter } from "../../convex/supportModel";
 import { useSaveAction } from "../hooks/useSaveAction";
-import { toast } from "sonner";
 
 const button =
-  "min-h-11 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10 disabled:opacity-50";
-const field =
-  "mt-2 min-h-11 w-full rounded-xl border border-white/15 bg-black/40 px-3 py-2 text-base";
-
+  "min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-50";
 export function TemplateGallery({
   dateKey,
   onDone,
@@ -28,19 +20,6 @@ export function TemplateGallery({
   const [draft, setDraft] = useState<Starter | null>(null);
   const [included, setIncluded] = useState<boolean[]>([]);
   const request = useRef(crypto.randomUUID());
-  const edit = (index: number, patch: Partial<StarterTask>) =>
-    setDraft((previous) =>
-      previous
-        ? {
-            ...previous,
-            tasks: previous.tasks.map((task, i) =>
-              i === index ? { ...task, ...patch } : task,
-            ),
-          }
-        : previous,
-    );
-  const chosen = draft?.tasks.filter((_, index) => included[index]) ?? [];
-  const minutes = chosen.reduce((sum, task) => sum + (task.minutes ?? 0), 0);
   const select = (starter: Starter) => {
     setDraft({ ...starter, tasks: starter.tasks.map((task) => ({ ...task })) });
     setIncluded(starter.tasks.map(() => true));
@@ -49,77 +28,58 @@ export function TemplateGallery({
   };
   return (
     <section
-      className="rounded-3xl border border-white/15 bg-black/30 p-5 sm:p-7"
+      className="rounded-2xl border border-white/10 bg-black/30 p-5"
       data-no-swipe
       aria-label="Ready-made templates"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-[rgb(var(--sw-accent-rgb))]">
-            A little structure to start
-          </p>
-          <h2 className="mt-2 text-2xl font-bold">
-            What would you like help with?
-          </h2>
-        </div>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold">
+          {draft ? draft.name : "Start with something simple"}
+        </h2>
         {onClose && (
-          <button className={button} onClick={onClose} disabled={action.busy}>
+          <button onClick={onClose} disabled={action.busy} className={button}>
             Close
           </button>
         )}
       </div>
-      <p className="mt-3 max-w-2xl text-sm leading-6 text-white/65">
-        Choose a starting point, make it yours, and begin with one action. These
-        are daily routines; only add what you want to repeat.
-      </p>
       {!draft ? (
         <>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <p className="mt-2 text-sm text-white/60">
+            Choose a small daily routine, or add your own action.
+          </p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {READY_TEMPLATES.map((starter) => (
               <button
                 key={starter.id}
                 onClick={() => select(starter)}
-                className="rounded-2xl border border-white/10 bg-white/[.025] p-5 text-left transition hover:border-[rgb(var(--sw-accent-rgb)/.6)] hover:bg-white/5"
+                className={`${button} p-4 text-left`}
               >
-                <span className="text-xs text-white/50">
-                  {starter.tasks.length}{" "}
-                  {starter.tasks.length === 1 ? "action" : "actions"} · About{" "}
-                  {starter.tasks.reduce(
-                    (sum, task) => sum + (task.minutes ?? 0),
-                    0,
-                  )}{" "}
-                  min
-                </span>
-                <span className="mt-2 block text-lg font-semibold">
-                  {starter.name}
-                </span>
-                <span className="mt-2 block text-sm leading-6 text-white/60">
-                  {starter.description}
-                </span>
-                <span className="mt-4 block text-sm text-[rgb(var(--sw-accent-rgb))]">
-                  Preview & personalise →
+                <span className="block font-semibold">{starter.name}</span>
+                <span className="mt-1 block text-xs text-white/55">
+                  {starter.tasks.length} daily{" "}
+                  {starter.tasks.length === 1 ? "action" : "actions"}
                 </span>
               </button>
             ))}
           </div>
           <button
-            className={`${button} mt-4`}
+            className="mt-3 min-h-11 text-sm text-[rgb(var(--sw-accent-rgb))]"
             onClick={() =>
               select({
                 id: "own",
                 name: "My daily routine",
                 description: "",
                 timeSlot: "Any time",
-                tasks: [{ name: "", minutes: 10 }],
+                tasks: [{ name: "" }],
               })
             }
           >
-            Start with my own action
+            Add my own action
           </button>
         </>
       ) : (
         <form
-          className="mt-5 space-y-4"
+          className="mt-4 space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
             void action.run(async () => {
@@ -127,19 +87,60 @@ export function TemplateGallery({
                 dateKey,
                 name: draft.name,
                 timeSlot: draft.timeSlot,
-                tasks: chosen,
+                tasks: draft.tasks.filter((_, i) => included[i]),
                 requestId: request.current,
               });
-              toast.success("Your routine is ready. Start with one action.");
               onDone();
+              setDraft(null);
             });
           }}
         >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="text-sm">
+          <p className="text-sm text-white/60">
+            Edit the actions or uncheck any you don't want. These repeat daily.
+          </p>
+          {draft.tasks.map((task, index) => (
+            <div key={index} className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                aria-label={`Include action ${index + 1}`}
+                checked={included[index]}
+                disabled={action.busy}
+                className="h-5 w-5 shrink-0"
+                onChange={(event) =>
+                  setIncluded((current) =>
+                    current.map((value, i) =>
+                      i === index ? event.target.checked : value,
+                    ),
+                  )
+                }
+              />
+              <input
+                aria-label={`Action ${index + 1}`}
+                value={task.name}
+                required={included[index]}
+                maxLength={180}
+                disabled={action.busy || !included[index]}
+                placeholder="What would you like to do?"
+                className="min-h-11 min-w-0 flex-1 rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-base disabled:opacity-40"
+                onChange={(event) =>
+                  setDraft({
+                    ...draft,
+                    tasks: draft.tasks.map((row, i) =>
+                      i === index ? { ...row, name: event.target.value } : row,
+                    ),
+                  })
+                }
+              />
+            </div>
+          ))}
+          <details className="text-sm text-white/65">
+            <summary className="cursor-pointer py-2">
+              Name and timing (optional)
+            </summary>
+            <label className="mt-2 block">
               Routine name
               <input
-                className={field}
+                className="mt-1 block min-h-11 w-full rounded-xl border border-white/15 bg-black/30 px-3"
                 value={draft.name}
                 maxLength={80}
                 required
@@ -149,10 +150,10 @@ export function TemplateGallery({
                 }
               />
             </label>
-            <label className="text-sm">
-              When it fits your day
+            <label className="mt-3 block">
+              When
               <input
-                className={field}
+                className="mt-1 block min-h-11 w-full rounded-xl border border-white/15 bg-black/30 px-3"
                 value={draft.timeSlot}
                 maxLength={48}
                 required
@@ -162,124 +163,18 @@ export function TemplateGallery({
                 }
               />
             </label>
-          </div>
-          <p className="text-sm text-white/60">
-            Edit each action or uncheck it to leave it out. Smaller options are
-            suggestions for a difficult day, not automatic completions.
-          </p>
-          {draft.tasks.map((task, index) => (
-            <fieldset
-              key={index}
-              disabled={action.busy}
-              className="rounded-2xl border border-white/10 p-4"
-            >
-              <legend className="px-2 text-sm">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="h-5 w-5"
-                    checked={included[index]}
-                    onChange={(event) =>
-                      setIncluded((values) =>
-                        values.map((value, i) =>
-                          i === index ? event.target.checked : value,
-                        ),
-                      )
-                    }
-                  />
-                  Include action {index + 1}
-                </label>
-              </legend>
-              <div className={included[index] ? "" : "opacity-40"}>
-                <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
-                  <label className="text-sm">
-                    Action
-                    <input
-                      className={field}
-                      value={task.name}
-                      maxLength={180}
-                      required={included[index]}
-                      disabled={!included[index]}
-                      onChange={(event) =>
-                        edit(index, { name: event.target.value })
-                      }
-                      placeholder="e.g. Review one topic"
-                    />
-                  </label>
-                  <label className="text-sm">
-                    Minutes
-                    <input
-                      type="number"
-                      min={1}
-                      max={240}
-                      required={included[index]}
-                      disabled={!included[index]}
-                      className={field}
-                      value={task.minutes ?? ""}
-                      onChange={(event) =>
-                        edit(index, {
-                          minutes: event.target.value
-                            ? Number(event.target.value)
-                            : undefined,
-                        })
-                      }
-                    />
-                  </label>
-                </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_8rem]">
-                  <label className="text-sm text-white/65">
-                    Smaller first step (optional)
-                    <input
-                      className={field}
-                      value={task.fallbackName ?? ""}
-                      disabled={!included[index]}
-                      maxLength={180}
-                      onChange={(event) =>
-                        edit(index, { fallbackName: event.target.value })
-                      }
-                      placeholder="Something manageable"
-                    />
-                  </label>
-                  <label className="text-sm text-white/65">
-                    Minutes
-                    <input
-                      type="number"
-                      min={1}
-                      max={task.minutes ?? 240}
-                      disabled={!included[index]}
-                      className={field}
-                      value={task.fallbackMinutes ?? ""}
-                      onChange={(event) =>
-                        edit(index, {
-                          fallbackMinutes: event.target.value
-                            ? Number(event.target.value)
-                            : undefined,
-                        })
-                      }
-                    />
-                  </label>
-                </div>
-              </div>
-            </fieldset>
-          ))}
-          <div className="rounded-xl bg-white/5 p-4 text-sm text-white/75">
-            Adds one daily routine with {chosen.length}{" "}
-            {chosen.length === 1 ? "action" : "actions"}
-            {minutes > 0 ? ` · About ${minutes} minutes` : ""}. Your existing
-            plans stay in place.
-          </div>
+          </details>
           {action.error && (
             <p role="alert" className="text-sm text-red-300">
               {action.error}
             </p>
           )}
-          <div className="flex flex-wrap gap-3">
+          <div className="flex gap-3">
             <button
-              type="submit"
-              disabled={action.busy || !chosen.length}
-              className="min-h-11 rounded-xl bg-[rgb(var(--sw-accent-rgb))] px-5 py-3 text-sm font-bold text-black disabled:opacity-50"
+              disabled={action.busy || !included.some(Boolean)}
+              className="min-h-11 rounded-xl bg-[rgb(var(--sw-accent-rgb))] px-5 py-2 text-sm font-semibold text-black disabled:opacity-50"
             >
-              {action.busy ? "Saving…" : "Use this routine & begin"}
+              {action.busy ? "Adding…" : "Add to my day"}
             </button>
             <button
               type="button"
@@ -287,7 +182,7 @@ export function TemplateGallery({
               disabled={action.busy}
               onClick={() => setDraft(null)}
             >
-              Back to templates
+              Back
             </button>
           </div>
         </form>
