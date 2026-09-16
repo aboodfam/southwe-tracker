@@ -5,6 +5,8 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { PAGES, STARTERS, validatePlan, type Plan, type Page } from "../../convex/planFormat";
 import { useSaveAction } from "../hooks/useSaveAction";
 import { PageHeader } from "./PageHeader";
+import { TemplateGallery } from "./TemplateGallery";
+import { useLocalDateKey } from "../hooks/useLocalDateKey";
 import { toast } from "sonner";
 
 const card = "rounded-3xl border border-white/10 bg-black/30 p-5 sm:p-6";
@@ -14,21 +16,10 @@ const errorText = (error: string) => error && <p role="alert" className="mt-3 br
 
 export function GuidedSetup() {
   const prefs = useQuery(api.workspace.getPreferences);
-  const finish = useMutation(api.workspace.finishSetup);
-  const [focus, setFocus] = useState<"daily" | "focus" | "training">("daily");
-  const [starter, setStarter] = useState(true);
-  const action = useSaveAction();
+  const dateKey = useLocalDateKey();
   if (!prefs || prefs.setupDone) return null;
-  return <section className={card}>
-    <h2 className="text-xl font-bold">Make Ceventic yours</h2><p className="mt-2 text-sm text-white/65">Choose a starting focus. This adds a small routine only if you want one; it never replaces your existing plans.</p>
-    <div className="mt-4 grid gap-2 sm:grid-cols-3">{Object.entries(STARTERS).map(([key, item]) => <button key={key} aria-pressed={focus === key} disabled={action.busy} onClick={() => setFocus(key as typeof focus)} className={`${button} p-4 text-left ${focus === key ? "border-[rgb(var(--sw-accent-rgb))]" : ""}`}><span className="block font-bold">{item.name}</span><span className="mt-2 block font-normal text-white/60">{item.description}</span></button>)}</div>
-    <label className="mt-4 flex items-center gap-3 text-sm"><input type="checkbox" checked={starter} onChange={event => setStarter(event.target.checked)} disabled={action.busy} className="h-5 w-5" />Add this starter routine (uncheck to start from scratch)</label>
-    {starter && <ul className="mt-3 list-inside list-disc text-sm leading-7 text-white/70">{STARTERS[focus].plan.routines[0].tasks.map(task => <li key={task}>{task}</li>)}</ul>}
-    {errorText(action.error)}
-    <button disabled={action.busy} onClick={() => void action.run(async () => { await finish({ focus, useStarter: starter }); toast.success(starter ? "Your starter is ready. Try its first task below." : "Ready. Build your system at your own pace."); })} className={`${button} mt-4`}>{action.busy ? "Setting up…" : starter ? "Add starter & begin" : "Start from scratch"}</button>
-  </section>;
+  return <TemplateGallery dateKey={dateKey} onDone={() => toast.success("Open Today to begin your first action.")} />;
 }
-
 export function PlanLibrary() {
   const current = useQuery(api.workspace.getCurrentPlan);
   const templates = useQuery(api.workspace.listTemplates);

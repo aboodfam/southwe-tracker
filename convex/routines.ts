@@ -290,6 +290,7 @@ export const reorderTasks = mutation({
     }
 
     const finalTasks = reordered.map((t, index) => ({
+      ...t,
       id: t.id,
       name: t.name,
       completed: t.completed,

@@ -2,6 +2,7 @@ import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { LIMITS, assertCurrentLocalDate } from "./security";
+import { diffUtcDateKeys } from "./date";
 
 
 async function snapshotRoutineProgress(ctx: any, userId: any, dateKey: string, routines: any[]) {
@@ -72,6 +73,16 @@ export const resetEverythingDaily = mutation({
       .query("routines")
       .withIndex("by_user_active", (q) => q.eq("userId", userId).eq("isActive", true))
       .take(LIMITS.routines);
+
+    // Preserve the return signal before advancing the daily reset marker.
+    if (existingResetState && diffUtcDateKeys(existingResetState.lastResetDate, today) >= 7) {
+      const visit = await ctx.db.query("supportVisits").withIndex("by_user", q => q.eq("userId", userId)).first();
+      if (!visit || visit.lastDate < today) {
+        const returning = { lastDate: today, returnDate: today, dismissed: false };
+        if (visit) await ctx.db.patch(visit._id, returning);
+        else await ctx.db.insert("supportVisits", { userId, ...returning });
+      }
+    }
 
     // Before clearing today's live checkmarks, persist the previous local day's
     // final routine state. This protects progress even if the last action of the

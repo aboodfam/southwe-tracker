@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 import { pageValidator, planValidator } from "./planFormat";
+import { taskOptions, dayStateValidator } from "./supportModel";
 
 const applicationTables = {
   routines: defineTable({
@@ -15,6 +16,7 @@ const applicationTables = {
         name: v.string(),
         completed: v.boolean(),
         order: v.number(),
+        ...taskOptions,
       })
     ),
     isActive: v.boolean(),
@@ -212,6 +214,11 @@ const applicationTables = {
     setupDone: v.boolean(), focus: v.optional(v.string()), quiet: v.boolean(),
   }).index("by_user", ["userId"]),
   planTemplates: defineTable({ userId: v.id("users"), name: v.string(), plan: planValidator }).index("by_user", ["userId"]),
+  supportDays: defineTable({ userId: v.id("users"), date: v.string(), version: v.number(), state: dayStateValidator })
+    .index("by_user", ["userId"]).index("by_user_date", ["userId", "date"]),
+  supportVisits: defineTable({ userId: v.id("users"), lastDate: v.string(), returnDate: v.optional(v.string()), dismissed: v.boolean() }).index("by_user", ["userId"]),
+  weeklyReviews: defineTable({ userId: v.id("users"), date: v.string(), experiment: v.string(), reflection: v.string(), routineId: v.optional(v.id("routines")), timeSlot: v.optional(v.string()) })
+    .index("by_user", ["userId"]).index("by_user_date", ["userId", "date"]),
   planApplications: defineTable({ userId: v.id("users"), requestId: v.string(), routines: v.number(), workouts: v.number() }).index("by_user", ["userId"]).index("by_user_request", ["userId", "requestId"]),
   todayPlans: defineTable({ userId: v.id("users"), date: v.string(), dayId: v.optional(v.id("workoutDays")), rest: v.boolean() }).index("by_user_date", ["userId", "date"]).index("by_user", ["userId"]),
   recycleBin: defineTable({

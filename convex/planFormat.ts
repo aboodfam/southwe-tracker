@@ -1,9 +1,10 @@
 import { v, type Infer } from "convex/values";
+import { taskOptions } from "./supportModel";
 
 export const pageValidator = v.union(v.literal("today"), v.literal("routines"), v.literal("workout"), v.literal("habits"), v.literal("progress"), v.literal("athkar"), v.literal("macros"));
 export const planValidator = v.object({
   version: v.literal(1),
-  routines: v.array(v.object({ name: v.string(), timeSlot: v.string(), tasks: v.array(v.string()) })),
+  routines: v.array(v.object({ name: v.string(), timeSlot: v.string(), tasks: v.array(v.string()), taskDetails: v.optional(v.array(v.object(taskOptions))) })),
   workouts: v.array(v.object({ name: v.string(), warmupNotes: v.optional(v.string()), exercises: v.array(v.object({
     name: v.string(), sets: v.number(), reps: v.string(), muscles: v.optional(v.string()),
     notes: v.optional(v.string()), isWarmup: v.optional(v.boolean()), weight: v.optional(v.number()), duration: v.optional(v.number()),
@@ -29,9 +30,19 @@ export function validatePlan(input: unknown): Plan {
   if (plan.version !== 1) fail("Unsupported file version. Use a Ceventic plan export (version 1).");
   return {
     version: 1,
-    routines: list(plan.routines, 24).map(value => { const row = record(value); return {
+    routines: list(plan.routines, 24).map(value => { const row = record(value);
+      const tasks = list(row.tasks, 64).map(task => text(task, "Task", 180));
+      const taskDetails = row.taskDetails === undefined ? undefined : list(row.taskDetails, 64).map(value => {
+        const detail = record(value);
+        const minutes = optionalNumber(detail.minutes, "minutes"), fallbackMinutes = optionalNumber(detail.fallbackMinutes, "fallback minutes");
+        for (const amount of [minutes, fallbackMinutes]) if (amount !== undefined && (!Number.isInteger(amount) || amount < 1 || amount > 240)) fail("Task time must be 1–240 minutes.");
+        if (minutes && fallbackMinutes && fallbackMinutes > minutes) fail("A smaller step cannot take longer than the usual action.");
+        return { minutes, fallbackMinutes, fallbackName: optionalText(detail.fallbackName, "Smaller step", 180) };
+      });
+      if (taskDetails && taskDetails.length !== tasks.length) fail("Task details must match the task list.");
+      return {
       name: text(row.name, "Routine name", 80), timeSlot: text(row.timeSlot, "Time slot", 48),
-      tasks: list(row.tasks, 64).map(task => text(task, "Task", 180)),
+      tasks, taskDetails,
     }; }),
     workouts: list(plan.workouts, 14).map(value => { const row = record(value); return {
       name: text(row.name, "Workout name", 80), warmupNotes: optionalText(row.warmupNotes, "Warmup notes", 1200),

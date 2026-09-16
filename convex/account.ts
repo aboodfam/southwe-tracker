@@ -58,7 +58,7 @@ export const deleteMyAccount = mutation({
     for (const doc of macroProfiles) await ctx.db.delete(doc._id);
     for (const doc of weightEntries) await ctx.db.delete(doc._id);
     for (const doc of preferences) await ctx.db.delete(doc._id);
-    for (const table of ["workspacePreferences", "planTemplates", "planApplications", "todayPlans", "recycleBin"] as const) {
+    for (const table of ["workspacePreferences", "planTemplates", "planApplications", "todayPlans", "recycleBin", "supportDays", "supportVisits", "weeklyReviews"] as const) {
       const rows: Doc<typeof table>[] = await ctx.db.query(table).withIndex("by_user", q => q.eq("userId", userId)).collect();
       for (const row of rows) if (row.userId === userId) await ctx.db.delete(row._id);
     }
