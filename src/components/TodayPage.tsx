@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import {
@@ -9,12 +9,14 @@ import {
 } from "../../convex/supportModel";
 import { useLocalDateKey } from "../hooks/useLocalDateKey";
 import { useSaveAction } from "../hooks/useSaveAction";
+import { usePrayerTimes } from "../hooks/usePrayerTimes";
+import { getScheduledAthkarWindow } from "../lib/athkarSchedule";
 import { PageHeader } from "./PageHeader";
 import { TemplateGallery } from "./TemplateGallery";
 import { DayAdjustment, type TodayItem } from "./DayAdjustment";
 import { TodayWorkout } from "./TodayWorkout";
 
-type Destination = "routines" | "habits" | "workout" | "progress";
+type Destination = "routines" | "habits" | "workout" | "progress" | "athkar";
 type Props = { onNavigate: (page: Destination) => void; displayName: string };
 const card = "rounded-3xl border border-white/10 bg-black/30 p-5 sm:p-6";
 const quiet =
@@ -30,12 +32,26 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
   const days = useQuery(api.workouts.getWorkoutDays);
   const routineDay = useQuery(api.routines.getTodayProgress, { dateKey });
   const support = useQuery(api.daySupport.getToday, { dateKey });
+  const athkar = useQuery(api.athkar.getAthkar);
+  const ensureDefaultAthkar = useMutation(api.athkar.ensureDefaultAthkar);
+  const prepareCategorySession = useMutation(api.athkar.prepareCategorySession);
   const toggleTask = useMutation(api.routines.toggleTask);
   const logHabit = useMutation(api.habits.logHabit);
   const saveDay = useMutation(api.daySupport.saveDay);
   const visit = useMutation(api.daySupport.visitToday);
   const completeDay = useMutation(api.routines.completeDay);
   const ensureStats = useMutation(api.routines.ensureUserStats);
+  const athkarEnabled = Boolean(preferences && !preferences.hiddenPages.includes("athkar"));
+  const prayerClock = usePrayerTimes(athkarEnabled);
+  const scheduledAthkar = useMemo(() => getScheduledAthkarWindow(prayerClock.now), [prayerClock.now]);
+  const categorySession = useQuery(
+    api.athkar.getCategorySession,
+    athkarEnabled && scheduledAthkar ? { category: scheduledAthkar.category } : "skip",
+  );
+  const prayerSession = useQuery(
+    api.athkar.getPrayerSession,
+    athkarEnabled && prayerClock.activePrayer ? { sessionKey: prayerClock.activePrayer.sessionKey } : "skip",
+  );
   const action = useSaveAction();
   const [editing, setEditing] = useState<{
     state: DayState;
@@ -48,13 +64,26 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
   useEffect(() => {
     void visit({ dateKey }).catch(() => {});
   }, [dateKey, visit]);
+  useEffect(() => {
+    if (!athkarEnabled) return;
+    void ensureDefaultAthkar().catch(() => {});
+  }, [athkarEnabled, ensureDefaultAthkar]);
+
+  useEffect(() => {
+    if (!athkarEnabled || !scheduledAthkar) return;
+    void prepareCategorySession({
+      category: scheduledAthkar.category,
+      windowKey: scheduledAthkar.windowKey,
+    }).catch(() => {});
+  }, [athkarEnabled, scheduledAthkar?.category, scheduledAthkar?.windowKey, prepareCategorySession]);
   if (
     !routines ||
     !habits ||
     !days ||
     routineDay === undefined ||
     preferences === undefined ||
-    support === undefined
+    support === undefined ||
+    (athkarEnabled && athkar === undefined)
   )
     return (
       <p role="status" className="p-10 text-center text-white/60">
@@ -109,6 +138,46 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
   );
   const hasWorkout =
     visible("workout") && days.some((day) => day.exercises.length > 0);
+  const athkarRows = athkar ?? [];
+  const scheduledItems = scheduledAthkar
+    ? athkarRows.filter((row) => row.category === scheduledAthkar.category)
+    : [];
+  const scheduledTotal = scheduledItems.reduce((sum, row) => sum + Math.max(1, row.targetCount), 0);
+  const scheduledCurrent = scheduledItems.reduce((sum, row) => sum + Math.min(row.currentCount, Math.max(1, row.targetCount)), 0);
+  const scheduledCompletedThisWindow = Boolean(
+    scheduledAthkar &&
+    categorySession?.completed &&
+    categorySession.completedWindowKey === scheduledAthkar.windowKey,
+  );
+  const scheduledNeedsFreshReset = Boolean(
+    scheduledAthkar &&
+    categorySession?.completed &&
+    categorySession.completedWindowKey &&
+    categorySession.completedWindowKey !== scheduledAthkar.windowKey,
+  );
+  const scheduledPercent = scheduledCompletedThisWindow
+    ? 100
+    : scheduledNeedsFreshReset
+      ? 0
+      : scheduledTotal
+        ? Math.round((scheduledCurrent / scheduledTotal) * 100)
+        : 0;
+
+  const prayerItems = athkarRows.filter((row) => row.category === "prayer");
+  const prayerCounts = new Map((prayerSession?.counts ?? []).map((row) => [String(row.dhikrId), row.count]));
+  const prayerTotal = prayerItems.reduce((sum, row) => sum + Math.max(1, row.targetCount), 0);
+  const prayerCurrent = prayerItems.reduce((sum, row) => sum + Math.min(prayerCounts.get(String(row._id)) ?? 0, Math.max(1, row.targetCount)), 0);
+  const prayerPercent = prayerSession?.completed ? 100 : prayerTotal ? Math.round((prayerCurrent / prayerTotal) * 100) : 0;
+  const hasAthkarToday = athkarEnabled && Boolean(scheduledAthkar || prayerClock.activePrayer);
+
+  const openAthkar = (category: string, prayerSessionKey?: string) => {
+    try {
+      sessionStorage.setItem("ceventic_athkar_open_category", category);
+      if (prayerSessionKey) sessionStorage.setItem("ceventic_athkar_prayer_session", prayerSessionKey);
+      else sessionStorage.removeItem("ceventic_athkar_prayer_session");
+    } catch {}
+    onNavigate("athkar");
+  };
   const persist = async (
     next: DayState,
     baseline = { state, version },
@@ -200,7 +269,69 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
   return (
     <div className="mx-auto max-w-3xl space-y-5" data-no-swipe>
       <PageHeader title="Today" subtitle={dateLabel} />
-      {!items.length && !hasWorkout ? (
+      {hasAthkarToday && (
+        <section className={card}>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Athkar</h2>
+              <p className="mt-1 text-xs text-white/45">What is relevant right now.</p>
+            </div>
+            <button className={quiet} onClick={() => onNavigate("athkar")}>Open all</button>
+          </div>
+          <div className="mt-3 grid gap-3">
+            {scheduledAthkar && (
+              <button
+                onClick={() => openAthkar(scheduledAthkar.category)}
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-left transition hover:bg-white/[0.06]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-semibold text-white">{scheduledAthkar.title}</div>
+                    <div className="mt-1 text-xs text-white/45">{scheduledAthkar.startsAt}–{scheduledAthkar.endsAt}</div>
+                  </div>
+                  <span className="text-sm font-semibold text-white/70">{scheduledCompletedThisWindow ? "Completed" : `${scheduledPercent}%`}</span>
+                </div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
+                  <div className="h-full rounded-full bg-[image:var(--sw-gradient)] transition-all duration-500" style={{ width: `${Math.max(0, Math.min(100, scheduledPercent))}%` }} />
+                </div>
+                <div className="mt-3 text-xs text-white/45">
+                  {scheduledCompletedThisWindow
+                    ? "Finished for this time window."
+                    : categorySession?.currentIndex
+                      ? `Resume at item ${categorySession.currentIndex + 1}.`
+                      : "Continue from exactly where you stopped."}
+                </div>
+              </button>
+            )}
+
+            {prayerClock.activePrayer && (
+              <button
+                onClick={() => openAthkar("prayer", prayerClock.activePrayer?.sessionKey)}
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-left transition hover:bg-white/[0.06]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-semibold text-white">After {prayerClock.activePrayer.name} Prayer Athkar</div>
+                    <div className="mt-1 text-xs text-white/45">Available for 1 hour after {prayerClock.activePrayer.time}</div>
+                  </div>
+                  <span className="text-sm font-semibold text-white/70">{prayerSession?.completed ? "Completed" : `${prayerPercent}%`}</span>
+                </div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
+                  <div className="h-full rounded-full bg-[image:var(--sw-gradient)] transition-all duration-500" style={{ width: `${Math.max(0, Math.min(100, prayerPercent))}%` }} />
+                </div>
+                <div className="mt-3 text-xs text-white/45">
+                  {prayerSession?.completed
+                    ? "This prayer's Athkar is finished."
+                    : prayerSession?.currentIndex
+                      ? `Resume at item ${prayerSession.currentIndex + 1}.`
+                      : "This prayer has its own saved session."}
+                </div>
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+      {!items.length && !hasWorkout && !hasAthkarToday ? (
         <TemplateGallery dateKey={dateKey} onDone={() => {}} />
       ) : (
         <>

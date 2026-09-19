@@ -484,6 +484,23 @@ export const resetCount = mutation({
     if (!dhikr || dhikr.userId !== userId) throw new Error("Dhikr not found");
     if (dhikr.currentCount === 0 && !dhikr.isCompleted) return;
     await ctx.db.patch(dhikrId, { currentCount: 0, isCompleted: false });
+
+    if (dhikr.category !== "custom" && dhikr.category !== "prayer") {
+      const session = await ctx.db
+        .query("athkarSessions")
+        .withIndex("by_user_category_session", (q) =>
+          q.eq("userId", userId).eq("category", dhikr.category).eq("sessionKey", "active")
+        )
+        .unique();
+      if (session) {
+        await ctx.db.patch(session._id, {
+          completed: false,
+          completedWindowKey: undefined,
+          completedAt: undefined,
+          updatedAt: Date.now(),
+        });
+      }
+    }
   },
 });
 
@@ -596,6 +613,318 @@ export const resetCategory = mutation({
       await ctx.db.patch(doc._id, { currentCount: 0, isCompleted: false });
       reset += 1;
     }
+
+    const session = await ctx.db
+      .query("athkarSessions")
+      .withIndex("by_user_category_session", (q) =>
+        q.eq("userId", userId).eq("category", clean).eq("sessionKey", "active")
+      )
+      .unique();
+    if (session) {
+      await ctx.db.patch(session._id, {
+        currentIndex: 0,
+        completed: false,
+        completedWindowKey: undefined,
+        completedAt: undefined,
+        updatedAt: Date.now(),
+      });
+    }
     return { reset };
+  },
+});
+
+
+const SCHEDULED_CATEGORIES = new Set(["morning", "evening", "before_sleep", "waking_up"]);
+
+function cleanSessionKey(sessionKey: string) {
+  return cleanText(sessionKey, "Athkar session", 160);
+}
+
+function cleanWindowKey(windowKey: string) {
+  return cleanText(windowKey, "Athkar window", 80);
+}
+
+async function getSession(ctx: any, userId: any, category: string, sessionKey: string) {
+  return await ctx.db
+    .query("athkarSessions")
+    .withIndex("by_user_category_session", (q: any) =>
+      q.eq("userId", userId).eq("category", category).eq("sessionKey", sessionKey)
+    )
+    .unique();
+}
+
+async function getCategoryDocs(ctx: any, userId: any, category: string) {
+  return await ctx.db
+    .query("athkar")
+    .withIndex("by_user_category", (q: any) => q.eq("userId", userId).eq("category", category))
+    .take(LIMITS.athkarTotal);
+}
+
+function firstIncompleteIndex(items: Array<{ currentCount: number; targetCount: number }>) {
+  const index = items.findIndex((item) => item.currentCount < item.targetCount);
+  return index === -1 ? Math.max(0, items.length - 1) : index;
+}
+
+export const getCategorySession = query({
+  args: { category: v.string() },
+  handler: async (ctx, { category }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const clean = cleanCategory(category);
+    if (!SCHEDULED_CATEGORIES.has(clean)) return null;
+    return await getSession(ctx, userId, clean, "active");
+  },
+});
+
+export const prepareCategorySession = mutation({
+  args: { category: v.string(), windowKey: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const category = cleanCategory(args.category);
+    if (!SCHEDULED_CATEGORIES.has(category)) throw new Error("This Athkar section does not use scheduled progress");
+    const windowKey = cleanWindowKey(args.windowKey);
+    const items = await getCategoryDocs(ctx, userId, category);
+    let session = await getSession(ctx, userId, category, "active");
+    const allComplete = items.length > 0 && items.every((item: any) => item.currentCount >= item.targetCount);
+
+    if (!session) {
+      const id = await ctx.db.insert("athkarSessions", {
+        userId,
+        category,
+        sessionKey: "active",
+        currentIndex: firstIncompleteIndex(items),
+        completed: allComplete,
+        completedWindowKey: allComplete ? windowKey : undefined,
+        completedAt: allComplete ? Date.now() : undefined,
+        updatedAt: Date.now(),
+      });
+      return await ctx.db.get(id);
+    }
+
+    if (session.completed && session.completedWindowKey && session.completedWindowKey !== windowKey) {
+      for (const item of items) {
+        if (item.currentCount === 0 && !item.isCompleted) continue;
+        await ctx.db.patch(item._id, { currentCount: 0, isCompleted: false });
+      }
+      await ctx.db.patch(session._id, {
+        currentIndex: 0,
+        completed: false,
+        completedWindowKey: undefined,
+        completedAt: undefined,
+        updatedAt: Date.now(),
+      });
+      return { ...session, currentIndex: 0, completed: false, completedWindowKey: undefined, completedAt: undefined };
+    }
+
+    if (allComplete && !session.completed) {
+      await ctx.db.patch(session._id, {
+        currentIndex: Math.max(0, items.length - 1),
+        completed: true,
+        completedWindowKey: windowKey,
+        completedAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      return { ...session, currentIndex: Math.max(0, items.length - 1), completed: true, completedWindowKey: windowKey };
+    }
+
+    if (session.completed && !session.completedWindowKey) {
+      await ctx.db.patch(session._id, { completedWindowKey: windowKey, updatedAt: Date.now() });
+      return { ...session, completedWindowKey: windowKey };
+    }
+
+    const maxIndex = Math.max(0, items.length - 1);
+    if (session.currentIndex > maxIndex) {
+      await ctx.db.patch(session._id, { currentIndex: maxIndex, updatedAt: Date.now() });
+      return { ...session, currentIndex: maxIndex };
+    }
+    return session;
+  },
+});
+
+export const saveCategoryIndex = mutation({
+  args: { category: v.string(), currentIndex: v.number() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const category = cleanCategory(args.category);
+    if (!SCHEDULED_CATEGORIES.has(category)) return;
+    const currentIndex = assertIntegerInRange(args.currentIndex, "Athkar position", 0, LIMITS.athkarTotal);
+    await enforceRateLimit(ctx, userId, "athkar:position", 180, 60_000);
+    const existing = await getSession(ctx, userId, category, "active");
+    if (existing) {
+      await ctx.db.patch(existing._id, { currentIndex, updatedAt: Date.now() });
+    } else {
+      await ctx.db.insert("athkarSessions", {
+        userId,
+        category,
+        sessionKey: "active",
+        currentIndex,
+        completed: false,
+        updatedAt: Date.now(),
+      });
+    }
+  },
+});
+
+export const markCategoryCompleted = mutation({
+  args: { category: v.string(), windowKey: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const category = cleanCategory(args.category);
+    if (!SCHEDULED_CATEGORIES.has(category)) return { completed: false };
+    const windowKey = cleanWindowKey(args.windowKey);
+    const items = await getCategoryDocs(ctx, userId, category);
+    if (!items.length || !items.every((item: any) => item.currentCount >= item.targetCount)) return { completed: false };
+    const existing = await getSession(ctx, userId, category, "active");
+    const patch = {
+      currentIndex: Math.max(0, items.length - 1),
+      completed: true,
+      completedWindowKey: windowKey,
+      completedAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    if (existing) await ctx.db.patch(existing._id, patch);
+    else await ctx.db.insert("athkarSessions", { userId, category, sessionKey: "active", ...patch });
+    return { completed: true };
+  },
+});
+
+function normalizedPrayerCounts(items: any[], stored?: Array<{ dhikrId: any; count: number }>) {
+  const previous = new Map((stored ?? []).map((row) => [String(row.dhikrId), row.count]));
+  return items.map((item) => ({
+    dhikrId: item._id,
+    count: Math.max(0, Math.min(item.targetCount, previous.get(String(item._id)) ?? 0)),
+  }));
+}
+
+function prayerSessionComplete(items: any[], counts: Array<{ dhikrId: any; count: number }>) {
+  const byId = new Map(counts.map((row) => [String(row.dhikrId), row.count]));
+  return items.length > 0 && items.every((item) => (byId.get(String(item._id)) ?? 0) >= item.targetCount);
+}
+
+export const getPrayerSession = query({
+  args: { sessionKey: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const sessionKey = cleanSessionKey(args.sessionKey);
+    const items = await getCategoryDocs(ctx, userId, "prayer");
+    const session = await getSession(ctx, userId, "prayer", sessionKey);
+    const counts = normalizedPrayerCounts(items, session?.counts);
+    return {
+      sessionKey,
+      currentIndex: Math.min(session?.currentIndex ?? 0, Math.max(0, items.length - 1)),
+      counts,
+      completed: prayerSessionComplete(items, counts),
+      completedAt: session?.completedAt,
+    };
+  },
+});
+
+export const ensurePrayerSession = mutation({
+  args: { sessionKey: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const sessionKey = cleanSessionKey(args.sessionKey);
+    const items = await getCategoryDocs(ctx, userId, "prayer");
+    const existing = await getSession(ctx, userId, "prayer", sessionKey);
+    if (existing) {
+      const counts = normalizedPrayerCounts(items, existing.counts);
+      const completed = prayerSessionComplete(items, counts);
+      await ctx.db.patch(existing._id, { counts, completed, updatedAt: Date.now(), ...(completed && !existing.completedAt ? { completedAt: Date.now() } : {}) });
+      return { currentIndex: Math.min(existing.currentIndex, Math.max(0, items.length - 1)), counts, completed };
+    }
+
+    const legacyCounts = sessionKey === "prayer:manual"
+      ? items.map((item: any) => ({ dhikrId: item._id, count: Math.min(item.currentCount, item.targetCount) }))
+      : items.map((item: any) => ({ dhikrId: item._id, count: 0 }));
+    const completed = prayerSessionComplete(items, legacyCounts);
+    await ctx.db.insert("athkarSessions", {
+      userId,
+      category: "prayer",
+      sessionKey,
+      currentIndex: completed ? Math.max(0, items.length - 1) : 0,
+      counts: legacyCounts,
+      completed,
+      completedAt: completed ? Date.now() : undefined,
+      updatedAt: Date.now(),
+    });
+    return { currentIndex: completed ? Math.max(0, items.length - 1) : 0, counts: legacyCounts, completed };
+  },
+});
+
+export const incrementPrayerSession = mutation({
+  args: { sessionKey: v.string(), dhikrId: v.id("athkar") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const sessionKey = cleanSessionKey(args.sessionKey);
+    const dhikr = await ctx.db.get(args.dhikrId);
+    if (!dhikr || dhikr.userId !== userId || dhikr.category !== "prayer") throw new Error("Prayer dhikr not found");
+    const items = await getCategoryDocs(ctx, userId, "prayer");
+    let session = await getSession(ctx, userId, "prayer", sessionKey);
+    if (!session) {
+      const counts = items.map((item: any) => ({ dhikrId: item._id, count: 0 }));
+      const id = await ctx.db.insert("athkarSessions", { userId, category: "prayer", sessionKey, currentIndex: 0, counts, completed: false, updatedAt: Date.now() });
+      session = await ctx.db.get(id);
+    }
+    if (!session) throw new Error("Prayer session unavailable");
+    const counts = normalizedPrayerCounts(items, session.counts);
+    const row = counts.find((item) => String(item.dhikrId) === String(args.dhikrId));
+    if (!row) throw new Error("Prayer dhikr not found");
+    row.count = Math.min(dhikr.targetCount, row.count + 1);
+    const completed = prayerSessionComplete(items, counts);
+    await ctx.db.patch(session._id, {
+      counts,
+      completed,
+      completedAt: completed ? (session.completedAt ?? Date.now()) : undefined,
+      updatedAt: Date.now(),
+    });
+    return { count: row.count, completed };
+  },
+});
+
+export const savePrayerIndex = mutation({
+  args: { sessionKey: v.string(), currentIndex: v.number() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const sessionKey = cleanSessionKey(args.sessionKey);
+    const currentIndex = assertIntegerInRange(args.currentIndex, "Athkar position", 0, LIMITS.athkarTotal);
+    await enforceRateLimit(ctx, userId, "athkar:position", 180, 60_000);
+    const items = await getCategoryDocs(ctx, userId, "prayer");
+    const existing = await getSession(ctx, userId, "prayer", sessionKey);
+    if (existing) {
+      await ctx.db.patch(existing._id, { currentIndex, counts: normalizedPrayerCounts(items, existing.counts), updatedAt: Date.now() });
+    } else {
+      await ctx.db.insert("athkarSessions", {
+        userId,
+        category: "prayer",
+        sessionKey,
+        currentIndex,
+        counts: items.map((item: any) => ({ dhikrId: item._id, count: 0 })),
+        completed: false,
+        updatedAt: Date.now(),
+      });
+    }
+  },
+});
+
+export const resetPrayerDhikr = mutation({
+  args: { sessionKey: v.string(), dhikrId: v.id("athkar") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const sessionKey = cleanSessionKey(args.sessionKey);
+    const dhikr = await ctx.db.get(args.dhikrId);
+    if (!dhikr || dhikr.userId !== userId || dhikr.category !== "prayer") throw new Error("Prayer dhikr not found");
+    const items = await getCategoryDocs(ctx, userId, "prayer");
+    const session = await getSession(ctx, userId, "prayer", sessionKey);
+    if (!session) return;
+    const counts = normalizedPrayerCounts(items, session.counts).map((row) => String(row.dhikrId) === String(args.dhikrId) ? { ...row, count: 0 } : row);
+    await ctx.db.patch(session._id, { counts, completed: false, completedAt: undefined, updatedAt: Date.now() });
   },
 });

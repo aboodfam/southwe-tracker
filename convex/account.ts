@@ -36,6 +36,7 @@ export const deleteMyAccount = mutation({
     const dailyProgress = await ctx.db.query("dailyProgress").withIndex("by_user_date", (q) => q.eq("userId", userId)).collect();
     const dailyResetState = await ctx.db.query("dailyResetState").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
     const athkar = await ctx.db.query("athkar").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
+    const athkarSessions = await ctx.db.query("athkarSessions").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
     const profiles = await ctx.db.query("userProfiles").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
     const macroProfiles = await ctx.db.query("macroProfiles").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
     const weightEntries = await ctx.db.query("weightEntries").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
@@ -53,6 +54,7 @@ export const deleteMyAccount = mutation({
     for (const doc of workoutProgress) await ctx.db.delete(doc._id);
     for (const doc of dailyProgress) await ctx.db.delete(doc._id);
     for (const doc of dailyResetState) await ctx.db.delete(doc._id);
+    for (const doc of athkarSessions) await ctx.db.delete(doc._id);
     for (const doc of athkar) await ctx.db.delete(doc._id);
     for (const doc of profiles) await ctx.db.delete(doc._id);
     for (const doc of macroProfiles) await ctx.db.delete(doc._id);

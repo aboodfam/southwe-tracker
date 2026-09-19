@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { useSound } from "../contexts/SoundContext";
 import { useTheme } from "../contexts/ThemeContext";
+import { useLocalDateKey } from "../hooks/useLocalDateKey";
 import { Icon, IconName } from "./icons";
 import { PageHeader } from "./PageHeader";
 
@@ -35,9 +36,43 @@ const categories: CategoryDef[] = [
   { id: "custom", name: "Custom Dhikr", shortName: "Custom", icon: "sparkles", description: "Build a personal remembrance list of your own." },
 ];
 
-function getLocalDateKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const SCHEDULED_CATEGORY_IDS = new Set(["morning", "evening", "before_sleep", "waking_up"]);
+const OPEN_CATEGORY_KEY = "ceventic_athkar_open_category";
+const PRAYER_SESSION_KEY = "ceventic_athkar_prayer_session";
+
+function readPendingCategory() {
+  try {
+    const value = sessionStorage.getItem(OPEN_CATEGORY_KEY);
+    sessionStorage.removeItem(OPEN_CATEGORY_KEY);
+    return value && categories.some((category) => category.id === value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function readPendingPrayerSession() {
+  try {
+    const value = sessionStorage.getItem(PRAYER_SESSION_KEY);
+    sessionStorage.removeItem(PRAYER_SESSION_KEY);
+    return value || "prayer:manual";
+  } catch {
+    return "prayer:manual";
+  }
+}
+
+function readSavedCustomIndex(category: string) {
+  try {
+    const value = Number(localStorage.getItem(`athkar_last_index_${category}`));
+    return Number.isInteger(value) && value >= 0 ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveCustomIndex(category: string, index: number) {
+  try {
+    localStorage.setItem(`athkar_last_index_${category}`, String(index));
+  } catch {}
 }
 
 function completionStorageKey(category: string) {
@@ -68,6 +103,7 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const { play } = useSound();
+  const dateKey = useLocalDateKey();
 
   const athkarRaw = prefetchedAthkar;
   const athkar = athkarRaw ?? [];
@@ -79,10 +115,22 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
   const ensureDefaultAthkar = useMutation(api.athkar.ensureDefaultAthkar);
   const updateDhikr = useMutation(api.athkar.updateDhikr);
   const deleteDhikr = useMutation(api.athkar.deleteDhikr);
+  const prepareCategorySession = useMutation(api.athkar.prepareCategorySession);
+  const saveCategoryIndex = useMutation(api.athkar.saveCategoryIndex);
+  const markCategoryCompleted = useMutation(api.athkar.markCategoryCompleted);
+  const ensurePrayerSession = useMutation(api.athkar.ensurePrayerSession);
+  const incrementPrayerSession = useMutation(api.athkar.incrementPrayerSession);
+  const savePrayerIndex = useMutation(api.athkar.savePrayerIndex);
+  const resetPrayerDhikr = useMutation(api.athkar.resetPrayerDhikr);
 
+  const initialCategoryRef = useRef<string | null>(readPendingCategory());
+  const initialPrayerSessionRef = useRef(readPendingPrayerSession());
   const [optimisticCounts, setOptimisticCounts] = useState<Record<string, number>>({});
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [optimisticPrayerCounts, setOptimisticPrayerCounts] = useState<Record<string, number>>({});
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(initialCategoryRef.current);
+  const [prayerSessionKey, setPrayerSessionKey] = useState(initialPrayerSessionRef.current);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [positionReady, setPositionReady] = useState(false);
   const [editingDhikr, setEditingDhikr] = useState<Dhikr | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [slideDirection, setSlideDirection] = useState<"next" | "prev" | null>(null);
@@ -90,6 +138,13 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
   const [editForm, setEditForm] = useState({ text: "", translation: "", targetCount: 1, category: "custom" });
   const touchStartX = useRef<number | null>(null);
   const seededOnceRef = useRef(false);
+  const preparedSessionRef = useRef("");
+
+  const prayerSession = useQuery(
+    api.athkar.getPrayerSession,
+    selectedCategory === "prayer" ? { sessionKey: prayerSessionKey } : "skip",
+  );
+  const manualPrayerSession = useQuery(api.athkar.getPrayerSession, { sessionKey: "prayer:manual" });
 
   useEffect(() => {
     if (isLoading || seededOnceRef.current) return;
@@ -103,34 +158,48 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
 
   useEffect(() => () => onFocusModeChange?.(false), [onFocusModeChange]);
 
-  const countFor = (dhikr: Dhikr) => optimisticCounts[dhikr._id] ?? dhikr.currentCount;
+  const selectedPrayerCounts = useMemo(
+    () => new Map((prayerSession?.counts ?? []).map((row) => [String(row.dhikrId), row.count])),
+    [prayerSession?.counts],
+  );
+  const manualPrayerCounts = useMemo(
+    () => new Map((manualPrayerSession?.counts ?? []).map((row) => [String(row.dhikrId), row.count])),
+    [manualPrayerSession?.counts],
+  );
 
-  const categoryData = useMemo(() => {
-    return categories.map((category) => {
-      const items = athkar.filter((dhikr: Dhikr) => dhikr.category === category.id);
-      const totalTarget = items.reduce((sum, dhikr) => sum + Math.max(1, dhikr.targetCount), 0);
-      const totalCurrent = items.reduce((sum, dhikr) => sum + Math.min(optimisticCounts[dhikr._id] ?? dhikr.currentCount, Math.max(1, dhikr.targetCount)), 0);
-      const completed = items.filter((dhikr) => (optimisticCounts[dhikr._id] ?? dhikr.currentCount) >= dhikr.targetCount).length;
-      return {
-        ...category,
-        itemCount: items.length,
-        completed,
-        progress: totalTarget ? (totalCurrent / totalTarget) * 100 : 0,
-        completionDays: category.id === "custom" ? 0 : readCompletionDates(category.id).length,
-      };
-    });
-  }, [athkar, optimisticCounts]);
+  const countFor = (dhikr: Dhikr) => {
+    if (dhikr.category === "prayer") {
+      const stored = selectedCategory === "prayer"
+        ? selectedPrayerCounts.get(String(dhikr._id)) ?? 0
+        : manualPrayerCounts.get(String(dhikr._id)) ?? 0;
+      return selectedCategory === "prayer"
+        ? optimisticPrayerCounts[dhikr._id] ?? stored
+        : stored;
+    }
+    return optimisticCounts[dhikr._id] ?? dhikr.currentCount;
+  };
 
-  const overall = useMemo(() => {
-    const totalTarget = athkar.reduce((sum: number, dhikr: Dhikr) => sum + Math.max(1, dhikr.targetCount), 0);
-    const totalCurrent = athkar.reduce((sum: number, dhikr: Dhikr) => sum + Math.min(optimisticCounts[dhikr._id] ?? dhikr.currentCount, Math.max(1, dhikr.targetCount)), 0);
-    const completedItems = athkar.filter((dhikr: Dhikr) => (optimisticCounts[dhikr._id] ?? dhikr.currentCount) >= dhikr.targetCount).length;
+  const categoryData = categories.map((category) => {
+    const items = athkar.filter((dhikr: Dhikr) => dhikr.category === category.id);
+    const totalTarget = items.reduce((sum, dhikr) => sum + Math.max(1, dhikr.targetCount), 0);
+    const totalCurrent = items.reduce((sum, dhikr) => sum + Math.min(countFor(dhikr), Math.max(1, dhikr.targetCount)), 0);
+    const completed = items.filter((dhikr) => countFor(dhikr) >= dhikr.targetCount).length;
     return {
+      ...category,
+      itemCount: items.length,
+      completed,
       progress: totalTarget ? (totalCurrent / totalTarget) * 100 : 0,
-      completedItems,
-      totalItems: athkar.length,
+      completionDays: category.id === "custom" ? 0 : readCompletionDates(category.id).length,
     };
-  }, [athkar, optimisticCounts]);
+  });
+
+  const totalTarget = athkar.reduce((sum: number, dhikr: Dhikr) => sum + Math.max(1, dhikr.targetCount), 0);
+  const totalCurrent = athkar.reduce((sum: number, dhikr: Dhikr) => sum + Math.min(countFor(dhikr), Math.max(1, dhikr.targetCount)), 0);
+  const overall = {
+    progress: totalTarget ? (totalCurrent / totalTarget) * 100 : 0,
+    completedItems: athkar.filter((dhikr: Dhikr) => countFor(dhikr) >= dhikr.targetCount).length,
+    totalItems: athkar.length,
+  };
 
   const filteredAthkar = useMemo(
     () => (selectedCategory ? athkar.filter((dhikr: Dhikr) => dhikr.category === selectedCategory) : []),
@@ -138,17 +207,91 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
   );
 
   const selectedCategoryDef = categories.find((category) => category.id === selectedCategory) ?? null;
+  const prayerName = prayerSessionKey.startsWith("prayer:") && prayerSessionKey !== "prayer:manual"
+    ? prayerSessionKey.split(":").at(-1)
+    : null;
+  const selectedCategoryTitle = selectedCategory === "prayer" && prayerName
+    ? `After ${prayerName.charAt(0).toUpperCase()}${prayerName.slice(1)} Prayer`
+    : selectedCategoryDef?.name ?? "Athkar";
   const currentDhikr = filteredAthkar[currentIndex] ?? null;
   const currentDhikrCount = currentDhikr ? countFor(currentDhikr) : 0;
+
+  useEffect(() => {
+    if (!selectedCategory || isLoading) {
+      setPositionReady(false);
+      return;
+    }
+    const sessionIdentity = selectedCategory === "prayer"
+      ? `${selectedCategory}:${prayerSessionKey}`
+      : SCHEDULED_CATEGORY_IDS.has(selectedCategory)
+        ? `${selectedCategory}:${dateKey}`
+        : selectedCategory;
+    if (preparedSessionRef.current === sessionIdentity) return;
+    preparedSessionRef.current = sessionIdentity;
+    setPositionReady(false);
+    setOptimisticPrayerCounts({});
+
+    const maxIndex = Math.max(0, athkar.filter((dhikr) => dhikr.category === selectedCategory).length - 1);
+    const clampIndex = (index: number) => Math.max(0, Math.min(maxIndex, index));
+
+    if (selectedCategory === "prayer") {
+      void ensurePrayerSession({ sessionKey: prayerSessionKey })
+        .then((session) => {
+          setCurrentIndex(clampIndex(session?.currentIndex ?? 0));
+          setPositionReady(true);
+        })
+        .catch(() => {
+          setCurrentIndex(0);
+          setPositionReady(true);
+        });
+      return;
+    }
+
+    if (SCHEDULED_CATEGORY_IDS.has(selectedCategory)) {
+      void prepareCategorySession({ category: selectedCategory, windowKey: dateKey })
+        .then((session) => {
+          const items = athkar.filter((dhikr) => dhikr.category === selectedCategory);
+          const firstIncomplete = items.findIndex((dhikr) => dhikr.currentCount < dhikr.targetCount);
+          const fallback = firstIncomplete === -1 ? Math.max(0, items.length - 1) : firstIncomplete;
+          setCurrentIndex(clampIndex(session?.currentIndex ?? fallback));
+          setPositionReady(true);
+        })
+        .catch(() => {
+          const items = athkar.filter((dhikr) => dhikr.category === selectedCategory);
+          const firstIncomplete = items.findIndex((dhikr) => dhikr.currentCount < dhikr.targetCount);
+          setCurrentIndex(clampIndex(firstIncomplete === -1 ? Math.max(0, items.length - 1) : firstIncomplete));
+          setPositionReady(true);
+        });
+      return;
+    }
+
+    setCurrentIndex(clampIndex(readSavedCustomIndex(selectedCategory)));
+    setPositionReady(true);
+  }, [selectedCategory, prayerSessionKey, dateKey, isLoading, athkar, ensurePrayerSession, prepareCategorySession]);
+
+  useEffect(() => {
+    if (!selectedCategory || !positionReady) return;
+    if (selectedCategory === "prayer") {
+      void savePrayerIndex({ sessionKey: prayerSessionKey, currentIndex }).catch(() => {});
+      return;
+    }
+    if (SCHEDULED_CATEGORY_IDS.has(selectedCategory)) {
+      void saveCategoryIndex({ category: selectedCategory, currentIndex }).catch(() => {});
+      return;
+    }
+    saveCustomIndex(selectedCategory, currentIndex);
+  }, [selectedCategory, prayerSessionKey, currentIndex, positionReady, savePrayerIndex, saveCategoryIndex]);
 
   useEffect(() => {
     if (!selectedCategory || selectedCategory === "custom") return;
     const items = athkar.filter((dhikr: Dhikr) => dhikr.category === selectedCategory);
     if (!items.length || !items.every((dhikr) => countFor(dhikr) >= dhikr.targetCount)) return;
-    const today = getLocalDateKey();
     const dates = readCompletionDates(selectedCategory);
-    if (!dates.includes(today)) writeCompletionDates(selectedCategory, [...dates, today]);
-  }, [athkar, optimisticCounts, selectedCategory]);
+    if (!dates.includes(dateKey)) writeCompletionDates(selectedCategory, [...dates, dateKey]);
+    if (SCHEDULED_CATEGORY_IDS.has(selectedCategory)) {
+      void markCategoryCompleted({ category: selectedCategory, windowKey: dateKey }).catch(() => {});
+    }
+  }, [athkar, optimisticCounts, optimisticPrayerCounts, prayerSession?.counts, selectedCategory, dateKey, markCategoryCompleted]);
 
   useEffect(() => {
     if (currentIndex > Math.max(0, filteredAthkar.length - 1)) setCurrentIndex(0);
@@ -161,9 +304,20 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
   }, [slideDirection, currentIndex]);
 
   const openCategory = (categoryId: string) => {
+    preparedSessionRef.current = "";
+    setPositionReady(false);
+    setOptimisticPrayerCounts({});
+    if (categoryId === "prayer") setPrayerSessionKey("prayer:manual");
     setSelectedCategory(categoryId);
     setCurrentIndex(0);
     setShowAddForm(false);
+    setSlideDirection(null);
+  };
+
+  const closeCategory = () => {
+    preparedSessionRef.current = "";
+    setPositionReady(false);
+    setSelectedCategory(null);
     setSlideDirection(null);
   };
 
@@ -198,8 +352,22 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
     const current = countFor(dhikr);
     if (current >= dhikr.targetCount) return;
     const next = Math.min(dhikr.targetCount, current + 1);
-    setOptimisticCounts((state) => ({ ...state, [dhikrId]: next }));
     play(next >= dhikr.targetCount ? "success" : "notification", next >= dhikr.targetCount ? 0.85 : 0.25);
+
+    if (dhikr.category === "prayer" && selectedCategory === "prayer") {
+      setOptimisticPrayerCounts((state) => ({ ...state, [dhikrId]: next }));
+      incrementPrayerSession({ sessionKey: prayerSessionKey, dhikrId: dhikrId as Id<"athkar"> }).catch((error: any) => {
+        setOptimisticPrayerCounts((state) => {
+          const nextState = { ...state };
+          delete nextState[dhikrId];
+          return nextState;
+        });
+        toast.error(error?.message ?? "Failed to update");
+      });
+      return;
+    }
+
+    setOptimisticCounts((state) => ({ ...state, [dhikrId]: next }));
     incrementCount({ dhikrId: dhikrId as Id<"athkar"> }).catch((error: any) => {
       setOptimisticCounts((state) => {
         const nextState = { ...state };
@@ -211,6 +379,24 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
   };
 
   const handleReset = async (dhikrId: string) => {
+    const dhikr = athkar.find((item: Dhikr) => item._id === dhikrId);
+    if (!dhikr) return;
+    if (dhikr.category === "prayer" && selectedCategory === "prayer") {
+      setOptimisticPrayerCounts((state) => ({ ...state, [dhikrId]: 0 }));
+      try {
+        await resetPrayerDhikr({ sessionKey: prayerSessionKey, dhikrId: dhikrId as Id<"athkar"> });
+        toast.success("Counter reset");
+      } catch {
+        setOptimisticPrayerCounts((state) => {
+          const nextState = { ...state };
+          delete nextState[dhikrId];
+          return nextState;
+        });
+        toast.error("Failed to reset count");
+      }
+      return;
+    }
+
     setOptimisticCounts((state) => ({ ...state, [dhikrId]: 0 }));
     try {
       await resetCount({ dhikrId: dhikrId as Id<"athkar"> });
@@ -359,28 +545,32 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
       ) : (
         <div className="mx-auto max-w-5xl space-y-5 athkar-focus-view">
           <div className="sticky top-0 z-40 flex items-center justify-between border-b border-white/10 bg-black/95 px-3 py-3 sm:hidden">
-            <button onClick={() => setSelectedCategory(null)} className="grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-white/[0.03] text-white/70" aria-label="Back to Athkar sections">
+            <button onClick={closeCategory} className="grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-white/[0.03] text-white/70" aria-label="Back to Athkar sections">
               <Icon name="chevronLeft" className="h-5 w-5" />
             </button>
             <div className="min-w-0 px-3 text-center">
-              <div className="truncate text-base font-bold text-white">{selectedCategoryDef?.name ?? "Athkar"}</div>
+              <div className="truncate text-base font-bold text-white">{selectedCategoryTitle}</div>
               <div className="mt-0.5 text-[11px] text-white/40">{filteredAthkar.length} items</div>
             </div>
             <div className="h-11 w-11" />
           </div>
 
           <div className="hidden sm:block">
-            <PageHeader title={selectedCategoryDef?.name ?? "Athkar"} subtitle={selectedCategoryDef?.description ?? "Focused remembrance."} />
+            <PageHeader title={selectedCategoryTitle} subtitle={selectedCategoryDef?.description ?? "Focused remembrance."} />
           </div>
 
           <div className="hidden items-center justify-between gap-3 sm:flex">
-            <button onClick={() => setSelectedCategory(null)} className={`inline-flex items-center gap-2 rounded-xl border ${colors.border} bg-black/30 px-3 py-2 text-sm ${colors.textSecondary} backdrop-blur-xl transition hover:bg-white/[0.05] hover:text-white`}>
+            <button onClick={closeCategory} className={`inline-flex items-center gap-2 rounded-xl border ${colors.border} bg-black/30 px-3 py-2 text-sm ${colors.textSecondary} backdrop-blur-xl transition hover:bg-white/[0.05] hover:text-white`}>
               <Icon name="chevronLeft" className="h-4 w-4" /> Back to sections
             </button>
             <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white/45 backdrop-blur-xl">{filteredAthkar.length} items</div>
           </div>
 
-          {currentDhikr ? (
+          {!positionReady ? (
+            <div className={`rounded-3xl border ${colors.border} ${colors.backgroundSecondary} p-8 text-center text-sm text-white/55 backdrop-blur-xl`}>
+              Getting your Athkar ready…
+            </div>
+          ) : currentDhikr ? (
             <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} className={`relative overflow-hidden border-y border-white/[0.08] bg-black sm:rounded-3xl sm:border ${colors.border} sm:bg-[rgb(var(--sw-surface-rgb)/.92)] sm:backdrop-blur-xl`}>
               <div className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full bg-[image:var(--sw-gradient)] opacity-[0.06] blur-3xl" />
 

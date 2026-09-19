@@ -170,6 +170,23 @@ const applicationTables = {
     .index("by_user", ["userId"])
     .index("by_user_category", ["userId", "category"]),
 
+  athkarSessions: defineTable({
+    userId: v.id("users"),
+    category: v.string(),
+    sessionKey: v.string(),
+    currentIndex: v.number(),
+    counts: v.optional(v.array(v.object({
+      dhikrId: v.id("athkar"),
+      count: v.number(),
+    }))),
+    completed: v.boolean(),
+    completedWindowKey: v.optional(v.string()),
+    completedAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_category_session", ["userId", "category", "sessionKey"]),
+
   userProfiles: defineTable({
     userId: v.id("users"),
     displayName: v.string(),

@@ -100,25 +100,11 @@ export const resetEverythingDaily = mutation({
       await ctx.db.patch(routine._id, { tasks: nextTasks });
     }
 
-    const athkarDocs = await ctx.db
-      .query("athkar")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .take(LIMITS.athkarTotal);
-
-    const builtinCategories = new Set([
-      "morning",
-      "evening",
-      "prayer",
-      "before_sleep",
-      "waking_up",
-    ]);
-
-    let athkarReset = 0;
-    for (const dhikr of athkarDocs) {
-      if (!builtinCategories.has(dhikr.category)) continue;
-      await ctx.db.patch(dhikr._id, { currentCount: 0, isCompleted: false });
-      athkarReset += 1;
-    }
+    // Athkar is intentionally NOT reset at midnight. Unfinished remembrance
+    // must survive page exits, refreshes and new calendar days. Built-in
+    // sections are reset only after the section has actually been completed
+    // and a new scheduled occurrence starts.
+    const athkarReset = 0;
 
     if (existingResetState) {
       await ctx.db.patch(existingResetState._id, { lastResetDate: today });
