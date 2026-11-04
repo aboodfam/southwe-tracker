@@ -600,17 +600,17 @@ function AppContent() {
         </div>
       ) : isAuthenticated ? (
         <TrustedDeviceGate>
-          <div className={`sticky top-0 z-50 bg-surface shadow-2xl ${athkarFocus ? "hidden sm:block" : ""}`}>
-            <header className={`border-b ${colors.border}`}>
-              <div className="container mx-auto flex h-16 items-center justify-end px-3 sm:h-20 sm:px-4">
-                <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
-                  <ThemeSelector onOpenWorkspace={() => navigateToPage("workspace")} />
-                  <DesktopFullscreenButton />
-                  <SignOutButton />
-                </div>
+          <header className={`relative z-50 border-b bg-surface ${colors.border} ${athkarFocus ? "hidden sm:block" : ""}`}>
+            <div className="container mx-auto flex h-16 items-center justify-end px-3 sm:h-20 sm:px-4">
+              <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
+                <ThemeSelector onOpenWorkspace={() => navigateToPage("workspace")} />
+                <DesktopFullscreenButton />
+                <SignOutButton />
               </div>
-            </header>
+            </div>
+          </header>
 
+          <div className={`sticky top-0 z-40 bg-surface shadow-2xl ${athkarFocus ? "hidden sm:block" : ""}`}>
             <Navigation currentPage={currentPage} onPageChange={navigateToPage} hiddenPages={preferences?.hiddenPages ?? []} />
             <ConnectionNotice />
           </div>
