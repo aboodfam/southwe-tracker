@@ -265,7 +265,7 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
     { weekday: "long", month: "long", day: "numeric" },
   );
   return (
-    <div className="mx-auto max-w-3xl space-y-5" data-no-swipe>
+    <div className="mx-auto max-w-3xl space-y-5">
       <PageHeader title={tr("Today")} subtitle={dateLabel} />
       {hasAthkarToday && (
         <section className={card}>

@@ -519,6 +519,7 @@ function AppContent() {
     // :hover/:focus state. Clear it after every route change so only the
     // current page can look selected.
     requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     });
   };
@@ -541,18 +542,20 @@ function AppContent() {
     if (!(target instanceof Element)) return false;
     // Avoid swiping when interacting with controls or horizontally scrollable areas
     return !!target.closest(
-      "button, a, input, textarea, select, [role='button'], [data-no-swipe], [contenteditable='true']"
+      "button, a, input, textarea, select, [role='button'], [role='listbox'], [role='option'], [data-no-swipe], [contenteditable='true']"
     );
   };
 
   const onTouchStart = (e: any) => {
-    if (!isAuthenticated || athkarFocus || shouldIgnoreSwipe(e.target)) return;
+    swipeRef.current.active = false;
+    if (e.touches.length !== 1 || !isAuthenticated || athkarFocus || shouldIgnoreSwipe(e.target)) return;
     const t = e.touches[0];
+    if (!t) return;
     swipeRef.current = { x: t.clientX, y: t.clientY, active: true, locked: false };
   };
 
   const onTouchMove = (e: any) => {
-    if (!swipeRef.current.active || swipeRef.current.locked) return;
+    if (!swipeRef.current.active || swipeRef.current.locked || e.touches.length !== 1) return;
     const t = e.touches[0];
     const dx = t.clientX - swipeRef.current.x;
     const dy = t.clientY - swipeRef.current.y;
@@ -584,7 +587,7 @@ function AppContent() {
   };
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${colors.background} relative overflow-hidden`}>
+    <div className={`min-h-screen bg-gradient-to-br ${colors.background} relative overflow-x-clip`}>
       {!authLoading && isAuthenticated && (
         <div className={athkarFocus ? "hidden sm:block" : undefined}>
           <StarfieldBackground key={theme} />
@@ -597,7 +600,7 @@ function AppContent() {
         </div>
       ) : isAuthenticated ? (
         <TrustedDeviceGate>
-          <header className={`${athkarFocus ? "hidden sm:block" : ""} relative z-50 ${colors.backgroundSecondary} backdrop-blur-md border-b ${colors.border} shadow-2xl`}>
+          <header className={`${athkarFocus ? "hidden sm:block" : ""} sticky top-0 z-50 ${colors.backgroundSecondary} backdrop-blur-md border-b ${colors.border} shadow-2xl`}>
             <div className="container mx-auto flex h-16 items-center justify-end px-3 sm:h-20 sm:px-4">
               <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
                 <ThemeSelector onOpenWorkspace={() => navigateToPage("workspace")} />
@@ -607,7 +610,7 @@ function AppContent() {
             </div>
           </header>
 
-          <div className={athkarFocus ? "hidden sm:block" : ""}>
+          <div className={`sticky top-16 z-40 sm:top-20 ${athkarFocus ? "hidden sm:block" : ""}`}>
             <Navigation currentPage={currentPage} onPageChange={navigateToPage} hiddenPages={preferences?.hiddenPages ?? []} />
             <ConnectionNotice />
           </div>
@@ -617,6 +620,7 @@ function AppContent() {
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
+            onTouchCancel={onTouchEnd}
           >
             <div key={swapKey} className={swapDir === "left" ? "sw-page-swap-left" : "sw-page-swap-right"}>
               <ScreenBoundary key={currentPage}><Content currentPage={currentPage} onNavigate={navigateToPage} onAthkarFocusChange={setAthkarFocus} /></ScreenBoundary>
@@ -699,7 +703,7 @@ function Content({ currentPage, onNavigate, onAthkarFocusChange }: { currentPage
           <NameSetupModal onSaved={(savedName) => setConfirmedNameThisSession(savedName)} />
         )}
         {currentPage === "today" && <TodayPage displayName={needsRealName ? "" : displayName} onNavigate={onNavigate} />}
-        {currentPage === "workspace" && <WorkspacePage />}
+        {currentPage === "workspace" && <WorkspacePage onBack={() => onNavigate("today")} />}
         {currentPage === "routines" && (
           <RoutinesContent
             loggedInUser={loggedInUser}

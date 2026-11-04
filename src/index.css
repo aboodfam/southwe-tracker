@@ -318,8 +318,7 @@ button,
     box-shadow: none !important;
   }
 
-  .sw-nav-button:not([aria-current="page"]):focus,
-  .sw-nav-button:not([aria-current="page"]):focus-visible {
+  .sw-nav-button:not([aria-current="page"]):focus:not(:focus-visible) {
     outline: none !important;
   }
 
@@ -865,3 +864,15 @@ input[type="text"], textarea {
 html[lang="ar"] :is(h1, h2, h3, h4, p) {
   unicode-bidi: plaintext;
 }
+
+/* Use the app's picker instead of native mobile select sheets and tap outlines. */
+.sw-choice-trigger, .sw-choice-list [role="option"] {
+  -webkit-tap-highlight-color: transparent;
+}
+.sw-choice-trigger:focus { outline: none; box-shadow: none; }
+.sw-choice-trigger:focus-visible {
+  outline: 2px solid rgb(var(--sw-accent-rgb) / .65);
+  outline-offset: 3px;
+}
+
+.sw-nav-button { -webkit-tap-highlight-color: transparent; }

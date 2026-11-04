@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { t as tr, useLocale } from "../i18n";
 import { useTheme } from "../contexts/ThemeContext";
 import { Icon, IconName } from "./icons";
@@ -9,9 +10,20 @@ interface NavigationProps {
 }
 
 export function Navigation({ currentPage, onPageChange, hiddenPages }: NavigationProps) {
-  useLocale();
+  const locale = useLocale();
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
+  const strip = useRef<HTMLDivElement>(null);
+  const visibleKey = hiddenPages.join("|");
+  useEffect(() => {
+    const container = strip.current;
+    const active = container?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!container || !active) return;
+    const box = container.getBoundingClientRect();
+    const target = active.getBoundingClientRect();
+    const left = container.scrollLeft + target.left - box.left - (box.width - target.width) / 2;
+    container.scrollTo({ left, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }, [currentPage, visibleKey, locale]);
 
   const pages: { id: NavigationProps["currentPage"]; name: string; icon: IconName }[] = [
     { id: "today", name: tr("Today"), icon: "calendar" },
@@ -24,9 +36,9 @@ export function Navigation({ currentPage, onPageChange, hiddenPages }: Navigatio
   ];
 
   return (
-    <nav className={`sticky top-16 sm:top-20 z-40 border-b ${colors.border} ${colors.backgroundSecondary} backdrop-blur-xl`}>
+    <nav aria-label={tr("Main navigation")} className={`border-b ${colors.border} ${colors.backgroundSecondary} backdrop-blur-xl`}>
       <div className="container mx-auto px-2 sm:px-4">
-        <div className="scrollbar-hide flex items-center gap-1 overflow-x-auto py-2 sm:justify-center sm:gap-1.5">
+        <div ref={strip} className="scrollbar-hide flex items-center gap-1 overflow-x-auto py-2 sm:justify-center sm:gap-1.5">
           {pages.filter(page => !hiddenPages.includes(page.id)).map((page) => {
             const active = currentPage === page.id;
             return (

@@ -31,7 +31,6 @@ export function TemplateGallery({
   return (
     <section
       className="rounded-2xl border border-white/10 bg-black/30 p-5"
-      data-no-swipe
       aria-label={tr("Ready-made templates")}
     >
       <div className="flex items-center justify-between gap-3">
