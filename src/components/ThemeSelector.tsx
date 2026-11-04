@@ -1,3 +1,4 @@
+import { LanguageSelector } from "./LanguageSelector";
 import { t as tr, useLocale } from "../i18n";
 import { useEffect, useRef, useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
@@ -69,7 +70,7 @@ function AccountSettingsPanel() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
         <div className="flex items-start gap-3">
           <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl border ${colors.border} bg-white/[0.04]`}>
@@ -217,29 +218,17 @@ function ToggleSwitch({ checked, onChange, label }: { checked: boolean; onChange
 }
 
 function ThemePreview({ option, selected }: { option: ThemeOption; selected: boolean }) {
-  useLocale();
   return (
-    <div
-      className="relative h-20 overflow-hidden rounded-xl border border-white/10 p-2.5"
-      style={{ background: `linear-gradient(145deg, ${option.surface}, #020304)` }}
-    >
-      <div className="mb-2 flex items-center gap-1.5">
-        <span className="h-1.5 w-1.5 rounded-full bg-white/25" />
-        <span className="h-1.5 w-8 rounded-full bg-white/10" />
-      </div>
-      <div className="grid grid-cols-[22px_1fr] gap-2">
-        <div className="rounded-md border border-white/10 bg-white/[0.04]" />
-        <div className="space-y-1.5">
-          <div className="h-2.5 w-3/4 rounded-full" style={{ background: `linear-gradient(90deg, ${option.accent}, ${option.accent2})` }} />
-          <div className="h-1.5 w-full rounded-full bg-white/10" />
-          <div className="h-1.5 w-4/5 rounded-full bg-white/[0.07]" />
+    <div aria-hidden="true" className="relative flex h-12 flex-col gap-1.5 overflow-hidden rounded-lg border border-white/10 p-2" style={{ background: `linear-gradient(145deg, ${option.surface}, #020304)` }}>
+      <div className="h-1 w-10 rounded-full bg-white/15" />
+      <div className="flex min-h-0 flex-1 gap-2">
+        <div className="w-3 rounded-sm bg-white/10" />
+        <div className="flex flex-1 flex-col justify-center gap-1">
+          <div className="h-1.5 w-3/4 rounded-full" style={{ background: `linear-gradient(90deg, ${option.accent}, ${option.accent2})` }} />
+          <div className="h-1 w-full rounded-full bg-white/10" />
         </div>
       </div>
-      {selected && (
-        <div className="absolute end-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-white text-black shadow-lg">
-          <Icon name="check" className="h-3.5 w-3.5" />
-        </div>
-      )}
+      {selected && <span className="absolute end-1.5 top-1.5 grid h-4 w-4 place-items-center rounded-full bg-white text-black"><Icon name="check" className="h-3 w-3" /></span>}
     </div>
   );
 }
@@ -332,21 +321,20 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
           <>
           <button className="fixed inset-x-0 bottom-0 top-16 z-[1000] cursor-default bg-black/55 sm:top-20" onClick={() => setIsOpen(false)} aria-label={tr("Close settings")} />
           <div
-            className={`fixed inset-x-2 bottom-2 top-[4.5rem] z-[1010] flex min-h-0 flex-col overflow-hidden rounded-3xl border ${colors.border} shadow-2xl sm:inset-x-auto sm:bottom-auto sm:end-4 sm:top-[5.5rem] sm:w-[430px] sm:max-h-[calc(100dvh-6.5rem)]`}
+            role="dialog" aria-modal="true" aria-label={tr("Preferences")}
+            className={`fixed inset-x-3 top-[4.5rem] mx-auto max-w-sm max-h-[calc(100dvh-5.25rem)] z-[1010] flex min-h-0 flex-col overflow-hidden rounded-3xl border ${colors.border} shadow-2xl sm:inset-x-auto sm:bottom-auto sm:end-4 sm:top-[5.5rem] sm:mx-0 sm:w-[400px] sm:max-h-[calc(100dvh-6.5rem)]`}
             style={{
               background: "#07090d",
               boxShadow: "0 28px 90px rgba(0,0,0,.62), 0 0 0 1px rgba(255,255,255,.025) inset",
             }}
           >
-            <div className="shrink-0 border-b border-white/10 px-4 pt-4 sm:px-5 sm:pt-5">
-              <div className="mb-4 flex items-start justify-between gap-4">
+            <div className="shrink-0 border-b border-white/10 px-3 pt-3 sm:px-4 sm:pt-4">
+              <div className="mb-2 flex items-start justify-between gap-3">
                 <div>
                   <p className={`text-base font-semibold ${colors.text}`}>{tr("Preferences")}</p>
                   <p className={`mt-0.5 text-xs ${colors.textSecondary}`}>{tr("Appearance, sound and account")}</p>
                 </div>
-                <div className="h-8 w-16 rounded-full border border-white/10 p-1" style={{ background: useCustomAccent ? "#090b0f" : `linear-gradient(90deg, ${currentTheme.surface}, ${currentTheme.accent}35)` }}>
-                  <div className="h-full w-full rounded-full bg-[image:var(--sw-gradient)] opacity-80" />
-                </div>
+                <button type="button" onClick={() => setIsOpen(false)} aria-label={tr("Close settings")} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-white/60 transition hover:bg-white/5 hover:text-white"><Icon name="x" className="h-4 w-4" /></button>
               </div>
 
               <div className="grid grid-cols-3 rounded-xl border border-white/10 bg-black/20 p-1">
@@ -365,27 +353,31 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                   </button>
                 ))}
               </div>
-              <div className="h-4" />
+              <div className="h-2.5" />
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:max-h-[68vh] sm:flex-none sm:p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4">
+              <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 px-3 py-1">
+                <span className="text-sm font-medium text-white/80">{tr("Language")}</span>
+                <LanguageSelector settings />
+              </div>
               <button
                 type="button"
                 onClick={() => { setIsOpen(false); onOpenWorkspace(); }}
-                className="mb-5 flex min-h-11 w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-start text-sm font-semibold text-white/85 transition hover:bg-white/10"
+                className="mb-3 flex min-h-11 w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-start text-sm font-semibold text-white/85 transition hover:bg-white/10"
               >
                 {tr("My workspace")} <span aria-hidden="true">›</span>
               </button>
               {activeTab === "themes" ? (
-                <div className="space-y-5">
+                <div className="space-y-3">
                   <div>
                     <div className="mb-3 flex items-end justify-between">
                       <div>
                         <h3 className={`text-sm font-semibold ${colors.text}`}>{tr("Theme preset")}</h3>
-                        <p className={`mt-1 text-xs ${colors.textSecondary}`}>{tr("Pick a preset for a complete look. Selecting one exits Custom mode so its colors always match the preview.")}</p>
+                        <p className={`mt-1 text-xs ${colors.textSecondary}`}>{tr("Choose a theme or set your own accent color.")}</p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2">
                       {themes.map((option) => {
                         const selected = !useCustomAccent && theme === option.id;
                         return (
@@ -395,7 +387,7 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                             className={`rounded-2xl border p-2 text-start transition duration-200 ${selected ? "border-white/30 bg-white/[0.07] shadow-lg" : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]"}`}
                           >
                             <ThemePreview option={option} selected={selected} />
-                            <div className="px-1 pb-1 pt-2.5">
+                            <div className="px-1 pb-0.5 pt-1.5">
                               <div className="flex items-center justify-between gap-2">
                                 <span className={`text-sm font-semibold ${selected ? colors.text : "text-white/85"}`}>{option.name}</span>
                                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: option.accent, boxShadow: `0 0 14px ${option.accent}80` }} />
@@ -415,7 +407,7 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                           <h4 className={`text-sm font-semibold ${colors.text}`}>{tr("Custom color")}</h4>
                           {useCustomAccent && <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[10px] font-medium text-white/70">{tr("ACTIVE")}</span>}
                         </div>
-                        <p className={`mt-1 text-xs leading-5 ${colors.textSecondary}`}>{tr("Uses neutral graphite surfaces so the exact color you choose stays accurate and never mixes with another preset.")}</p>
+                        <p className={`mt-1 text-xs leading-5 ${colors.textSecondary}`}>{tr("Your accent color on a neutral background.")}</p>
                       </div>
                       <ToggleSwitch
                         checked={useCustomAccent}
@@ -467,7 +459,7 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                   </div>
                 </div>
               ) : activeTab === "sounds" ? (
-                <div className="space-y-5">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4">
                     <div>
                       <h3 className={`text-sm font-semibold ${colors.text}`}>{tr("Reward sounds")}</h3>

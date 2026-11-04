@@ -29,3 +29,14 @@ export function getScheduledAthkarWindow(date: Date = new Date()): ScheduledAthk
   }
   return null;
 }
+
+export const SCHEDULED_ATHKAR_STARTS = {
+  waking_up: 1, morning: 5, evening: 12, before_sleep: 18,
+} as const;
+
+/** The most recent occurrence begins at the category's local start hour. */
+export function getAthkarWindowKey(category: ScheduledAthkarCategory, date = new Date()): string {
+  const occurrence = new Date(date);
+  if (date.getHours() < SCHEDULED_ATHKAR_STARTS[category]) occurrence.setDate(occurrence.getDate() - 1);
+  return getLocalDateKey(occurrence);
+}

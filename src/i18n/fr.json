@@ -847,5 +847,10 @@
   "Training day": "Jour d’entraînement",
   "Choose today's workout or rest": "Choisir entraînement ou repos aujourd’hui",
   "Prepare your training space": "Préparer votre espace d’entraînement",
-  "Record how the session felt": "Noter votre ressenti de la séance"
+  "Record how the session felt": "Noter votre ressenti de la séance",
+  "Choose a theme or set your own accent color.": "Choisissez un thème ou votre couleur.",
+  "Your accent color on a neutral background.": "Votre couleur sur un fond neutre.",
+  "Adhkar: {0}": "Adhkar : {0}",
+  "Completed: {0} of {1}": "Terminés : {0} sur {1}",
+  "Could not load Adhkar. Check your connection and try again.": "Impossible de charger les adhkar. Vérifiez la connexion et réessayez."
 }

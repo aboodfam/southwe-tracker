@@ -847,5 +847,10 @@
   "Training day": "训练日",
   "Choose today's workout or rest": "选择今天训练或休息",
   "Prepare your training space": "准备训练空间",
-  "Record how the session felt": "记录训练感受"
+  "Record how the session felt": "记录训练感受",
+  "Choose a theme or set your own accent color.": "选择主题或自定义强调色。",
+  "Your accent color on a neutral background.": "在中性背景上使用你选择的强调色。",
+  "Adhkar: {0}": "祈念数量：{0}",
+  "Completed: {0} of {1}": "已完成：{0} / {1}",
+  "Could not load Adhkar. Check your connection and try again.": "无法加载祈念，请检查连接后重试。"
 }

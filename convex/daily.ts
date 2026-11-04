@@ -100,10 +100,10 @@ export const resetEverythingDaily = mutation({
       await ctx.db.patch(routine._id, { tasks: nextTasks });
     }
 
-    // Athkar is intentionally NOT reset at midnight. Unfinished remembrance
-    // must survive page exits, refreshes and new calendar days. Built-in
-    // sections are reset only after the section has actually been completed
-    // and a new scheduled occurrence starts.
+    // Scheduled Athkar resets at the category's next local time window via
+    // prepareCategorySession, including unfinished sessions. A midnight reset
+    // would cut the evening/sleeping period short. Custom and prayer sessions
+    // keep their independent progress.
     const athkarReset = 0;
 
     if (existingResetState) {

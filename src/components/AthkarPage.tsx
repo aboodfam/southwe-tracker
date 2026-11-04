@@ -1,3 +1,6 @@
+import { swipeNavigation, type PageMotion } from "../lib/navigation";
+import { useAthkarWindows } from "../hooks/useAthkarWindows";
+import type { ScheduledAthkarCategory } from "../lib/athkarSchedule";
 import { t as tr, useLocale } from "../i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
@@ -101,11 +104,17 @@ function clampPercent(value: number) {
 }
 
 export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetchedAthkar?: Dhikr[]; onFocusModeChange?: (focused: boolean) => void }) {
-  useLocale();
+  const locale = useLocale();
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const { play } = useSound();
   const dateKey = useLocalDateKey();
+  const windows = useAthkarWindows();
+  const windowSignature = Object.values(windows).join("|");
+  const [preparedWindows, setPreparedWindows] = useState<Record<string, string>>({});
+  const [prepareError, setPrepareError] = useState(false);
+  const [retry, setRetry] = useState(0);
+
 
   const athkarRaw = prefetchedAthkar;
   const athkar = athkarRaw ?? [];
@@ -130,15 +139,16 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
   const [optimisticCounts, setOptimisticCounts] = useState<Record<string, number>>({});
   const [optimisticPrayerCounts, setOptimisticPrayerCounts] = useState<Record<string, number>>({});
   const [selectedCategory, setSelectedCategory] = useState<string | null>(initialCategoryRef.current);
+  const selectedWindowKey = windows[selectedCategory as ScheduledAthkarCategory] ?? dateKey;
   const [prayerSessionKey, setPrayerSessionKey] = useState(initialPrayerSessionRef.current);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [positionReady, setPositionReady] = useState(false);
   const [editingDhikr, setEditingDhikr] = useState<Dhikr | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [slideDirection, setSlideDirection] = useState<"next" | "prev" | null>(null);
+  const [slideDirection, setSlideDirection] = useState<PageMotion | null>(null);
   const [newDhikr, setNewDhikr] = useState({ text: "", translation: "", targetCount: 1 });
   const [editForm, setEditForm] = useState({ text: "", translation: "", targetCount: 1, category: "custom" });
-  const touchStartX = useRef<number | null>(null);
+  const touchStart = useRef<{x: number; y: number} | null>(null);
   const seededOnceRef = useRef(false);
   const preparedSessionRef = useRef("");
 
@@ -169,7 +179,23 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
     [manualPrayerSession?.counts],
   );
 
+  // Prepare every card, not just the category the user opens. The server does
+  // the reset atomically and repeated calls in the same window preserve progress.
+  useEffect(() => {
+    if (isLoading) return;
+    let canceled = false;
+    setPrepareError(false);
+    setOptimisticCounts({});
+    for (const [category, windowKey] of Object.entries(windows)) {
+      void prepareCategorySession({ category, windowKey }).then(() => {
+        if (!canceled) setPreparedWindows(current => ({ ...current, [category]: windowKey }));
+      }).catch(() => { if (!canceled) setPrepareError(true); });
+    }
+    return () => { canceled = true; };
+  }, [isLoading, windowSignature, retry, prepareCategorySession]);
+
   const countFor = (dhikr: Dhikr) => {
+    if (SCHEDULED_CATEGORY_IDS.has(dhikr.category) && preparedWindows[dhikr.category] !== windows[dhikr.category as ScheduledAthkarCategory]) return 0;
     if (dhikr.category === "prayer") {
       const stored = selectedCategory === "prayer"
         ? selectedPrayerCounts.get(String(dhikr._id)) ?? 0
@@ -226,7 +252,7 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
     const sessionIdentity = selectedCategory === "prayer"
       ? `${selectedCategory}:${prayerSessionKey}`
       : SCHEDULED_CATEGORY_IDS.has(selectedCategory)
-        ? `${selectedCategory}:${dateKey}`
+        ? `${selectedCategory}:${selectedWindowKey}`
         : selectedCategory;
     if (preparedSessionRef.current === sessionIdentity) return;
     preparedSessionRef.current = sessionIdentity;
@@ -250,8 +276,10 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
     }
 
     if (SCHEDULED_CATEGORY_IDS.has(selectedCategory)) {
-      void prepareCategorySession({ category: selectedCategory, windowKey: dateKey })
+      void prepareCategorySession({ category: selectedCategory, windowKey: selectedWindowKey })
         .then((session) => {
+          if (preparedSessionRef.current !== sessionIdentity) return;
+          setPreparedWindows(current => ({ ...current, [selectedCategory]: selectedWindowKey }));
           const items = athkar.filter((dhikr) => dhikr.category === selectedCategory);
           const firstIncomplete = items.findIndex((dhikr) => dhikr.currentCount < dhikr.targetCount);
           const fallback = firstIncomplete === -1 ? Math.max(0, items.length - 1) : firstIncomplete;
@@ -269,7 +297,7 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
 
     setCurrentIndex(clampIndex(readSavedCustomIndex(selectedCategory)));
     setPositionReady(true);
-  }, [selectedCategory, prayerSessionKey, dateKey, isLoading, athkar, ensurePrayerSession, prepareCategorySession]);
+  }, [selectedCategory, prayerSessionKey, selectedWindowKey, isLoading, athkar, retry, ensurePrayerSession, prepareCategorySession]);
 
   useEffect(() => {
     if (!selectedCategory || !positionReady) return;
@@ -278,22 +306,24 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
       return;
     }
     if (SCHEDULED_CATEGORY_IDS.has(selectedCategory)) {
+      if (preparedWindows[selectedCategory] !== selectedWindowKey) return;
       void saveCategoryIndex({ category: selectedCategory, currentIndex }).catch(() => {});
       return;
     }
     saveCustomIndex(selectedCategory, currentIndex);
-  }, [selectedCategory, prayerSessionKey, currentIndex, positionReady, savePrayerIndex, saveCategoryIndex]);
+  }, [selectedCategory, prayerSessionKey, currentIndex, positionReady, preparedWindows, selectedWindowKey, savePrayerIndex, saveCategoryIndex]);
 
   useEffect(() => {
-    if (!selectedCategory || selectedCategory === "custom") return;
+    if (!selectedCategory || selectedCategory === "custom" || !positionReady) return;
+    if (SCHEDULED_CATEGORY_IDS.has(selectedCategory) && preparedWindows[selectedCategory] !== selectedWindowKey) return;
     const items = athkar.filter((dhikr: Dhikr) => dhikr.category === selectedCategory);
     if (!items.length || !items.every((dhikr) => countFor(dhikr) >= dhikr.targetCount)) return;
     const dates = readCompletionDates(selectedCategory);
-    if (!dates.includes(dateKey)) writeCompletionDates(selectedCategory, [...dates, dateKey]);
+    if (!dates.includes(selectedWindowKey)) writeCompletionDates(selectedCategory, [...dates, selectedWindowKey]);
     if (SCHEDULED_CATEGORY_IDS.has(selectedCategory)) {
-      void markCategoryCompleted({ category: selectedCategory, windowKey: dateKey }).catch(() => {});
+      void markCategoryCompleted({ category: selectedCategory, windowKey: selectedWindowKey }).catch(() => {});
     }
-  }, [athkar, optimisticCounts, optimisticPrayerCounts, prayerSession?.counts, selectedCategory, dateKey, markCategoryCompleted]);
+  }, [athkar, optimisticCounts, optimisticPrayerCounts, prayerSession?.counts, selectedCategory, selectedWindowKey, preparedWindows, positionReady, markCategoryCompleted]);
 
   useEffect(() => {
     if (currentIndex > Math.max(0, filteredAthkar.length - 1)) setCurrentIndex(0);
@@ -301,7 +331,7 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
 
   useEffect(() => {
     if (!slideDirection) return;
-    const timeout = window.setTimeout(() => setSlideDirection(null), 170);
+    const timeout = window.setTimeout(() => setSlideDirection(null), 320);
     return () => window.clearTimeout(timeout);
   }, [slideDirection, currentIndex]);
 
@@ -323,34 +353,40 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
     setSlideDirection(null);
   };
 
-  const goNext = () => {
+  const goNext = (motion?: PageMotion) => {
     if (currentIndex >= filteredAthkar.length - 1) return;
-    setSlideDirection("next");
+    setSlideDirection(motion ?? (locale === "ar" ? "right" : "left"));
     setCurrentIndex((index) => index + 1);
   };
 
-  const goPrevious = () => {
+  const goPrevious = (motion?: PageMotion) => {
     if (currentIndex <= 0) return;
-    setSlideDirection("prev");
+    setSlideDirection(motion ?? (locale === "ar" ? "left" : "right"));
     setCurrentIndex((index) => index - 1);
   };
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    touchStartX.current = event.touches[0]?.clientX ?? null;
+    const point = event.touches[0];
+    touchStart.current = point ? { x: point.clientX, y: point.clientY } : null;
   };
 
   const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
-    const start = touchStartX.current;
-    const end = event.changedTouches[0]?.clientX ?? null;
-    touchStartX.current = null;
-    if (start === null || end === null || Math.abs(start - end) < 55) return;
-    if (start > end) goPrevious();
-    else goNext();
+    const start = touchStart.current;
+    const end = event.changedTouches[0];
+    touchStart.current = null;
+    if (!start || !end) return;
+    const dx = end.clientX - start.x;
+    const dy = end.clientY - start.y;
+    if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+    const swipe = swipeNavigation(dx, locale === "ar");
+    if (swipe.next) goNext(swipe.motion);
+    else goPrevious(swipe.motion);
   };
 
   const handleIncrement = (dhikrId: string) => {
     const dhikr = athkar.find((item: Dhikr) => item._id === dhikrId);
     if (!dhikr) return;
+    if (SCHEDULED_CATEGORY_IDS.has(dhikr.category) && preparedWindows[dhikr.category] !== windows[dhikr.category as ScheduledAthkarCategory]) return;
     const current = countFor(dhikr);
     if (current >= dhikr.targetCount) return;
     const next = Math.min(dhikr.targetCount, current + 1);
@@ -463,10 +499,11 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
     }
   };
 
-  const slideClass = slideDirection === "next" ? "athkar-slide-next" : slideDirection === "prev" ? "athkar-slide-prev" : "";
+  const slideClass = slideDirection ? `sw-page-swap-${slideDirection}` : "";
 
   return (
     <div className="space-y-6 sm:space-y-8">
+{prepareError && <div role="alert" className="col-span-full rounded-xl border border-amber-300/20 p-3 text-sm text-amber-100">{tr("Could not load Adhkar. Check your connection and try again.")} <button className="min-h-11 px-2 underline" onClick={() => { preparedSessionRef.current = ""; setRetry(value => value + 1); }}>{tr("Try again")}</button></div>}
       {!selectedCategory ? (
         <>
           <PageHeader title={tr("Athkar")} subtitle={tr("Daily remembrance, organized and easy to complete.")} />
@@ -523,12 +560,12 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
                       <div className={`grid h-11 w-11 place-items-center rounded-xl border ${colors.border} bg-white/[0.035]`}>
                         <Icon name={category.icon} className={`h-5 w-5 ${colors.text}`} />
                       </div>
-                      <div className="rounded-lg border border-white/10 bg-black/25 px-2.5 py-1 text-[11px] font-semibold text-white/50">{category.itemCount} {tr("items")}</div>
+                      <div className="rounded-lg border border-white/10 bg-black/25 px-2.5 py-1 text-[11px] font-semibold text-white/50">{tr("Adhkar: {0}", {0: category.itemCount})}</div>
                     </div>
                     <h3 className="mt-4 text-lg font-bold text-white">{category.name}</h3>
                     <p className="mt-1.5 min-h-[40px] text-sm leading-5 text-white/50">{category.description}</p>
                     <div className="mt-4 flex items-center justify-between text-xs text-white/45">
-                      <span>{category.completed}/{category.itemCount} {tr("completed")}</span>
+                      <span>{tr("Completed: {0} of {1}", {0: category.completed, 1: category.itemCount})}</span>
                       <span className={colors.text}>{Math.round(category.progress)}%</span>
                     </div>
                     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
@@ -576,14 +613,14 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
 
               <div className="relative border-b border-white/[0.08] px-4 py-3 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <button onClick={goNext} disabled={currentIndex >= filteredAthkar.length - 1} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-black/25 text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25" aria-label={tr("Next Athkar")}>
+                  <button onClick={() => goPrevious()} disabled={currentIndex === 0} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-black/25 text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25" aria-label={tr("Previous Athkar")}>
                     <Icon name="chevronLeft" className="h-4 w-4" />
                   </button>
                   <div className="min-w-0 flex-1 text-center">
                     <div className="text-xs font-semibold uppercase tracking-[0.1em] text-white/35">{tr("Item")} {currentIndex + 1} {tr("of")} {filteredAthkar.length}</div>
                     <div className="mt-1 text-sm font-semibold text-white/75">{selectedCategoryDef?.shortName}</div>
                   </div>
-                  <button onClick={goPrevious} disabled={currentIndex === 0} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-black/25 text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25" aria-label={tr("Previous Athkar")}>
+                  <button onClick={() => goNext()} disabled={currentIndex >= filteredAthkar.length - 1} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-black/25 text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25" aria-label={tr("Next Athkar")}>
                     <Icon name="chevronRight" className="h-4 w-4" />
                   </button>
                 </div>

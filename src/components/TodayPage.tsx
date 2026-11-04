@@ -152,10 +152,7 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
     categorySession.completedWindowKey === scheduledAthkar.windowKey,
   );
   const scheduledNeedsFreshReset = Boolean(
-    scheduledAthkar &&
-    categorySession?.completed &&
-    categorySession.completedWindowKey &&
-    categorySession.completedWindowKey !== scheduledAthkar.windowKey,
+    scheduledAthkar && categorySession?.activeWindowKey !== scheduledAthkar.windowKey,
   );
   const scheduledPercent = scheduledCompletedThisWindow
     ? 100

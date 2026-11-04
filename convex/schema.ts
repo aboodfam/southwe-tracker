@@ -180,6 +180,7 @@ const applicationTables = {
       count: v.number(),
     }))),
     completed: v.boolean(),
+    activeWindowKey: v.optional(v.string()),
     completedWindowKey: v.optional(v.string()),
     completedAt: v.optional(v.number()),
     updatedAt: v.number(),

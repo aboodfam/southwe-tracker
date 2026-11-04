@@ -1,4 +1,4 @@
-import { LanguageSelector } from "./components/LanguageSelector";
+import { pageMotion, swipeNavigation, type PageMotion } from "./lib/navigation";
 
 import { t as tr, useLocale } from "./i18n";
 import { Authenticated, Unauthenticated, useConvexAuth, useQuery, useMutation } from "convex/react";
@@ -473,7 +473,7 @@ export default function App() {
 }
 
 function AppContent() {
-  useLocale();
+  const locale = useLocale();
   const [currentPage, setCurrentPage] = useState<Page>("today");
   const [swapKey, setSwapKey] = useState(0);
   const [swapDir, setSwapDir] = useState<"left" | "right">("left");
@@ -514,7 +514,7 @@ function AppContent() {
 
     const fromIndex = PAGE_ORDER.indexOf(currentPage);
     const toIndex = PAGE_ORDER.indexOf(page);
-    setSwapDir(direction ?? (toIndex >= fromIndex ? "left" : "right"));
+    setSwapDir(direction ?? pageMotion(fromIndex, toIndex, locale === "ar"));
     setCurrentPage(page);
     setSwapKey((key) => key + 1);
 
@@ -526,16 +526,16 @@ function AppContent() {
     });
   };
 
-  const goPrev = () => {
+  const goPrev = (motion?: PageMotion) => {
     const idx = PAGE_ORDER.indexOf(currentPage);
     const next = PAGE_ORDER[(idx - 1 + PAGE_ORDER.length) % PAGE_ORDER.length];
-    navigateToPage(next, "right");
+    navigateToPage(next, motion ?? (locale === "ar" ? "left" : "right"));
   };
 
-  const goNext = () => {
+  const goNext = (motion?: PageMotion) => {
     const idx = PAGE_ORDER.indexOf(currentPage);
     const next = PAGE_ORDER[(idx + 1) % PAGE_ORDER.length];
-    navigateToPage(next, "left");
+    navigateToPage(next, motion ?? (locale === "ar" ? "right" : "left"));
   };
 
   const swipeRef = useRef({ x: 0, y: 0, active: false, locked: false });
@@ -570,8 +570,9 @@ function AppContent() {
     const THRESH = 70;
     if (Math.abs(dx) > THRESH && Math.abs(dx) > Math.abs(dy) * 1.4) {
       swipeRef.current.locked = true;
-      if (dx < 0) goNext();
-      else goPrev();
+      const swipe = swipeNavigation(dx, locale === "ar");
+      if (swipe.next) goNext(swipe.motion);
+      else goPrev(swipe.motion);
       // small delay to avoid multiple triggers
       window.setTimeout(() => {
         swipeRef.current.active = false;
@@ -602,7 +603,6 @@ function AppContent() {
           <header className={`${athkarFocus ? "hidden sm:block" : ""} relative z-50 ${colors.backgroundSecondary} backdrop-blur-md border-b ${colors.border} shadow-2xl`}>
             <div className="container mx-auto flex h-16 items-center justify-end px-3 sm:h-20 sm:px-4">
               <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
-                <LanguageSelector />
                 <ThemeSelector onOpenWorkspace={() => navigateToPage("workspace")} />
                 <DesktopFullscreenButton />
                 <SignOutButton />

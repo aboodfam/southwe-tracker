@@ -660,10 +660,6 @@ async function getCategoryDocs(ctx: any, userId: any, category: string) {
     .take(LIMITS.athkarTotal);
 }
 
-function firstIncompleteIndex(items: Array<{ currentCount: number; targetCount: number }>) {
-  const index = items.findIndex((item) => item.currentCount < item.targetCount);
-  return index === -1 ? Math.max(0, items.length - 1) : index;
-}
 
 export const getCategorySession = query({
   args: { category: v.string() },
@@ -688,49 +684,48 @@ export const prepareCategorySession = mutation({
     let session = await getSession(ctx, userId, category, "active");
     const allComplete = items.length > 0 && items.every((item: any) => item.currentCount >= item.targetCount);
 
-    if (!session) {
-      const id = await ctx.db.insert("athkarSessions", {
-        userId,
-        category,
-        sessionKey: "active",
-        currentIndex: firstIncompleteIndex(items),
-        completed: allComplete,
-        completedWindowKey: allComplete ? windowKey : undefined,
-        completedAt: allComplete ? Date.now() : undefined,
-        updatedAt: Date.now(),
-      });
-      return await ctx.db.get(id);
-    }
+    // A scheduled occurrence owns its progress, including unfinished progress.
+    // Keep older tabs from rolling a newer occurrence backwards.
+    const previousWindow = session?.activeWindowKey ?? session?.completedWindowKey;
+    if (previousWindow && windowKey < previousWindow) return session;
 
-    if (session.completed && session.completedWindowKey && session.completedWindowKey !== windowKey) {
+    if (!session || previousWindow !== windowKey) {
       for (const item of items) {
         if (item.currentCount === 0 && !item.isCompleted) continue;
         await ctx.db.patch(item._id, { currentCount: 0, isCompleted: false });
       }
-      await ctx.db.patch(session._id, {
+      const fresh = {
         currentIndex: 0,
+        activeWindowKey: windowKey,
         completed: false,
         completedWindowKey: undefined,
         completedAt: undefined,
         updatedAt: Date.now(),
+      };
+      if (session) {
+        await ctx.db.patch(session._id, fresh);
+        return { ...session, ...fresh };
+      }
+      const id = await ctx.db.insert("athkarSessions", {
+        userId, category, sessionKey: "active", ...fresh,
       });
-      return { ...session, currentIndex: 0, completed: false, completedWindowKey: undefined, completedAt: undefined };
+      return await ctx.db.get(id);
     }
 
+    if (!session.activeWindowKey) {
+      await ctx.db.patch(session._id, { activeWindowKey: windowKey });
+      session = { ...session, activeWindowKey: windowKey };
+    }
     if (allComplete && !session.completed) {
-      await ctx.db.patch(session._id, {
+      const completed = {
         currentIndex: Math.max(0, items.length - 1),
         completed: true,
         completedWindowKey: windowKey,
         completedAt: Date.now(),
         updatedAt: Date.now(),
-      });
-      return { ...session, currentIndex: Math.max(0, items.length - 1), completed: true, completedWindowKey: windowKey };
-    }
-
-    if (session.completed && !session.completedWindowKey) {
-      await ctx.db.patch(session._id, { completedWindowKey: windowKey, updatedAt: Date.now() });
-      return { ...session, completedWindowKey: windowKey };
+      };
+      await ctx.db.patch(session._id, completed);
+      return { ...session, ...completed };
     }
 
     const maxIndex = Math.max(0, items.length - 1);
@@ -778,6 +773,7 @@ export const markCategoryCompleted = mutation({
     const items = await getCategoryDocs(ctx, userId, category);
     if (!items.length || !items.every((item: any) => item.currentCount >= item.targetCount)) return { completed: false };
     const existing = await getSession(ctx, userId, category, "active");
+    if (!existing || existing.activeWindowKey !== windowKey) return { completed: false };
     const patch = {
       currentIndex: Math.max(0, items.length - 1),
       completed: true,
@@ -785,8 +781,7 @@ export const markCategoryCompleted = mutation({
       completedAt: Date.now(),
       updatedAt: Date.now(),
     };
-    if (existing) await ctx.db.patch(existing._id, patch);
-    else await ctx.db.insert("athkarSessions", { userId, category, sessionKey: "active", ...patch });
+    await ctx.db.patch(existing._id, patch);
     return { completed: true };
   },
 });

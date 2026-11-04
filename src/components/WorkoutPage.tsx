@@ -1,3 +1,4 @@
+import { muscleLabel } from "../i18n/fitness";
 import { t as tr, useLocale } from "../i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -65,8 +66,6 @@ const SPLITS = {
     names: ["Chest & Back", "Shoulders & Arms", "Legs", "Chest & Back", "Shoulders & Arms", "Legs", "Rest"],
   },
 } as const;
-
-function muscleLabel(name: string) { return tr(name === "Back" ? "Back muscles" : name); }
 
 function rgbaFromRgb(rgb: string, a: number) {
   // rgb like "rgb(34, 211, 238)"
