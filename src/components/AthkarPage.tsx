@@ -1,4 +1,4 @@
-import { swipeNavigation, type PageMotion } from "../lib/navigation";
+import { athkarSwipeNavigation, type PageMotion } from "../lib/navigation";
 import { useAthkarWindows } from "../hooks/useAthkarWindows";
 import type { ScheduledAthkarCategory } from "../lib/athkarSchedule";
 import { t as tr, useLocale } from "../i18n";
@@ -355,13 +355,13 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
 
   const goNext = (motion?: PageMotion) => {
     if (currentIndex >= filteredAthkar.length - 1) return;
-    setSlideDirection(motion ?? "left");
+    setSlideDirection(motion ?? "right");
     setCurrentIndex((index) => index + 1);
   };
 
   const goPrevious = (motion?: PageMotion) => {
     if (currentIndex <= 0) return;
-    setSlideDirection(motion ?? "right");
+    setSlideDirection(motion ?? "left");
     setCurrentIndex((index) => index - 1);
   };
 
@@ -378,7 +378,7 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
     const dx = end.clientX - start.x;
     const dy = end.clientY - start.y;
     if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
-    const swipe = swipeNavigation(dx);
+    const swipe = athkarSwipeNavigation(dx);
     if (swipe.next) goNext(swipe.motion);
     else goPrevious(swipe.motion);
   };
@@ -612,16 +612,16 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
               <div className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full bg-[image:var(--sw-gradient)] opacity-[0.06] blur-3xl" />
 
               <div className="relative border-b border-white/[0.08] px-4 py-3 sm:p-5">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-row-reverse items-center justify-between gap-3">
                   <button onClick={() => goPrevious()} disabled={currentIndex === 0} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-black/25 text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25" aria-label={tr("Previous Athkar")}>
-                    <Icon name="chevronLeft" className="h-4 w-4" />
+                    <Icon name="chevronRight" className="h-4 w-4" />
                   </button>
                   <div className="min-w-0 flex-1 text-center">
                     <div className="text-xs font-semibold uppercase tracking-[0.1em] text-white/35">{tr("Item")} {currentIndex + 1} {tr("of")} {filteredAthkar.length}</div>
                     <div className="mt-1 text-sm font-semibold text-white/75">{selectedCategoryDef?.shortName}</div>
                   </div>
                   <button onClick={() => goNext()} disabled={currentIndex >= filteredAthkar.length - 1} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-black/25 text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25" aria-label={tr("Next Athkar")}>
-                    <Icon name="chevronRight" className="h-4 w-4" />
+                    <Icon name="chevronLeft" className="h-4 w-4" />
                   </button>
                 </div>
 

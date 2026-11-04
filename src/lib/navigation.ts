@@ -9,3 +9,8 @@ export function swipeNavigation(deltaX: number) {
     motion: deltaX < 0 ? "left" as const : "right" as const,
   };
 }
+
+/** Arabic remembrance is read right to left, independently of the app locale. */
+export function athkarSwipeNavigation(deltaX: number) {
+  return { ...swipeNavigation(deltaX), next: deltaX > 0 };
+}

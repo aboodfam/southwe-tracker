@@ -4,7 +4,7 @@ import { expect, test } from "vitest";
 import schema from "../convex/schema";
 import { api } from "../convex/_generated/api";
 import { getAthkarWindowKey, getScheduledAthkarWindow, SCHEDULED_ATHKAR_STARTS } from "../src/lib/athkarSchedule";
-import { pageMotion, swipeNavigation } from "../src/lib/navigation";
+import { athkarSwipeNavigation, pageMotion, swipeNavigation } from "../src/lib/navigation";
 import { getLocale, setLocale } from "../src/i18n";
 import { muscleLabel } from "../src/i18n/fitness";
 const modules = import.meta.glob("../convex/**/*.{ts,js}");
@@ -106,6 +106,8 @@ test("swipe motion and page order stay consistent across all interface languages
       setLocale(locale);
       expect(swipeNavigation(-80)).toEqual({next: true, motion: "left"});
       expect(swipeNavigation(80)).toEqual({next: false, motion: "right"});
+      expect(athkarSwipeNavigation(80)).toEqual({next: true, motion: "right"});
+      expect(athkarSwipeNavigation(-80)).toEqual({next: false, motion: "left"});
       expect(pageMotion(0, 1)).toBe("left");
       expect(pageMotion(1, 0)).toBe("right");
     }
