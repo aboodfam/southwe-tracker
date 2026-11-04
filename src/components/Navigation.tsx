@@ -36,7 +36,7 @@ export function Navigation({ currentPage, onPageChange, hiddenPages }: Navigatio
   ];
 
   return (
-    <nav aria-label={tr("Main navigation")} className={`border-b ${colors.border} ${colors.backgroundSecondary} backdrop-blur-xl`}>
+    <nav aria-label={tr("Main navigation")} className={`border-b ${colors.border}`}>
       <div className="container mx-auto px-2 sm:px-4">
         <div ref={strip} className="scrollbar-hide flex items-center gap-1 overflow-x-auto py-2 sm:justify-center sm:gap-1.5">
           {pages.filter(page => !hiddenPages.includes(page.id)).map((page) => {
