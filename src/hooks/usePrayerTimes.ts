@@ -1,3 +1,4 @@
+import { t as tr } from "../i18n";
 import { useEffect, useMemo, useState } from "react";
 import { getLocalDateKey } from "./useLocalDateKey";
 
@@ -196,7 +197,7 @@ export function usePrayerTimes(enabled: boolean) {
       try {
         const url = `https://api.aladhan.com/v1/timings/${apiDate(dateKey)}?latitude=${encodeURIComponent(location.latitude)}&longitude=${encodeURIComponent(location.longitude)}&method=${method}`;
         const response = await fetch(url, { headers: { Accept: "application/json" } });
-        if (!response.ok) throw new Error("Prayer time request failed");
+        if (!response.ok) throw new Error(tr("Prayer time request failed"));
         const payload = await response.json();
         const source = payload?.data?.timings ?? {};
         const next = {} as PrayerTimes;
@@ -238,7 +239,7 @@ export function usePrayerTimes(enabled: boolean) {
       if (now >= startsAt && now < endsAt) {
         return {
           name,
-          label: name === "Dhuhr" ? "Dhuhr" : name,
+          label: name,
           time: timings[name],
           startsAt,
           endsAt,

@@ -1,3 +1,4 @@
+import { t as tr, useLocale } from "../i18n";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -10,11 +11,11 @@ type Goal = "maintain" | "cut" | "bulk";
 type Pace = "mild" | "moderate" | "aggressive";
 
 const ACTIVITY = [
-  { id: "sedentary", label: "Sedentary", sub: "Little/no exercise", mult: 1.2 },
-  { id: "light", label: "Light", sub: "1–3 days/week", mult: 1.375 },
-  { id: "moderate", label: "Moderate", sub: "3–5 days/week", mult: 1.55 },
-  { id: "active", label: "Active", sub: "6–7 days/week", mult: 1.725 },
-  { id: "athlete", label: "Athlete", sub: "Hard training / 2x/day", mult: 1.9 },
+  { id: "sedentary", get label() { return tr("Sedentary"); }, get sub() { return tr("Little/no exercise"); }, mult: 1.2 },
+  { id: "light", get label() { return tr("Light"); }, get sub() { return tr("1–3 days/week"); }, mult: 1.375 },
+  { id: "moderate", get label() { return tr("Moderate"); }, get sub() { return tr("3–5 days/week"); }, mult: 1.55 },
+  { id: "active", get label() { return tr("Active"); }, get sub() { return tr("6–7 days/week"); }, mult: 1.725 },
+  { id: "athlete", get label() { return tr("Athlete"); }, get sub() { return tr("Hard training / 2x/day"); }, mult: 1.9 },
 ] as const;
 
 function round(n: number) {
@@ -96,6 +97,7 @@ function MacroCard({
   pct: number;
   hint: string;
 }) {
+  useLocale();
   return (
     <div
       className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/30 p-4 sm:p-5 animate-float-in"
@@ -115,8 +117,8 @@ function MacroCard({
 
       <div className="mt-4 flex items-end justify-between gap-3">
         <div>
-          <div className="text-3xl font-extrabold leading-none text-white">{round(grams)}g</div>
-          <div className="mt-1 text-sm text-white/[0.42]">{round(kcal)} kcal</div>
+          <div className="text-3xl font-extrabold leading-none text-white">{round(grams)}{tr("g")}</div>
+          <div className="mt-1 text-sm text-white/[0.42]">{round(kcal)} {tr("kcal")}</div>
         </div>
 
         <div className="w-28 sm:w-36">
@@ -134,16 +136,18 @@ function MacroCard({
 
 
 export function MacrosPage() {
+  useLocale();
   const account = useQuery(api.auth.loggedInUser);
   const savedProfile = useQuery(api.userData.getMacroProfile);
   if (!account || savedProfile === undefined || (savedProfile && savedProfile.userId !== account.userId)) {
-    return <p role="status" className="p-10 text-center text-white/60">Loading your account’s macros…</p>;
+    return <p role="status" className="p-10 text-center text-white/60">{tr("Loading your account’s macros…")}</p>;
   }
   // A new account always mounts a fresh form, even when React keeps this page open.
   return <MacroForm key={account.userId} userId={account.userId} savedProfile={savedProfile} />;
 }
 
 function MacroForm({ userId, savedProfile }: { userId: Id<"users">; savedProfile: Doc<"macroProfiles"> | null }) {
+  useLocale();
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const saveMacroProfile = useMutation(api.userData.saveMacroProfile);
@@ -282,8 +286,8 @@ function MacroForm({ userId, savedProfile }: { userId: Id<"users">; savedProfile
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in">
-      <PageHeader title="Macros Calculator" subtitle="Enter your stats and get calories + protein, carbs, fat" />
-      {saveError && <p role="alert" className="text-center text-sm text-red-300">Couldn’t save your latest changes. Check your connection, then edit a field to retry.</p>}
+      <PageHeader title={tr("Macros Calculator")} subtitle={tr("Enter your stats and get calories + protein, carbs, fat")} />
+      {saveError && <p role="alert" className="text-center text-sm text-red-300">{tr("Couldn’t save your latest changes. Check your connection, then edit a field to retry.")}</p>}
 
       {/* Main Panel */}
       <div className="max-w-5xl mx-auto">
@@ -300,90 +304,90 @@ function MacroForm({ userId, savedProfile }: { userId: Id<"users">; savedProfile
             {/* Inputs */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className={`rounded-2xl border border-white/10 bg-black/25 p-4 sm:p-5`}>
-                <div className={`${colors.text} font-semibold`}>Your Stats</div>
+                <div className={`${colors.text} font-semibold`}>{tr("Your Stats")}</div>
 
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <label className="space-y-1">
-                    <div className={`${colors.textSecondary} text-xs`}>Sex</div>
+                    <div className={`${colors.textSecondary} text-xs`}>{tr("Sex")}</div>
                     <select
                       value={sex}
                       onChange={(e) => setSex(e.target.value as Sex)}
                       className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
                     >
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
+                      <option value="male">{tr("Male")}</option>
+                      <option value="female">{tr("Female")}</option>
                     </select>
                   </label>
 
                   <label className="space-y-1">
-                    <div className={`${colors.textSecondary} text-xs`}>Age</div>
+                    <div className={`${colors.textSecondary} text-xs`}>{tr("Age")}</div>
                     <input
                       type="number"
                       value={age}
                       onChange={(e) => setAge(e.target.value)}
                       min={10}
                       max={90}
-                      placeholder="e.g. 18"
+                      placeholder={tr("e.g. 18")}
                       className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
                     />
                   </label>
 
                   <label className="space-y-1">
-                    <div className={`${colors.textSecondary} text-xs`}>Height (cm)</div>
+                    <div className={`${colors.textSecondary} text-xs`}>{tr("Height (cm)")}</div>
                     <input
                       type="number"
                       value={heightCm}
                       onChange={(e) => setHeightCm(e.target.value)}
                       min={120}
                       max={230}
-                      placeholder="e.g. 175"
+                      placeholder={tr("e.g. 175")}
                       className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
                     />
                   </label>
 
                   <label className="space-y-1">
-                    <div className={`${colors.textSecondary} text-xs`}>Weight (kg)</div>
+                    <div className={`${colors.textSecondary} text-xs`}>{tr("Weight (kg)")}</div>
                     <input
                       type="number"
                       value={weightKg}
                       onChange={(e) => setWeightKg(e.target.value)}
                       min={30}
                       max={250}
-                      placeholder="e.g. 75"
+                      placeholder={tr("e.g. 75")}
                       className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
                     />
                   </label>
 
                   <label className="space-y-1">
-                    <div className={`${colors.textSecondary} text-xs`}>Goal</div>
+                    <div className={`${colors.textSecondary} text-xs`}>{tr("Goal")}</div>
                     <select
                       value={goal}
                       onChange={(e) => setGoal(e.target.value as Goal)}
                       className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
                     >
-                      <option value="maintain">Maintain</option>
-                      <option value="cut">Cut (fat loss)</option>
-                      <option value="bulk">Bulk (muscle gain)</option>
+                      <option value="maintain">{tr("Maintain")}</option>
+                      <option value="cut">{tr("Cut (fat loss)")}</option>
+                      <option value="bulk">{tr("Bulk (muscle gain)")}</option>
                     </select>
                   </label>
 
                   <label className="space-y-1">
-                    <div className={`${colors.textSecondary} text-xs`}>Pace</div>
+                    <div className={`${colors.textSecondary} text-xs`}>{tr("Pace")}</div>
                     <select
                       value={pace}
                       onChange={(e) => setPace(e.target.value as Pace)}
                       disabled={goal === "maintain"}
                       className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10 ${goal === "maintain" ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
-                      <option value="mild">Mild</option>
-                      <option value="moderate">Moderate</option>
-                      <option value="aggressive">Aggressive</option>
+                      <option value="mild">{tr("Mild")}</option>
+                      <option value="moderate">{tr("Moderate")}</option>
+                      <option value="aggressive">{tr("Aggressive")}</option>
                     </select>
                   </label>
                 </div>
 
                 <label className="mt-4 block space-y-1">
-                  <div className={`${colors.textSecondary} text-xs`}>Activity Level</div>
+                  <div className={`${colors.textSecondary} text-xs`}>{tr("Activity Level")}</div>
                   <select
                     value={activityId}
                     onChange={(e) => setActivityId(e.target.value as any)}
@@ -399,24 +403,17 @@ function MacroForm({ userId, savedProfile }: { userId: Id<"users">; savedProfile
               </div>
 
               <div className={`rounded-2xl border border-white/10 bg-black/25 p-4 sm:p-5`}>
-                <div className={`${colors.text} font-semibold`}>What do BMR & TDEE mean?</div>
+                <div className={`${colors.text} font-semibold`}>{tr("What do BMR & TDEE mean?")}</div>
                 <div className={`${colors.textSecondary} text-sm mt-2 leading-relaxed`}>
                   <div>
-                    <span className={`${colors.text} font-semibold`}>BMR</span> is the calories your body burns at rest
-                    (just to stay alive).
-                  </div>
+                    <span className={`${colors.text} font-semibold`}>{tr("BMR")}</span> {tr("is the calories your body burns at rest (just to stay alive).")} </div>
                   <div className="mt-2">
-                    <span className={`${colors.text} font-semibold`}>TDEE</span> is your maintenance calories
-                    (BMR × activity level). If you eat around this number, your weight usually stays stable.
-                  </div>
+                    <span className={`${colors.text} font-semibold`}>{tr("TDEE")}</span> {tr("is your maintenance calories (BMR × activity level). If you eat around this number, your weight usually stays stable.")} </div>
                   <div className="mt-3 text-xs">
                     <div>
-                      <span className={`${colors.text} font-semibold`}>Cut</span> = calorie deficit, <span className={`${colors.text} font-semibold`}>Bulk</span> = calorie surplus.
-                      Choose a pace to make the deficit/surplus smaller or bigger.
-                    </div>
+                      <span className={`${colors.text} font-semibold`}>{tr("Cut")}</span> {tr("= calorie deficit,")} <span className={`${colors.text} font-semibold`}>{tr("Bulk")}</span> {tr("= calorie surplus. Choose a pace to make the deficit/surplus smaller or bigger.")} </div>
                     <div className="mt-2">
-                      Macros are calculated automatically: higher protein during a cut, fats kept above a minimum, carbs fill the rest.
-                    </div>
+                      {tr("Macros are calculated automatically: higher protein during a cut, fats kept above a minimum, carbs fill the rest.")} </div>
                   </div>
                 </div>
               </div>
@@ -424,23 +421,22 @@ function MacroForm({ userId, savedProfile }: { userId: Id<"users">; savedProfile
 
             {!results && (
               <div className={`text-center ${colors.textSecondary} text-sm`}>
-                Enter your age, height, and weight to see your calories and macros.
-              </div>
+                {tr("Enter your age, height, and weight to see your calories and macros.")} </div>
             )}
 
             {/* Summary */}
             {results && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className={`rounded-2xl border border-white/10 bg-black/30 p-4 sm:p-5 animate-float-in`}>
-                  <div className={`${colors.textSecondary} text-xs`}>BMR</div>
-                  <div className={`${colors.text} text-2xl font-extrabold mt-1`}>{round(results.bmr)} kcal</div>
-                  <div className={`${colors.textSecondary} text-xs mt-2`}>Calories burned at rest</div>
+                  <div className={`${colors.textSecondary} text-xs`}>{tr("BMR")}</div>
+                  <div className={`${colors.text} text-2xl font-extrabold mt-1`}>{round(results.bmr)} {tr("kcal")}</div>
+                  <div className={`${colors.textSecondary} text-xs mt-2`}>{tr("Calories burned at rest")}</div>
                 </div>
 
                 <div className={`rounded-2xl border border-white/10 bg-black/30 p-4 sm:p-5 animate-float-in`}>
-                  <div className={`${colors.textSecondary} text-xs`}>TDEE</div>
-                  <div className={`${colors.text} text-2xl font-extrabold mt-1`}>{round(results.tdee)} kcal</div>
-                  <div className={`${colors.textSecondary} text-xs mt-2`}>Maintenance calories</div>
+                  <div className={`${colors.textSecondary} text-xs`}>{tr("TDEE")}</div>
+                  <div className={`${colors.text} text-2xl font-extrabold mt-1`}>{round(results.tdee)} {tr("kcal")}</div>
+                  <div className={`${colors.textSecondary} text-xs mt-2`}>{tr("Maintenance calories")}</div>
                 </div>
 
                 <div
@@ -449,15 +445,13 @@ function MacroForm({ userId, savedProfile }: { userId: Id<"users">; savedProfile
                 >
                   <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[image:var(--sw-gradient)] opacity-55" />
                   <div className={`${colors.textSecondary} text-xs`}>
-                    {results.goal === "maintain" ? "Daily Calories" : `${GOAL_LABEL[results.goal]} Calories`}
+                    {results.goal === "maintain" ? tr("Daily Calories") : tr("{0} Calories", {0: tr(GOAL_LABEL[results.goal])})}
                   </div>
-                  <div className={`${colors.text} text-3xl font-extrabold mt-1`}>{round(results.calories)} kcal</div>
+                  <div className={`${colors.text} text-3xl font-extrabold mt-1`}>{round(results.calories)} {tr("kcal")}</div>
                   <div className={`${colors.textSecondary} text-xs mt-2`}>
                     {results.goal === "maintain"
-                      ? "Estimated maintenance"
-                      : `${PACE_LABEL[results.pace]} ${Math.abs(round(results.adjustment * 100))}% ${
-                          results.goal === "cut" ? "deficit" : "surplus"
-                        } from TDEE`}
+                      ? tr("Estimated maintenance")
+                      : tr("{0} {1}% {2} from TDEE", {0: tr(PACE_LABEL[results.pace]), 1: Math.abs(round(results.adjustment * 100)), 2: tr(results.goal === "cut" ? "deficit" : "surplus")})}
                   </div>
                 </div>
               </div>
@@ -467,32 +461,31 @@ function MacroForm({ userId, savedProfile }: { userId: Id<"users">; savedProfile
             {results && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <MacroCard
-                  label="Protein"
+                  label={tr("Protein")}
                   grams={results.macros.proteinG}
                   kcal={results.macros.proteinCals}
                   pct={results.macros.pct.protein}
-                  hint="Muscle + recovery"
+                  hint={tr("Muscle + recovery")}
                 />
                 <MacroCard
-                  label="Fat"
+                  label={tr("Fat")}
                   grams={results.macros.fatG}
                   kcal={results.macros.fatCals}
                   pct={results.macros.pct.fat}
-                  hint="Hormones + joints"
+                  hint={tr("Hormones + joints")}
                 />
                 <MacroCard
-                  label="Carbs"
+                  label={tr("Carbs")}
                   grams={results.macros.carbsG}
                   kcal={results.macros.carbsCals}
                   pct={results.macros.pct.carbs}
-                  hint="Training fuel"
+                  hint={tr("Training fuel")}
                 />
               </div>
             )}
 
             <div className={`text-center ${colors.textSecondary} text-xs pt-1`}>
-              Estimates only (not medical advice). Adjust based on weekly scale trend + performance.
-            </div>
+              {tr("Estimates only (not medical advice). Adjust based on weekly scale trend + performance.")} </div>
           </div>
         </div>
       </div>

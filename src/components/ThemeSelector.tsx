@@ -1,3 +1,4 @@
+import { t as tr, useLocale } from "../i18n";
 import { useEffect, useRef, useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
@@ -36,6 +37,7 @@ function clearLocalAccountData() {
 }
 
 function AccountSettingsPanel() {
+  useLocale();
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const { signOut } = useAuthActions();
@@ -58,10 +60,10 @@ function AccountSettingsPanel() {
         // The deletion mutation already removed every auth session. signOut is
         // only used here to clear the auth client's local token state.
       }
-      toast.success("Ceventic account deleted");
+      toast.success(tr("Ceventic account deleted"));
       window.setTimeout(() => window.location.assign(desktopApp ? "#/" : "/"), 250);
     } catch (error: any) {
-      toast.error(error?.message ?? "Could not delete your account");
+      toast.error(error?.message ?? tr("Could not delete your account"));
       setDeleting(false);
     }
   };
@@ -74,14 +76,14 @@ function AccountSettingsPanel() {
             <Icon name="shield" className={`h-4 w-4 ${colors.text}`} />
           </span>
           <div>
-            <h3 className={`text-sm font-semibold ${colors.text}`}>Account & privacy</h3>
-            <p className={`mt-1 text-xs leading-5 ${colors.textSecondary}`}>Ceventic beta support: {SUPPORT_EMAIL}</p>
+            <h3 className={`text-sm font-semibold ${colors.text}`}>{tr("Account & privacy")}</h3>
+            <p className={`mt-1 text-xs leading-5 ${colors.textSecondary}`}>{tr("Ceventic beta support:")} {SUPPORT_EMAIL}</p>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2">
-          <a href={href("/privacy")} className="rounded-xl border border-white/10 bg-white/[0.035] px-2 py-2 text-center text-xs text-white/65 transition hover:bg-white/[0.07] hover:text-white">Privacy</a>
-          <a href={href("/terms")} className="rounded-xl border border-white/10 bg-white/[0.035] px-2 py-2 text-center text-xs text-white/65 transition hover:bg-white/[0.07] hover:text-white">Terms</a>
-          <a href={href("/delete-account")} className="rounded-xl border border-white/10 bg-white/[0.035] px-2 py-2 text-center text-xs text-white/65 transition hover:bg-white/[0.07] hover:text-white">Deletion</a>
+          <a href={href("/privacy")} className="rounded-xl border border-white/10 bg-white/[0.035] px-2 py-2 text-center text-xs text-white/65 transition hover:bg-white/[0.07] hover:text-white">{tr("Privacy")}</a>
+          <a href={href("/terms")} className="rounded-xl border border-white/10 bg-white/[0.035] px-2 py-2 text-center text-xs text-white/65 transition hover:bg-white/[0.07] hover:text-white">{tr("Terms")}</a>
+          <a href={href("/delete-account")} className="rounded-xl border border-white/10 bg-white/[0.035] px-2 py-2 text-center text-xs text-white/65 transition hover:bg-white/[0.07] hover:text-white">{tr("Deletion")}</a>
         </div>
       </div>
 
@@ -91,8 +93,8 @@ function AccountSettingsPanel() {
             <Icon name="trash" className="h-4 w-4" />
           </span>
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-white">Delete account & data</h3>
-            <p className="mt-1 text-xs leading-5 text-white/45">Permanently removes your account, sign-in links, routines, habits, workouts, progress, Athkar data, macros and other Ceventic data. This cannot be undone.</p>
+            <h3 className="text-sm font-semibold text-white">{tr("Delete account & data")}</h3>
+            <p className="mt-1 text-xs leading-5 text-white/45">{tr("Permanently removes your account, sign-in links, routines, habits, workouts, progress, Athkar data, macros and other Ceventic data. This cannot be undone.")}</p>
           </div>
         </div>
 
@@ -102,11 +104,10 @@ function AccountSettingsPanel() {
             onClick={() => setConfirmingDelete(true)}
             className="mt-4 w-full rounded-xl border border-rose-400/25 bg-rose-400/[0.07] px-3 py-2.5 text-sm font-semibold text-rose-200 transition hover:bg-rose-400/[0.12]"
           >
-            Delete account & data
-          </button>
+            {tr("Delete account & data")} </button>
         ) : (
           <div className="mt-4 space-y-3 rounded-xl border border-rose-400/15 bg-black/25 p-3">
-            <p className="text-xs leading-5 text-white/55">Type <strong className="text-white">DELETE</strong> to confirm permanent deletion.</p>
+            <p className="text-xs leading-5 text-white/55">{tr("Type")} <strong className="text-white">DELETE</strong> {tr("to confirm permanent deletion.")}</p>
             <input
               value={confirmation}
               onChange={(event) => setConfirmation(event.target.value.slice(0, 16))}
@@ -121,15 +122,14 @@ function AccountSettingsPanel() {
                 disabled={deleting}
                 className="rounded-xl border border-white/10 px-3 py-2.5 text-sm font-medium text-white/60 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-40"
               >
-                Cancel
-              </button>
+                {tr("Cancel")} </button>
               <button
                 type="button"
                 onClick={() => void deleteAccount()}
                 disabled={deleting || confirmation.trim().toUpperCase() !== "DELETE"}
                 className="rounded-xl border border-rose-400/25 bg-rose-500/15 px-3 py-2.5 text-sm font-semibold text-rose-100 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-35"
               >
-                {deleting ? "Deleting…" : "Delete forever"}
+                {deleting ? tr("Deleting…") : tr("Delete forever")}
               </button>
             </div>
           </div>
@@ -149,18 +149,18 @@ type ThemeOption = {
 };
 
 const themes: ThemeOption[] = [
-  { id: "cyan", name: "Aurora", description: "Electric aqua", accent: "#22d3ee", accent2: "#3b82f6", surface: "#07111b" },
-  { id: "white", name: "Frost", description: "Clean silver", accent: "#f5f5f5", accent2: "#a3a3a3", surface: "#111827" },
-  { id: "black", name: "Obsidian", description: "Minimal graphite", accent: "#a3a3a3", accent2: "#e5e5e5", surface: "#090b0f" },
-  { id: "red", name: "Crimson", description: "Deep ruby", accent: "#f43f5e", accent2: "#fb923c", surface: "#17060a" },
-  { id: "purple", name: "Amethyst", description: "Dark violet", accent: "#a855f7", accent2: "#d946ef", surface: "#11091d" },
-  { id: "green", name: "Emerald", description: "Focused green", accent: "#10b981", accent2: "#a3e635", surface: "#07150f" },
+  { id: "cyan", get name() { return tr("Aurora"); }, get description() { return tr("Electric aqua"); }, accent: "#22d3ee", accent2: "#3b82f6", surface: "#07111b" },
+  { id: "white", get name() { return tr("Frost"); }, get description() { return tr("Clean silver"); }, accent: "#f5f5f5", accent2: "#a3a3a3", surface: "#111827" },
+  { id: "black", get name() { return tr("Obsidian"); }, get description() { return tr("Minimal graphite"); }, accent: "#a3a3a3", accent2: "#e5e5e5", surface: "#090b0f" },
+  { id: "red", get name() { return tr("Crimson"); }, get description() { return tr("Deep ruby"); }, accent: "#f43f5e", accent2: "#fb923c", surface: "#17060a" },
+  { id: "purple", get name() { return tr("Amethyst"); }, get description() { return tr("Dark violet"); }, accent: "#a855f7", accent2: "#d946ef", surface: "#11091d" },
+  { id: "green", get name() { return tr("Emerald"); }, get description() { return tr("Focused green"); }, accent: "#10b981", accent2: "#a3e635", surface: "#07150f" },
 ];
 
 const soundEffectNames: { id: SfxName; name: string; description: string }[] = [
-  { id: "notification", name: "Created", description: "Adding things" },
-  { id: "success", name: "Completed", description: "Finishing items" },
-  { id: "complete", name: "Big Win", description: "Workout/day complete" },
+  { id: "notification", get name() { return tr("Created"); }, get description() { return tr("Adding things"); } },
+  { id: "success", get name() { return tr("Completed"); }, get description() { return tr("Finishing items"); } },
+  { id: "complete", get name() { return tr("Big Win"); }, get description() { return tr("Workout/day complete"); } },
 ];
 
 const packIcons: Record<SoundPack, IconName> = {
@@ -191,13 +191,15 @@ function randomNeonHex() {
 }
 
 function ToggleSwitch({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
+  useLocale();
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
-      aria-label={label}
+      aria-label={tr(label)}
       onClick={onChange}
+      dir="ltr"
       className={`sw-toggle relative inline-flex h-[26px] w-[46px] shrink-0 overflow-hidden rounded-full border transition-colors duration-200 ${checked ? "border-white/25" : "border-white/12 bg-white/[0.12]"}`}
       style={{
         padding: "2px",
@@ -215,6 +217,7 @@ function ToggleSwitch({ checked, onChange, label }: { checked: boolean; onChange
 }
 
 function ThemePreview({ option, selected }: { option: ThemeOption; selected: boolean }) {
+  useLocale();
   return (
     <div
       className="relative h-20 overflow-hidden rounded-xl border border-white/10 p-2.5"
@@ -233,7 +236,7 @@ function ThemePreview({ option, selected }: { option: ThemeOption; selected: boo
         </div>
       </div>
       {selected && (
-        <div className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-white text-black shadow-lg">
+        <div className="absolute end-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-white text-black shadow-lg">
           <Icon name="check" className="h-3.5 w-3.5" />
         </div>
       )}
@@ -242,6 +245,7 @@ function ThemePreview({ option, selected }: { option: ThemeOption; selected: boo
 }
 
 export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void }) {
+  useLocale();
   const { theme, setTheme, getThemeColors, useCustomAccent, setUseCustomAccent, customAccent, setCustomAccent } = useTheme();
   const {
     enabled: soundEnabled,
@@ -302,14 +306,14 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
 
   const handleFileUpload = async (sfxName: SfxName, file: File) => {
     if (!file.type.startsWith("audio/")) {
-      alert("Please select an audio file");
+      alert(tr("Please select an audio file"));
       return;
     }
     setUploadingSfx(sfxName);
     try {
       await uploadCustomSound(sfxName, file);
     } catch (error) {
-      alert("Failed to upload sound: " + (error as Error).message);
+      alert(tr("Failed to upload sound: ") + (error as Error).message);
     } finally {
       setUploadingSfx(null);
       pendingSfxRef.current = null;
@@ -326,9 +330,9 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
     isOpen && typeof document !== "undefined"
       ? createPortal(
           <>
-          <button className="fixed inset-x-0 bottom-0 top-16 z-[1000] cursor-default bg-black/55 sm:top-20" onClick={() => setIsOpen(false)} aria-label="Close settings" />
+          <button className="fixed inset-x-0 bottom-0 top-16 z-[1000] cursor-default bg-black/55 sm:top-20" onClick={() => setIsOpen(false)} aria-label={tr("Close settings")} />
           <div
-            className={`fixed inset-x-2 bottom-2 top-[4.5rem] z-[1010] flex min-h-0 flex-col overflow-hidden rounded-3xl border ${colors.border} shadow-2xl sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-[5.5rem] sm:w-[430px] sm:max-h-[calc(100dvh-6.5rem)]`}
+            className={`fixed inset-x-2 bottom-2 top-[4.5rem] z-[1010] flex min-h-0 flex-col overflow-hidden rounded-3xl border ${colors.border} shadow-2xl sm:inset-x-auto sm:bottom-auto sm:end-4 sm:top-[5.5rem] sm:w-[430px] sm:max-h-[calc(100dvh-6.5rem)]`}
             style={{
               background: "#07090d",
               boxShadow: "0 28px 90px rgba(0,0,0,.62), 0 0 0 1px rgba(255,255,255,.025) inset",
@@ -337,8 +341,8 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
             <div className="shrink-0 border-b border-white/10 px-4 pt-4 sm:px-5 sm:pt-5">
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div>
-                  <p className={`text-base font-semibold ${colors.text}`}>Preferences</p>
-                  <p className={`mt-0.5 text-xs ${colors.textSecondary}`}>Appearance, sound and account</p>
+                  <p className={`text-base font-semibold ${colors.text}`}>{tr("Preferences")}</p>
+                  <p className={`mt-0.5 text-xs ${colors.textSecondary}`}>{tr("Appearance, sound and account")}</p>
                 </div>
                 <div className="h-8 w-16 rounded-full border border-white/10 p-1" style={{ background: useCustomAccent ? "#090b0f" : `linear-gradient(90deg, ${currentTheme.surface}, ${currentTheme.accent}35)` }}>
                   <div className="h-full w-full rounded-full bg-[image:var(--sw-gradient)] opacity-80" />
@@ -357,7 +361,7 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                     className={`flex items-center justify-center gap-1.5 rounded-lg px-1.5 py-2 text-[11px] font-medium transition sm:gap-2 sm:px-3 sm:text-sm ${activeTab === id ? "bg-white/10 text-white shadow-sm" : `${colors.textSecondary} hover:bg-white/5 hover:text-white`}`}
                   >
                     <Icon name={icon} className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    {label}
+                    {tr(label)}
                   </button>
                 ))}
               </div>
@@ -368,18 +372,17 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
               <button
                 type="button"
                 onClick={() => { setIsOpen(false); onOpenWorkspace(); }}
-                className="mb-5 flex min-h-11 w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm font-semibold text-white/85 transition hover:bg-white/10"
+                className="mb-5 flex min-h-11 w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-start text-sm font-semibold text-white/85 transition hover:bg-white/10"
               >
-                My workspace
-                <span aria-hidden="true">›</span>
+                {tr("My workspace")} <span aria-hidden="true">›</span>
               </button>
               {activeTab === "themes" ? (
                 <div className="space-y-5">
                   <div>
                     <div className="mb-3 flex items-end justify-between">
                       <div>
-                        <h3 className={`text-sm font-semibold ${colors.text}`}>Theme preset</h3>
-                        <p className={`mt-1 text-xs ${colors.textSecondary}`}>Pick a preset for a complete look. Selecting one exits Custom mode so its colors always match the preview.</p>
+                        <h3 className={`text-sm font-semibold ${colors.text}`}>{tr("Theme preset")}</h3>
+                        <p className={`mt-1 text-xs ${colors.textSecondary}`}>{tr("Pick a preset for a complete look. Selecting one exits Custom mode so its colors always match the preview.")}</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -389,7 +392,7 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                           <button
                             key={option.id}
                             onClick={() => setTheme(option.id)}
-                            className={`rounded-2xl border p-2 text-left transition duration-200 ${selected ? "border-white/30 bg-white/[0.07] shadow-lg" : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]"}`}
+                            className={`rounded-2xl border p-2 text-start transition duration-200 ${selected ? "border-white/30 bg-white/[0.07] shadow-lg" : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]"}`}
                           >
                             <ThemePreview option={option} selected={selected} />
                             <div className="px-1 pb-1 pt-2.5">
@@ -409,15 +412,15 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-2">
-                          <h4 className={`text-sm font-semibold ${colors.text}`}>Custom color</h4>
-                          {useCustomAccent && <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[10px] font-medium text-white/70">ACTIVE</span>}
+                          <h4 className={`text-sm font-semibold ${colors.text}`}>{tr("Custom color")}</h4>
+                          {useCustomAccent && <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[10px] font-medium text-white/70">{tr("ACTIVE")}</span>}
                         </div>
-                        <p className={`mt-1 text-xs leading-5 ${colors.textSecondary}`}>Uses neutral graphite surfaces so the exact color you choose stays accurate and never mixes with another preset.</p>
+                        <p className={`mt-1 text-xs leading-5 ${colors.textSecondary}`}>{tr("Uses neutral graphite surfaces so the exact color you choose stays accurate and never mixes with another preset.")}</p>
                       </div>
                       <ToggleSwitch
                         checked={useCustomAccent}
                         onChange={() => setUseCustomAccent(!useCustomAccent)}
-                        label="Toggle custom color"
+                        label={tr("Toggle custom color")}
                       />
                     </div>
 
@@ -430,7 +433,7 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                           disabled={!useCustomAccent}
                           className="h-9 w-11 min-w-0 max-w-[44px] cursor-pointer rounded-lg border-0 bg-transparent p-0"
                           style={{ width: 44, minWidth: 44, maxWidth: 44 }}
-                          aria-label="Pick exact custom color"
+                          aria-label={tr("Pick exact custom color")}
                         />
                         <input
                           type="text"
@@ -451,7 +454,7 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                         <div
                           className="h-7 w-14 max-w-full shrink-0 rounded-lg border border-white/10"
                           style={{ background: customAccent, boxShadow: `0 0 12px ${customAccent}40` }}
-                          title={`Exact color ${customAccent}`}
+                          title={tr("Exact color {0}", {0: customAccent})}
                         />
                       </div>
                       <button
@@ -459,8 +462,7 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                         className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm font-medium text-white/80 transition hover:border-white/20 hover:bg-white/[0.07] hover:text-white"
                       >
                         <Icon name="shuffle" className="h-4 w-4" />
-                        Generate accent
-                      </button>
+                        {tr("Generate accent")} </button>
                     </div>
                   </div>
                 </div>
@@ -468,13 +470,13 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                 <div className="space-y-5">
                   <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4">
                     <div>
-                      <h3 className={`text-sm font-semibold ${colors.text}`}>Reward sounds</h3>
-                      <p className={`mt-1 text-xs ${colors.textSecondary}`}>Only plays for meaningful actions.</p>
+                      <h3 className={`text-sm font-semibold ${colors.text}`}>{tr("Reward sounds")}</h3>
+                      <p className={`mt-1 text-xs ${colors.textSecondary}`}>{tr("Only plays for meaningful actions.")}</p>
                     </div>
                     <ToggleSwitch
                       checked={soundEnabled}
                       onChange={() => setSoundEnabled(!soundEnabled)}
-                      label="Toggle reward sounds"
+                      label={tr("Toggle reward sounds")}
                     />
                   </div>
 
@@ -482,14 +484,14 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                     <>
                       <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                         <div className="mb-3 flex items-center justify-between">
-                          <span className={`text-sm font-medium ${colors.text}`}>Volume</span>
+                          <span className={`text-sm font-medium ${colors.text}`}>{tr("Volume")}</span>
                           <span className="rounded-md bg-white/[0.06] px-2 py-1 text-xs text-white/70">{Math.round(volume * 100)}%</span>
                         </div>
                         <input type="range" min="0" max="1" step="0.05" value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} className="sw-range w-full" />
                       </div>
 
                       <div>
-                        <h4 className={`mb-3 text-sm font-semibold ${colors.text}`}>Sound character</h4>
+                        <h4 className={`mb-3 text-sm font-semibold ${colors.text}`}>{tr("Sound character")}</h4>
                         <div className="grid grid-cols-2 gap-2.5">
                           {Object.entries(SOUND_PACKS).map(([packId, pack]) => {
                             const selected = soundPack === packId;
@@ -497,7 +499,7 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                               <button
                                 key={packId}
                                 onClick={() => { setSoundPack(packId as SoundPack); previewSound(packId as SoundPack, "success"); }}
-                                className={`rounded-2xl border p-3 text-left transition ${selected ? "border-white/25 bg-white/[0.07]" : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]"}`}
+                                className={`rounded-2xl border p-3 text-start transition ${selected ? "border-white/25 bg-white/[0.07]" : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]"}`}
                               >
                                 <div className="mb-2 flex items-center gap-2">
                                   <span className={`grid h-8 w-8 place-items-center rounded-lg border ${selected ? colors.border : "border-white/10"} bg-white/[0.04]`}>
@@ -514,7 +516,7 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
 
                       {soundPack === "custom" && (
                         <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                          <h4 className={`mb-3 text-sm font-semibold ${colors.text}`}>Custom files</h4>
+                          <h4 className={`mb-3 text-sm font-semibold ${colors.text}`}>{tr("Custom files")}</h4>
                           <div className="space-y-2">
                             {soundEffectNames.map((sfx) => (
                               <div key={sfx.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
@@ -525,13 +527,13 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                                 <div className="flex items-center gap-1.5">
                                   {customSounds[sfx.id] ? (
                                     <>
-                                      <button onClick={() => previewSound("custom", sfx.id)} className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 text-white/70 hover:bg-white/10 hover:text-white" title="Preview"><Icon name="play" className="h-3.5 w-3.5" /></button>
-                                      <button onClick={() => removeCustomSound(sfx.id)} className="grid h-8 w-8 place-items-center rounded-lg border border-rose-400/15 text-rose-300 hover:bg-rose-400/10" title="Remove"><Icon name="trash" className="h-3.5 w-3.5" /></button>
+                                      <button onClick={() => previewSound("custom", sfx.id)} className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 text-white/70 hover:bg-white/10 hover:text-white" title={tr("Preview")}><Icon name="play" className="h-3.5 w-3.5" /></button>
+                                      <button onClick={() => removeCustomSound(sfx.id)} className="grid h-8 w-8 place-items-center rounded-lg border border-rose-400/15 text-rose-300 hover:bg-rose-400/10" title={tr("Remove")}><Icon name="trash" className="h-3.5 w-3.5" /></button>
                                     </>
                                   ) : (
                                     <button onClick={() => triggerFileUpload(sfx.id)} disabled={uploadingSfx === sfx.id} className="flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-2 text-xs text-white/70 hover:bg-white/5 disabled:opacity-50">
                                       <Icon name="upload" className="h-3.5 w-3.5" />
-                                      {uploadingSfx === sfx.id ? "Uploading" : "Upload"}
+                                      {uploadingSfx === sfx.id ? tr("Uploading") : tr("Upload")}
                                     </button>
                                   )}
                                 </div>
@@ -561,14 +563,14 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
         onClick={() => setIsOpen((value) => !value)}
         className={`sw-theme-hover-border group relative z-[120] flex shrink-0 items-center gap-2 rounded-xl border px-2.5 py-2 sm:px-3 ${colors.border} transition duration-200`}
         style={{ background: "rgba(7, 10, 14, 0.98)" }}
-        title="Appearance, sound and account settings"
+        title={tr("Appearance, sound and account settings")}
         aria-expanded={isOpen}
       >
         <span className="relative grid h-7 w-7 place-items-center rounded-lg border border-white/10 bg-white/[0.04]">
           <Icon name="settings" className="h-4 w-4 text-white/80 transition-transform duration-300 group-hover:rotate-45" />
           <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-black/60" style={{ background: activeAccent }} />
         </span>
-        <span className={`hidden text-sm font-medium sm:inline ${colors.text}`}>Customize</span>
+        <span className={`hidden text-sm font-medium sm:inline ${colors.text}`}>{tr("Customize")}</span>
         <Icon name="chevronDown" className={`hidden h-4 w-4 sm:block ${colors.textSecondary} transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </button>
 

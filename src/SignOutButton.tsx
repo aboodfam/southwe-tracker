@@ -1,10 +1,13 @@
 "use client";
+import { t as tr, useLocale } from "./i18n";
+
 
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
 import { useTheme } from "./contexts/ThemeContext";
 
 export function SignOutButton() {
+  useLocale();
   const { isAuthenticated } = useConvexAuth();
   const { signOut } = useAuthActions();
   const { getThemeColors } = useTheme();
@@ -17,8 +20,8 @@ export function SignOutButton() {
       onClick={() => void signOut()}
       className={`grid h-[46px] w-[46px] shrink-0 place-items-center rounded-xl border ${colors.border} bg-black/45 text-white/65 shadow-lg backdrop-blur-xl transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white active:scale-[0.97]`}
       style={{ boxShadow: `0 0 18px rgb(var(--sw-accent-rgb) / .08)` }}
-      title="Sign out"
-      aria-label="Sign out"
+      title={tr("Sign out")}
+      aria-label={tr("Sign out")}
     >
       <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M10 17l5-5-5-5" />

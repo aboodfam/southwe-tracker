@@ -1,3 +1,4 @@
+import { t as tr, useLocale, getIntlLocale } from "../i18n";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -22,10 +23,12 @@ const card = "rounded-3xl border border-white/10 bg-black/30 p-5 sm:p-6";
 const quiet =
   "min-h-11 rounded-xl px-3 py-2 text-sm text-white/65 hover:bg-white/5 hover:text-white disabled:opacity-40";
 export function TodayPage(props: Props) {
+  useLocale();
   const dateKey = useLocalDateKey();
   return <TodayContent key={dateKey} dateKey={dateKey} {...props} />;
 }
 function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
+  useLocale();
   const preferences = useQuery(api.workspace.getPreferences);
   const routines = useQuery(api.routines.getRoutines);
   const habits = useQuery(api.habits.getHabits);
@@ -87,8 +90,7 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
   )
     return (
       <p role="status" className="p-10 text-center text-white/60">
-        Getting your day ready…
-      </p>
+        {tr("Getting your day ready…")} </p>
     );
   const visible = (page: Destination) =>
     !preferences?.hiddenPages.includes(page);
@@ -116,7 +118,7 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
     ...activeHabits.map((habit) => ({
       key: habitKey(habit._id),
       name: habit.name,
-      group: habit.type === "break" ? "Avoided today" : "Habit",
+      group: habit.type === "break" ? tr("Avoided today") : tr("Habit"),
       completed: habit.entries.some(
         (entry) => entry.date === dateKey && entry.completed,
       ),
@@ -252,54 +254,53 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
           </span>
           <span className="mt-1 block text-xs text-white/45">
             {small
-              ? `Smaller step for ${item.name} · full action unfinished`
+              ? tr("Smaller step for {0} · full action unfinished", {0: item.name})
               : item.group}
             {item.locked && !isDone(item)
-              ? " · Day saved; action unfinished"
+              ? tr(" · Day saved; action unfinished")
               : ""}
           </span>
         </span>
       </label>
     );
   };
-  const dateLabel = new Date(dateKey + "T12:00:00").toLocaleDateString(
-    undefined,
+  const dateLabel = new Date(dateKey + "T12:00:00").toLocaleDateString(getIntlLocale(),
     { weekday: "long", month: "long", day: "numeric" },
   );
   return (
     <div className="mx-auto max-w-3xl space-y-5" data-no-swipe>
-      <PageHeader title="Today" subtitle={dateLabel} />
+      <PageHeader title={tr("Today")} subtitle={dateLabel} />
       {hasAthkarToday && (
         <section className={card}>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold">Athkar</h2>
-              <p className="mt-1 text-xs text-white/45">What is relevant right now.</p>
+              <h2 className="text-lg font-semibold">{tr("Athkar")}</h2>
+              <p className="mt-1 text-xs text-white/45">{tr("What is relevant right now.")}</p>
             </div>
-            <button className={quiet} onClick={() => onNavigate("athkar")}>Open all</button>
+            <button className={quiet} onClick={() => onNavigate("athkar")}>{tr("Open all")}</button>
           </div>
           <div className="mt-3 grid gap-3">
             {scheduledAthkar && (
               <button
                 onClick={() => openAthkar(scheduledAthkar.category)}
-                className="w-full rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-left transition hover:bg-white/[0.06]"
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-start transition hover:bg-white/[0.06]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="font-semibold text-white">{scheduledAthkar.title}</div>
-                    <div className="mt-1 text-xs text-white/45">{scheduledAthkar.startsAt}–{scheduledAthkar.endsAt}</div>
+                    <div className="font-semibold text-white">{tr(scheduledAthkar.title)}</div>
+                    <div className="mt-1 text-xs text-white/45">{tr(scheduledAthkar.startsAt)}–{tr(scheduledAthkar.endsAt)}</div>
                   </div>
-                  <span className="text-sm font-semibold text-white/70">{scheduledCompletedThisWindow ? "Completed" : `${scheduledPercent}%`}</span>
+                  <span className="text-sm font-semibold text-white/70">{scheduledCompletedThisWindow ? tr("Completed") : `${scheduledPercent}%`}</span>
                 </div>
                 <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
                   <div className="h-full rounded-full bg-[image:var(--sw-gradient)] transition-all duration-500" style={{ width: `${Math.max(0, Math.min(100, scheduledPercent))}%` }} />
                 </div>
                 <div className="mt-3 text-xs text-white/45">
                   {scheduledCompletedThisWindow
-                    ? "Finished for this time window."
+                    ? tr("Finished for this time window.")
                     : categorySession?.currentIndex
-                      ? `Resume at item ${categorySession.currentIndex + 1}.`
-                      : "Continue from exactly where you stopped."}
+                      ? tr("Resume at item {0}.", {0: categorySession.currentIndex + 1})
+                      : tr("Continue from exactly where you stopped.")}
                 </div>
               </button>
             )}
@@ -307,24 +308,24 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
             {prayerClock.activePrayer && (
               <button
                 onClick={() => openAthkar("prayer", prayerClock.activePrayer?.sessionKey)}
-                className="w-full rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-left transition hover:bg-white/[0.06]"
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-start transition hover:bg-white/[0.06]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="font-semibold text-white">After {prayerClock.activePrayer.name} Prayer Athkar</div>
-                    <div className="mt-1 text-xs text-white/45">Available for 1 hour after {prayerClock.activePrayer.time}</div>
+                    <div className="font-semibold text-white">{tr("After")} {prayerClock.activePrayer.name} {tr("Prayer Athkar")}</div>
+                    <div className="mt-1 text-xs text-white/45">{tr("Available for 1 hour after")} {prayerClock.activePrayer.time}</div>
                   </div>
-                  <span className="text-sm font-semibold text-white/70">{prayerSession?.completed ? "Completed" : `${prayerPercent}%`}</span>
+                  <span className="text-sm font-semibold text-white/70">{prayerSession?.completed ? tr("Completed") : `${prayerPercent}%`}</span>
                 </div>
                 <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
                   <div className="h-full rounded-full bg-[image:var(--sw-gradient)] transition-all duration-500" style={{ width: `${Math.max(0, Math.min(100, prayerPercent))}%` }} />
                 </div>
                 <div className="mt-3 text-xs text-white/45">
                   {prayerSession?.completed
-                    ? "This prayer's Athkar is finished."
+                    ? tr("This prayer's Athkar is finished.")
                     : prayerSession?.currentIndex
-                      ? `Resume at item ${prayerSession.currentIndex + 1}.`
-                      : "This prayer has its own saved session."}
+                      ? tr("Resume at item {0}.", {0: prayerSession.currentIndex + 1})
+                      : tr("This prayer has its own saved session.")}
                 </div>
               </button>
             )}
@@ -337,18 +338,17 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
         <>
           {items.length > 0 && (
             <section className={card}>
-              <h2 className="text-lg font-semibold">Your day</h2>
+              <h2 className="text-lg font-semibold">{tr("Your day")}</h2>
               {remaining.length ? (
                 <div className="mt-1">{remaining.map(renderItem)}</div>
               ) : (
                 <p className="py-5 text-sm text-white/60">
-                  Nothing else planned for today.
-                </p>
+                  {tr("Nothing else planned for today.")} </p>
               )}
               {completed.length > 0 && (
                 <details className="border-t border-white/10 py-3">
                   <summary className="cursor-pointer py-2 text-sm text-white/50">
-                    Done today ({completed.length})
+                    {tr("Done today (")}{completed.length})
                   </summary>
                   {completed.map(renderItem)}
                   {tasks.length > 0 &&
@@ -367,12 +367,9 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
                             })
                           }
                         >
-                          Save routine day
-                        </button>
+                          {tr("Save routine day")} </button>
                         <p className="text-xs text-white/45">
-                          Counts this routine day toward your streak and locks
-                          its checkmarks.
-                        </p>
+                          {tr("Counts this routine day toward your streak and locks its checkmarks.")} </p>
                       </div>
                     )}
                 </details>
@@ -380,7 +377,7 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
               {paused.length > 0 && (
                 <details className="border-t border-white/10 py-3">
                   <summary className="cursor-pointer py-2 text-sm text-white/50">
-                    Set aside today ({paused.length})
+                    {tr("Set aside today (")}{paused.length})
                   </summary>
                   {paused.map((item) => (
                     <div
@@ -404,8 +401,7 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
                           )
                         }
                       >
-                        Bring back
-                      </button>
+                        {tr("Bring back")} </button>
                     </div>
                   ))}
                 </details>
@@ -420,8 +416,7 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
                       setEditing({ state, version });
                     }}
                   >
-                    Make today lighter
-                  </button>
+                    {tr("Make today lighter")} </button>
                 )}
               {undo && undo.version === version && !editing && (
                 <button
@@ -433,8 +428,7 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
                     )
                   }
                 >
-                  Undo lighter day
-                </button>
+                  {tr("Undo lighter day")} </button>
               )}
             </section>
           )}
@@ -462,8 +456,7 @@ function TodayContent({ dateKey, onNavigate }: Props & { dateKey: string }) {
               onToggle={(event) => setWorkoutOpen(event.currentTarget.open)}
             >
               <summary className="cursor-pointer font-semibold">
-                Workout
-              </summary>
+                {tr("Workout")} </summary>
               {workoutOpen && (
                 <div className="mt-4">
                   <TodayWorkout onOpen={() => onNavigate("workout")} />

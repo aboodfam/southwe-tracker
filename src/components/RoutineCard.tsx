@@ -1,3 +1,4 @@
+import { t as tr, useLocale } from "../i18n";
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -29,6 +30,7 @@ interface RoutineCardProps {
 }
 
 export function RoutineCard({ routine, appear }: RoutineCardProps) {
+  useLocale();
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const { play } = useSound();
@@ -122,7 +124,7 @@ const tasksToRender = useMemo(() => {
       await toggleTask({ routineId: routine._id, taskId, dateKey });
       if (willComplete) play("success", 0.9);
     } catch (error: any) {
-      toast.error(error?.message ?? "Could not save task progress");
+      toast.error(error?.message ?? tr("Could not save task progress"));
     }
   };
 
@@ -141,8 +143,8 @@ const tasksToRender = useMemo(() => {
         taskId: editingTask,
         name: editValue.trim(),
       });
-        setEditingTask(null); setEditValue(""); toast.success("Task updated.");
-      } catch (error: any) { toast.error(error?.message ?? "Couldn't update the task. Your text is still here."); }
+        setEditingTask(null); setEditValue(""); toast.success(tr("Task updated."));
+      } catch (error: any) { toast.error(error?.message ?? tr("Couldn't update the task. Your text is still here.")); }
       finally { taskSaveLock.current = false; }
     }
   };
@@ -162,7 +164,7 @@ const tasksToRender = useMemo(() => {
 
       // Small reward when creating something
       play("notification", 0.85);
-      } catch (error: any) { toast.error(error?.message ?? "Couldn't add the task. Your text is still here."); }
+      } catch (error: any) { toast.error(error?.message ?? tr("Couldn't add the task. Your text is still here.")); }
       finally { taskSaveLock.current = false; }
     }
   };
@@ -171,8 +173,8 @@ const tasksToRender = useMemo(() => {
     // play exit animation first, then delete
     setRemovingTaskIds((m) => ({ ...m, [taskId]: true }));
     window.setTimeout(async () => {
-      try { await deleteTask({ routineId: routine._id, taskId }); toast.success("Task moved to My workspace → Recently deleted."); }
-      catch (error: any) { toast.error(error?.message ?? "Couldn't delete the task."); }
+      try { await deleteTask({ routineId: routine._id, taskId }); toast.success(tr("Task moved to My workspace → Recently deleted.")); }
+      catch (error: any) { toast.error(error?.message ?? tr("Couldn't delete the task.")); }
       // cleanup flag (in case deletion fails / slow)
       setRemovingTaskIds((m) => {
         const next = { ...m };
@@ -191,16 +193,15 @@ const tasksToRender = useMemo(() => {
         <div className="w-[340px] sm:w-[380px] rounded-2xl border border-white/10 bg-black/60 backdrop-blur-xl shadow-2xl px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-white">Delete this block?</p>
+              <p className="text-sm font-semibold text-white">{tr("Delete this block?")}</p>
               <p className="mt-1 text-xs text-white/60">
-                You can restore it in My workspace → Recently deleted.
-              </p>
+                {tr("You can restore it in My workspace → Recently deleted.")} </p>
             </div>
 
             <button
               onClick={() => toast.dismiss(t)}
               className="shrink-0 rounded-lg p-1.5 text-white/50 hover:text-white/80 hover:bg-white/5 transition"
-              title="Close"
+              title={tr("Close")}
             >
               <Icon name="x" className="h-4 w-4" />
             </button>
@@ -212,23 +213,21 @@ const tasksToRender = useMemo(() => {
                 try {
                   await deleteRoutine({ routineId: routine._id });
                   toast.dismiss(t);
-                  toast.success("Block moved to My workspace → Recently deleted.");
+                  toast.success(tr("Block moved to My workspace → Recently deleted."));
                 } catch (err: any) {
                   toast.dismiss(t);
-                  toast.error(err?.message ?? "Failed to delete block");
+                  toast.error(err?.message ?? tr("Failed to delete block"));
                 }
               }}
               className="flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white bg-red-500/20 border border-red-400/30 hover:bg-red-500/25 transition"
             >
-              Delete
-            </button>
+              {tr("Delete")} </button>
 
             <button
               onClick={() => toast.dismiss(t)}
               className="flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white/85 bg-white/10 border border-white/10 hover:bg-white/15 transition"
             >
-              Cancel
-            </button>
+              {tr("Cancel")} </button>
           </div>
         </div>
       ),
@@ -318,7 +317,7 @@ useEffect(() => {
 }, []);
 
 const onContextMenu = (e: Event) => {
-  // Prevent right-click menu from breaking pointer events while dragging
+  // Prevent end-click menu from breaking pointer events while dragging
   e.preventDefault();
 };
 
@@ -439,7 +438,7 @@ const onPointerUp = async (e: PointerEvent) => {
   try {
     await reorderTasks({ routineId: routine._id, orderedTaskIds: next });
   } catch (err: any) {
-    toast.error(err?.message ?? "Failed to reorder tasks");
+    toast.error(err?.message ?? tr("Failed to reorder tasks"));
     setOrderedTaskIds(routineSorted.map((t) => t.id));
   }
 };
@@ -525,13 +524,13 @@ const startHoldDrag = (
               <div className="flex items-center gap-3 mb-2">
                 <div className="h-2.5 w-2.5 rounded-full bg-[color:var(--sw-accent)] shadow-[0_0_10px_var(--sw-accent)]" />
                 <h3 className={`text-lg sm:text-xl font-bold ${colors.text} truncate`}>
-                  {routine.name}
+                  {routine.timeSlot === "Flexible" ? tr(routine.name) : routine.name}
                 </h3>
               </div>
 
               <p className={`${colors.textSecondary} text-sm flex items-center gap-2`}>
                 <Icon name="clock" className="h-4 w-4" />
-                {routine.timeSlot}
+                {routine.timeSlot === "Flexible" ? tr("Flexible") : routine.timeSlot}
               </p>
 
               {/* Quick stats */}
@@ -539,13 +538,11 @@ const startHoldDrag = (
                 <div className={`flex items-center gap-4 ${colors.textSecondary}`}>
                   <span className="flex items-center gap-1.5">
                     <Icon name="checkCircle" className="h-3.5 w-3.5" />
-                    {completedTasks}/{totalTasks} tasks
-                  </span>
+                    {completedTasks}/{totalTasks} {tr("tasks")} </span>
                   {completionRate === 100 && (
                     <span className="flex items-center gap-1.5 text-green-400">
                       <Icon name="sparkles" className="h-3.5 w-3.5" />
-                      Complete!
-                    </span>
+                      {tr("Complete!")} </span>
                   )}
                 </div>
               </div>
@@ -564,7 +561,7 @@ const startHoldDrag = (
               <button
                 onClick={handleDeleteBlock}
                 className="grid h-8 w-8 place-items-center rounded-lg text-red-400 transition-colors hover:bg-red-400/10 hover:text-red-300"
-                title="Delete block"
+                title={tr("Delete block")}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -656,7 +653,7 @@ const startHoldDrag = (
                     type="text"
                     value={newTaskName}
                     onChange={(e) => setNewTaskName(e.target.value)}
-                    placeholder="Enter new task..."
+                    placeholder={tr("Enter new task...")}
                     className={`min-w-0 flex-1 ${colors.backgroundTertiary} border ${colors.borderHover} rounded-lg px-3 py-2 ${colors.textSecondary} text-sm focus:outline-none`}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleAddTask();
@@ -669,14 +666,12 @@ const startHoldDrag = (
                       onClick={handleAddTask}
                       className="min-w-[72px] rounded-lg bg-[image:var(--sw-gradient)] px-4 py-2 text-sm font-medium text-black transition hover:brightness-110"
                     >
-                      Add
-                    </button>
+                      {tr("Add")} </button>
                     <button
                       onClick={() => setShowAddTask(false)}
                       className="min-w-[72px] rounded-lg border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
                     >
-                      Cancel
-                    </button>
+                      {tr("Cancel")} </button>
                   </div>
                 </div>
               ) : (
@@ -688,8 +683,7 @@ const startHoldDrag = (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
-                    Add New Task
-                  </span>
+                    {tr("Add New Task")} </span>
                 </button>
               )}
             </div>
@@ -717,6 +711,7 @@ function TaskItem(props: {
   dragActive?: boolean;
   onDragHandlePointerDown: (e: React.PointerEvent<HTMLButtonElement>) => void;
 }) {
+  useLocale();
   const { task, index, editingTask, editValue, onToggle, onEditStart, onEditSave, onEditCancel, onDelete, setEditValue, isNew, isRemoving, isDragging, dragActive, onDragHandlePointerDown } = props;
 
   const { getThemeColors } = useTheme();
@@ -740,8 +735,8 @@ function TaskItem(props: {
           isDragging ? "bg-white/10 text-white/90" : ""
         }`}
         style={{ touchAction: "none" }}
-        title="Hold to reorder"
-        aria-label="Reorder task"
+        title={tr("Hold to reorder")}
+        aria-label={tr("Reorder task")}
       >
         <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path d="M7 4h2v2H7V4zm4 0h2v2h-2V4zM7 9h2v2H7V9zm4 0h2v2h-2V9zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
@@ -775,16 +770,16 @@ function TaskItem(props: {
             <button
               onClick={onEditSave}
               className="grid h-9 w-9 place-items-center rounded-lg bg-[image:var(--sw-gradient)] text-sm font-bold text-black transition hover:brightness-110"
-              title="Save task"
-              aria-label="Save task"
+              title={tr("Save task")}
+              aria-label={tr("Save task")}
             >
               <Icon name="check" className="h-4 w-4" />
             </button>
             <button
               onClick={onEditCancel}
               className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/[0.06] text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white"
-              title="Cancel editing"
-              aria-label="Cancel editing"
+              title={tr("Cancel editing")}
+              aria-label={tr("Cancel editing")}
             >
               ✕
             </button>
@@ -800,7 +795,7 @@ function TaskItem(props: {
             <button
               onClick={() => onEditStart(task)}
               className={`grid h-8 w-8 place-items-center rounded-lg ${colors.text} transition-colors hover:bg-white/5`}
-              title="Edit task"
+              title={tr("Edit task")}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -815,7 +810,7 @@ function TaskItem(props: {
             <button
               onClick={() => onDelete(task.id)}
               className="grid h-8 w-8 place-items-center rounded-lg text-red-400 transition-colors hover:bg-red-400/10 hover:text-red-300"
-              title="Delete task"
+              title={tr("Delete task")}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path

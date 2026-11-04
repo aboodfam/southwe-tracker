@@ -1,3 +1,6 @@
+import { LanguageSelector } from "./components/LanguageSelector";
+
+import { t as tr, useLocale } from "./i18n";
 import { Authenticated, Unauthenticated, useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { SignInForm } from "./SignInForm";
@@ -75,6 +78,7 @@ function parseColorToRgb(input: string): RGB {
    ✅ full page height (scroll-safe)
    ========================= */
 function StarfieldBackground() {
+  useLocale();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number | null>(null);
 
@@ -264,6 +268,7 @@ function StarfieldBackground() {
    Create New Block (animated + readable inputs)
    ========================= */
 function CreateRoutineCard() {
+  useLocale();
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const { play } = useSound();
@@ -291,18 +296,18 @@ function CreateRoutineCard() {
     const n = name.trim();
     const t = timeSlot.trim();
 
-    if (!n) return toast.error("Block name is required");
-    if (!t) return toast.error("Time is required");
+    if (!n) return toast.error(tr("Block name is required"));
+    if (!t) return toast.error(tr("Time is required"));
 
     try {
       await createRoutine({ name: n, timeSlot: t });
       setName("");
       setTimeSlot("");
       setOpen(false);
-      toast.success("Block created");
+      toast.success(tr("Block created"));
       play("notification", 0.9);
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to create block");
+      toast.error(e?.message ?? tr("Failed to create block"));
     }
   };
 
@@ -348,8 +353,8 @@ function CreateRoutineCard() {
           </span>
 
           <span className="flex flex-col items-start leading-tight">
-            <span className="text-base sm:text-[15px]">Add New Block</span>
-            <span className="text-xs text-white/40">Name it • set time • add tasks</span>
+            <span className="text-base sm:text-[15px]">{tr("Add New Block")}</span>
+            <span className="text-xs text-white/40">{tr("Name it • set time • add tasks")}</span>
           </span>
         </span>
       </button>
@@ -377,16 +382,15 @@ function CreateRoutineCard() {
       <div className="relative z-10 p-4 sm:p-6 space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className={`text-lg sm:text-xl font-bold ${colors.text}`}>Create New Block</h3>
+            <h3 className={`text-lg sm:text-xl font-bold ${colors.text}`}>{tr("Create New Block")}</h3>
             <p className={`${colors.textSecondary} text-sm mt-1`}>
-              Keep it clean: one block = one time window.
-            </p>
+              {tr("Keep it clean: one block = one time window.")} </p>
           </div>
 
           <button
             onClick={() => setOpen(false)}
             className="p-2 text-gray-400 hover:text-gray-200 transition-colors rounded-lg hover:bg-white/5"
-            title="Close"
+            title={tr("Close")}
           >
             ✕
           </button>
@@ -394,11 +398,11 @@ function CreateRoutineCard() {
 
         <div className="grid sm:grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label className="text-xs text-white/45">Block name</label>
+            <label className="text-xs text-white/45">{tr("Block name")}</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Morning / Study / Night..."
+              placeholder={tr("Morning / Study / Night...")}
               className={[
                 "w-full rounded-xl px-3 py-2 text-sm",
                 "focus:outline-none focus:ring-2 focus:ring-white/10",
@@ -410,11 +414,11 @@ function CreateRoutineCard() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-white/45">Time</label>
+            <label className="text-xs text-white/45">{tr("Time")}</label>
             <input
               value={timeSlot}
               onChange={(e) => setTimeSlot(e.target.value)}
-              placeholder="5:00AM / Afternoon / 9:00PM"
+              placeholder={tr("5:00AM / Afternoon / 9:00PM")}
               className={[
                 "w-full rounded-xl px-3 py-2 text-sm",
                 "focus:outline-none focus:ring-2 focus:ring-white/10",
@@ -436,15 +440,13 @@ function CreateRoutineCard() {
               "hover:brightness-110 active:scale-[0.99]",
             ].join(" ")}
           >
-            Create
-          </button>
+            {tr("Create")} </button>
 
           <button
             onClick={() => setOpen(false)}
             className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold bg-white/10 text-white hover:bg-white/15 transition-all duration-300 active:scale-[0.99]"
           >
-            Cancel
-          </button>
+            {tr("Cancel")} </button>
         </div>
       </div>
     </div>
@@ -454,6 +456,7 @@ function CreateRoutineCard() {
 /* ========================= */
 
 export default function App() {
+  useLocale();
   const legalPath = typeof window !== "undefined" ? window.location.pathname.replace(/\/+$/, "") : "";
   const legalHash = typeof window !== "undefined" ? window.location.hash : "";
   if (legalPath === "/privacy" || legalHash === "#/privacy") return <LegalPage kind="privacy" />;
@@ -470,6 +473,7 @@ export default function App() {
 }
 
 function AppContent() {
+  useLocale();
   const [currentPage, setCurrentPage] = useState<Page>("today");
   const [swapKey, setSwapKey] = useState(0);
   const [swapDir, setSwapDir] = useState<"left" | "right">("left");
@@ -598,6 +602,7 @@ function AppContent() {
           <header className={`${athkarFocus ? "hidden sm:block" : ""} relative z-50 ${colors.backgroundSecondary} backdrop-blur-md border-b ${colors.border} shadow-2xl`}>
             <div className="container mx-auto flex h-16 items-center justify-end px-3 sm:h-20 sm:px-4">
               <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
+                <LanguageSelector />
                 <ThemeSelector onOpenWorkspace={() => navigateToPage("workspace")} />
                 <DesktopFullscreenButton />
                 <SignOutButton />
@@ -633,6 +638,7 @@ function AppContent() {
 }
 
 function Content({ currentPage, onNavigate, onAthkarFocusChange }: { currentPage: Page; onNavigate: (page: Page) => void; onAthkarFocusChange: (focused: boolean) => void }) {
+  useLocale();
   const loggedInUser = useQuery(api.auth.loggedInUser);
   const userProfile = useQuery(api.auth.getProfile);
   // Keep Athkar subscribed while the user is in the app so opening the page
@@ -714,18 +720,18 @@ function Content({ currentPage, onNavigate, onAthkarFocusChange }: { currentPage
         <div className="auth-stage">
           <div className="auth-shell">
             <section className="auth-brand-panel">
-              <div className="auth-brand-topline">Personal operating system</div>
-              <h1 className="auth-brand-title">Ceventic<br />System</h1>
-              <p className="auth-brand-copy">One place for the systems you repeat, measure, and improve.</p>
+              <div className="auth-brand-topline">{tr("Personal operating system")}</div>
+              <h1 className="auth-brand-title">Ceventic<br />{tr("System")}</h1>
+              <p className="auth-brand-copy">{tr("One place for the systems you repeat, measure, and improve.")}</p>
 
               <div className="auth-motion-board" aria-hidden="true">
-                <div className="auth-motion-row"><span>01</span><b>Plan the day</b><i /></div>
-                <div className="auth-motion-row"><span>02</span><b>Do the work</b><i /></div>
-                <div className="auth-motion-row"><span>03</span><b>Track the signal</b><i /></div>
-                <div className="auth-motion-row"><span>04</span><b>Repeat</b><i /></div>
+                <div className="auth-motion-row"><span>01</span><b>{tr("Plan the day")}</b><i /></div>
+                <div className="auth-motion-row"><span>02</span><b>{tr("Do the work")}</b><i /></div>
+                <div className="auth-motion-row"><span>03</span><b>{tr("Track the signal")}</b><i /></div>
+                <div className="auth-motion-row"><span>04</span><b>{tr("Repeat")}</b><i /></div>
               </div>
 
-              <div className="auth-brand-foot">Your Personal Operating System</div>
+              <div className="auth-brand-foot">{tr("Your Personal Operating System")}</div>
             </section>
             <section className="auth-form-panel">
               <SignInForm />
@@ -738,6 +744,7 @@ function Content({ currentPage, onNavigate, onAthkarFocusChange }: { currentPage
 }
 
 function NameSetupModal({ onSaved }: { onSaved: (name: string) => void }) {
+  useLocale();
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const setDisplayName = useMutation(api.auth.setDisplayName);
@@ -746,16 +753,16 @@ function NameSetupModal({ onSaved }: { onSaved: (name: string) => void }) {
 
   const submit = async () => {
     const clean = name.trim().replace(/\s+/g, " ");
-    if (clean.length < 2) return toast.error("Enter the name you want us to use.");
+    if (clean.length < 2) return toast.error(tr("Enter the name you want us to use."));
     setSaving(true);
     try {
       await setDisplayName({ displayName: clean });
       // Close onboarding immediately; Convex will still update the reactive
       // profile query in the background.
       onSaved(clean);
-      toast.success(`Welcome, ${clean}`);
+      toast.success(tr("Welcome, {0}", {0: clean}));
     } catch (error: any) {
-      toast.error(error?.message ?? "Could not save your name");
+      toast.error(error?.message ?? tr("Could not save your name"));
     } finally {
       setSaving(false);
     }
@@ -775,15 +782,15 @@ function NameSetupModal({ onSaved }: { onSaved: (name: string) => void }) {
               <circle cx="12" cy="8" r="4" /><path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
             </svg>
           </div>
-          <h2 className={`mt-4 text-2xl font-bold ${colors.text}`}>What should we call you?</h2>
-          <p className={`mt-2 text-sm leading-6 ${colors.textSecondary}`}>This name will appear on your dashboard.</p>
+          <h2 className={`mt-4 text-2xl font-bold ${colors.text}`}>{tr("What should we call you?")}</h2>
+          <p className={`mt-2 text-sm leading-6 ${colors.textSecondary}`}>{tr("This name will appear on your dashboard.")}</p>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") void submit(); }}
             maxLength={32}
             autoFocus
-            placeholder="Your name"
+            placeholder={tr("Your name")}
             className={`mt-5 w-full rounded-2xl border ${colors.border} bg-black/45 px-4 py-3.5 ${colors.text} outline-none transition focus:border-white/25 focus:ring-2 focus:ring-white/5`}
           />
           <button
@@ -791,7 +798,7 @@ function NameSetupModal({ onSaved }: { onSaved: (name: string) => void }) {
             disabled={saving || name.trim().length < 2}
             className="mt-3 w-full rounded-2xl bg-[image:var(--sw-gradient)] px-4 py-3.5 font-semibold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Continue"}
+            {saving ? tr("Saving...") : tr("Continue")}
           </button>
         </div>
       </div>
@@ -800,6 +807,7 @@ function NameSetupModal({ onSaved }: { onSaved: (name: string) => void }) {
 }
 
 function RoutinesContent({ loggedInUser, displayName }: { loggedInUser: any; displayName: string }) {
+  useLocale();
   const routines = useQuery(api.routines.getRoutines);
   const userStats = useQuery(api.routines.getUserStats);
 
@@ -924,12 +932,12 @@ function RoutinesContent({ loggedInUser, displayName }: { loggedInUser: any; dis
     <>
       {/* Header */}
       <div className="animate-fade-in px-3 text-center sm:px-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45 sm:text-xs">Welcome back</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45 sm:text-xs">{tr("Welcome back")}</p>
         <h1
           className="mt-2 break-words bg-[image:var(--sw-gradient)] bg-clip-text text-4xl font-bold leading-[1.05] text-transparent sm:mt-3 sm:text-5xl md:text-6xl"
           style={{ textShadow: `0 0 18px ${glowStrong}` }}
         >
-          {displayName || "Your dashboard"}
+          {displayName || tr("Your dashboard")}
         </h1>
         <div className="mx-auto mt-5 h-1 w-20 rounded-full bg-[image:var(--sw-gradient)] sm:mt-6 sm:w-28" />
       </div>
@@ -944,7 +952,7 @@ function RoutinesContent({ loggedInUser, displayName }: { loggedInUser: any; dis
         >
           {/* sliding pill */}
           <div
-            className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-xl bg-[image:var(--sw-gradient)] transition-transform duration-[850ms] ease-[cubic-bezier(0.16,1,0.3,1)]`}
+            className={`absolute inset-y-1 start-1 w-[calc(50%-0.25rem)] rounded-xl bg-[image:var(--sw-gradient)] transition-transform duration-[850ms] ease-[cubic-bezier(0.16,1,0.3,1)]`}
             style={{ transform: viewMode === "flex" ? "translateX(100%)" : "translateX(0%)" }}
           />
           <button
@@ -957,8 +965,7 @@ function RoutinesContent({ loggedInUser, displayName }: { loggedInUser: any; dis
               viewMode === "blocks" ? "text-black" : `${colors.textSecondary} hover:text-white`,
             ].join(" ")}
           >
-            Blocks
-          </button>
+            {tr("Blocks")} </button>
 
           <button
             onClick={() => {
@@ -970,8 +977,7 @@ function RoutinesContent({ loggedInUser, displayName }: { loggedInUser: any; dis
               viewMode === "flex" ? "text-black" : `${colors.textSecondary} hover:text-white`,
             ].join(" ")}
           >
-            Flexible
-          </button>
+            {tr("Flexible")} </button>
         </div>
       </div>
 
@@ -1011,8 +1017,7 @@ function RoutinesContent({ loggedInUser, displayName }: { loggedInUser: any; dis
               {/* If still creating them */}
               {(!flexPriority || !flexOther) && (
                 <div className={`${colors.textSecondary} text-sm text-center py-4`}>
-                  Preparing your flexible layout...
-                </div>
+                  {tr("Preparing your flexible layout...")} </div>
               )}
             </div>
           )}

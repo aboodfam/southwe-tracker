@@ -843,3 +843,20 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
   }
 
 }
+
+/* Language-aware layout. Keep numeric editing predictable in both directions. */
+html[dir="rtl"] body {
+  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+}
+html[dir="rtl"] .tracking-widest,
+html[dir="rtl"] .tracking-wide,
+html[dir="rtl"] .tracking-tight {
+  letter-spacing: normal;
+}
+input[type="number"], input[type="email"], input[inputmode="numeric"],
+input[type="color"], input[type="range"] {
+  direction: ltr;
+}
+input[type="text"], textarea {
+  unicode-bidi: plaintext;
+}

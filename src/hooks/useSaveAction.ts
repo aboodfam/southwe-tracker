@@ -1,3 +1,4 @@
+import { t as tr } from "../i18n";
 import { useRef, useState } from "react";
 
 export function useSaveAction() {
@@ -8,7 +9,7 @@ export function useSaveAction() {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError("");
     try { await action(); }
-    catch (error) { setError(error instanceof Error ? error.message : "Couldn't save. Your entry is still here. Please retry."); }
+    catch (error) { setError(error instanceof Error ? error.message : tr("Couldn't save. Your entry is still here. Please retry.")); }
     finally { lock.current = false; setBusy(false); }
   };
   return { busy, error, run, setError };

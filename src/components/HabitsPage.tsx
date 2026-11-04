@@ -1,3 +1,4 @@
+import { t as tr, useLocale } from "../i18n";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
@@ -46,6 +47,7 @@ function Pill({
   onClick: () => void;
   children: ReactNode;
 }) {
+  useLocale();
   return (
     <button
       onClick={onClick}
@@ -71,6 +73,7 @@ function StreakRing({
   best: number;
   accentTriplet: string;
 }) {
+  useLocale();
   const denom = Math.max(1, best || 1);
   const pct = clamp((current / denom) * 100);
 
@@ -91,6 +94,7 @@ function StreakRing({
 }
 
 export function HabitsPage() {
+  useLocale();
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const { play } = useSound();
@@ -154,13 +158,13 @@ export function HabitsPage() {
   const onAdd = async () => {
     const name = newName.trim();
     if (!name) {
-      toast.error("Type a habit name.");
+      toast.error(tr("Type a habit name."));
       return;
     }
 
     try {
       await addHabit({ name, type: activeTab });
-      toast.success("Habit added.");
+      toast.success(tr("Habit added."));
       play("notification", 0.85);
       setShowAdd(false);
 
@@ -175,7 +179,7 @@ export function HabitsPage() {
         }
       }, 80);
     } catch {
-      toast.error("Failed to add habit.");
+      toast.error(tr("Failed to add habit."));
     }
   };
 
@@ -194,7 +198,7 @@ export function HabitsPage() {
         play("success", 0.95);
       }
     } catch {
-      toast.error("Failed to update habit.");
+      toast.error(tr("Failed to update habit."));
     }
   };
 
@@ -204,9 +208,9 @@ export function HabitsPage() {
     window.setTimeout(async () => {
       try {
         await deleteHabit({ habitId });
-        toast.success("Habit moved to My workspace → Recently deleted.");
+        toast.success(tr("Habit moved to My workspace → Recently deleted."));
       } catch {
-        toast.error("Failed to delete habit.");
+        toast.error(tr("Failed to delete habit."));
       } finally {
         setDeletingId(null);
       }
@@ -226,7 +230,7 @@ export function HabitsPage() {
         } as any
       }
     >
-      <PageHeader title="Habits" subtitle="Build good. Break bad." />
+      <PageHeader title={tr("Habits")} subtitle={tr("Build good. Break bad.")} />
 
       <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/30 backdrop-blur-xl p-4 sm:p-5 animate-slide-up max-w-5xl mx-auto">
         <div className="relative z-10 flex flex-col items-center text-center gap-4">
@@ -236,19 +240,17 @@ export function HabitsPage() {
                 active={activeTab === "build"}
                 onClick={() => switchTab("build")}
               >
-                Build
-              </Pill>
+                {tr("Build")} </Pill>
 
               <Pill
                 active={activeTab === "break"}
                 onClick={() => switchTab("break")}
               >
-                Break
-              </Pill>
+                {tr("Break")} </Pill>
 
               <button
                 onClick={openAdd}
-                className="ml-0 sm:ml-2 px-3 py-2 rounded-xl text-sm font-semibold border border-white/10 bg-white/5 hover:bg-white/10 text-white transition-all duration-500"
+                className="ms-0 sm:ms-2 px-3 py-2 rounded-xl text-sm font-semibold border border-white/10 bg-white/5 hover:bg-white/10 text-white transition-all duration-500"
                 style={{
                   boxShadow: `0 18px 70px ${rgbaFromTriplet(
                     accentTriplet,
@@ -256,15 +258,14 @@ export function HabitsPage() {
                   )}`,
                 }}
               >
-                + Add Habit
-              </button>
+                {tr("+ Add Habit")} </button>
             </div>
           </div>
 
           <div className="w-full max-w-md space-y-3 mt-2">
             <div className="rounded-2xl bg-black/35 border border-white/10 p-4 backdrop-blur-lg">
               <div className="flex items-center justify-between">
-                <div className="text-white/60 text-sm font-semibold">Today</div>
+                <div className="text-white/60 text-sm font-semibold">{tr("Today")}</div>
                 <div className="text-white/45 text-xs">{today}</div>
               </div>
 
@@ -273,18 +274,16 @@ export function HabitsPage() {
               </div>
 
               <div className="text-white/45 text-sm mt-1">
-                completed in{" "}
+                {tr("completed in")}{" "}
                 <span className="text-white/70 font-semibold">
                   {activeTab}
                 </span>{" "}
-                mode
-              </div>
+                {tr("mode")} </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-white/10 bg-black/35 p-2.5">
                   <div className="text-white/55 text-xs font-semibold">
-                    Avg Completion
-                  </div>
+                    {tr("Avg Completion")} </div>
                   <div className="mt-1 text-white text-lg font-black">
                     {Math.round(habitStats?.averageCompletionRate || 0)}%
                   </div>
@@ -292,8 +291,7 @@ export function HabitsPage() {
 
                 <div className="rounded-xl border border-white/10 bg-black/35 p-2.5">
                   <div className="text-white/55 text-xs font-semibold">
-                    Total Habits
-                  </div>
+                    {tr("Total Habits")} </div>
                   <div className="mt-1 text-white text-lg font-black">
                     {habitStats?.totalHabits || 0}
                   </div>
@@ -312,21 +310,19 @@ export function HabitsPage() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <div className="text-white font-bold text-base sm:text-lg">
-              Protocols
-            </div>
+              {tr("Protocols")} </div>
             <div className="text-white/45 text-sm" />
           </div>
 
           <div className="text-white/40 text-xs">
-            {filtered.length ? `${filtered.length} habits` : ""}
+            {filtered.length ? tr("{0} habits", {0: filtered.length}) : ""}
           </div>
         </div>
 
         {filtered.length === 0 ? (
           <div className="mt-10 mb-6 text-center">
             <div className="text-white/70 font-semibold">
-              No habits yet — add one and start.
-            </div>
+              {tr("No habits yet — add one and start.")} </div>
           </div>
         ) : null}
 
@@ -387,12 +383,12 @@ export function HabitsPage() {
                             : "rgba(255,255,255,0.04)",
                         }}
                       >
-                        {doneToday ? "DONE" : "PENDING"}
+                        {doneToday ? tr("DONE") : tr("PENDING")}
                       </span>
                     </div>
 
                     <div className="text-white/45 text-xs mt-1">
-                      Mode:{" "}
+                      {tr("Mode:")}{" "}
                       <span className="text-white/70 font-semibold">
                         {h.type}
                       </span>
@@ -408,12 +404,11 @@ export function HabitsPage() {
 
                 <div className="relative z-10 mt-4 flex items-center justify-between">
                   <div className="text-white/55 text-xs">
-                    Best:{" "}
+                    {tr("Best:")}{" "}
                     <span className="text-white/80 font-semibold">
                       {h.longestStreak || 0}
                     </span>{" "}
-                    days
-                  </div>
+                    {tr("days")} </div>
 
                   <div className="flex items-center gap-2">
                     <button
@@ -428,15 +423,14 @@ export function HabitsPage() {
                           : undefined,
                       }}
                     >
-                      {doneToday ? "Undo" : "Complete"}
+                      {doneToday ? tr("Undo") : tr("Complete")}
                     </button>
 
                     <button
                       onClick={() => onDelete(h._id)}
                       className="px-3 py-2 rounded-xl text-sm font-semibold border border-white/10 bg-black/30 hover:bg-white/5 text-white/80 transition-all duration-500"
                     >
-                      Delete
-                    </button>
+                      {tr("Delete")} </button>
                   </div>
                 </div>
               </div>
@@ -454,24 +448,21 @@ export function HabitsPage() {
 
           <div className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-black/55 backdrop-blur-xl p-4 sm:p-5 animate-scale-in">
             <div className="text-white font-black text-xl sm:text-2xl">
-              Add Habit
-            </div>
+              {tr("Add Habit")} </div>
             <div className="text-white/45 text-sm mt-1">
-              Create a protocol for your future self.
-            </div>
+              {tr("Create a protocol for your future self.")} </div>
 
             <div className="mt-5 space-y-3">
               <label className="text-white/60 text-xs font-semibold">
-                Name
-              </label>
+                {tr("Name")} </label>
 
               <input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder={
                   activeTab === "build"
-                    ? "e.g., Read 10 pages"
-                    : "e.g., No sugar"
+                    ? tr("e.g., Read 10 pages")
+                    : tr("e.g., No sugar")
                 }
                 className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white placeholder:text-white/30 outline-none focus:border-white/20 transition-all"
                 style={{
@@ -484,7 +475,7 @@ export function HabitsPage() {
 
               <div className="flex items-center justify-between gap-2">
                 <div className="text-white/55 text-sm">
-                  Mode:{" "}
+                  {tr("Mode:")}{" "}
                   <span className="text-white font-semibold">{activeTab}</span>
                 </div>
 
@@ -493,8 +484,7 @@ export function HabitsPage() {
                     onClick={() => setShowAdd(false)}
                     className="px-4 py-2 rounded-xl border border-white/10 bg-black/30 hover:bg-white/5 text-white/80 transition-all duration-500"
                   >
-                    Cancel
-                  </button>
+                    {tr("Cancel")} </button>
 
                   <button
                     onClick={onAdd}
@@ -510,14 +500,12 @@ export function HabitsPage() {
                       )}`,
                     }}
                   >
-                    Add
-                  </button>
+                    {tr("Add")} </button>
                 </div>
               </div>
 
               <div className="text-white/35 text-xs">
-                Tip: set it small enough that you can’t say no.
-              </div>
+                {tr("Tip: set it small enough that you can’t say no.")} </div>
             </div>
           </div>
         </div>

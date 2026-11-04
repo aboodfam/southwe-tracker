@@ -1,3 +1,4 @@
+import { t as tr, useLocale } from "../i18n";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
@@ -7,6 +8,7 @@ import { Icon } from "./icons";
 import { useLocalDateKey } from "../hooks/useLocalDateKey";
 
 export function CompleteButton() {
+  useLocale();
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const { play } = useSound();
@@ -20,7 +22,7 @@ export function CompleteButton() {
     try {
       await completeDay({ dateKey });
       play("complete", 1.25);
-      toast.success("Day locked in. Progress will reset tomorrow.", {
+      toast.success(tr("Day locked in. Progress will reset tomorrow."), {
         style: {
           background: "rgb(var(--sw-accent-rgb) / 0.12)",
           border: "1px solid rgb(var(--sw-accent-rgb) / 0.35)",
@@ -28,7 +30,7 @@ export function CompleteButton() {
         },
       });
     } catch {
-      toast.error("Failed to complete day");
+      toast.error(tr("Failed to complete day"));
     }
   };
 
@@ -45,10 +47,10 @@ export function CompleteButton() {
       <div className={`${colors.backgroundSecondary} relative overflow-hidden rounded-2xl border ${colors.border} p-5 backdrop-blur-sm sm:p-6`}>
         <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[image:var(--sw-gradient)] opacity-[0.08] blur-3xl" />
         <div className="relative z-10">
-          <div className="mb-5 flex items-center justify-between gap-3 text-left">
+          <div className="mb-5 flex items-center justify-between gap-3 text-start">
             <div>
-              <h3 className={`text-lg font-semibold ${colors.text}`}>Daily Progress</h3>
-              <p className={`mt-1 text-xs ${colors.textSecondary}`}>Reach 80% to lock in the day.</p>
+              <h3 className={`text-lg font-semibold ${colors.text}`}>{tr("Daily Progress")}</h3>
+              <p className={`mt-1 text-xs ${colors.textSecondary}`}>{tr("Reach 80% to lock in the day.")}</p>
             </div>
             <div className={`grid h-10 w-10 place-items-center rounded-xl border ${colors.border} bg-white/[0.035]`}>
               <Icon name={isAlreadyCompleted ? "checkCircle" : "chart"} className={`h-5 w-5 ${colors.text}`} />
@@ -63,7 +65,7 @@ export function CompleteButton() {
             ].map(([label, value]) => (
               <div key={String(label)} className="rounded-xl border border-white/10 bg-white/[0.025] px-3 py-3">
                 <div className="text-xl font-bold text-white">{value}</div>
-                <div className={`mt-1 text-[11px] ${colors.textSecondary}`}>{label}</div>
+                <div className={`mt-1 text-[11px] ${colors.textSecondary}`}>{tr(String(label))}</div>
               </div>
             ))}
           </div>
@@ -84,10 +86,10 @@ export function CompleteButton() {
             }`}
           >
             <Icon name={isAlreadyCompleted ? "checkCircle" : completionRate >= 80 ? "check" : "info"} className="h-4 w-4" />
-            {isAlreadyCompleted ? "Day Completed" : completionRate >= 80 ? "Complete Day" : `Complete ${remaining} more task${remaining === 1 ? "" : "s"}`}
+            {isAlreadyCompleted ? tr("Day Completed") : completionRate >= 80 ? tr("Complete Day") : tr(remaining === 1 ? "Complete {0} more task" : "Complete {0} more tasks", {0: remaining})}
           </button>
 
-          {isAlreadyCompleted && <p className="mt-2 text-xs text-emerald-300/60">Tasks reset automatically tomorrow.</p>}
+          {isAlreadyCompleted && <p className="mt-2 text-xs text-emerald-300/60">{tr("Tasks reset automatically tomorrow.")}</p>}
         </div>
       </div>
     </div>

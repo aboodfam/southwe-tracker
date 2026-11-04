@@ -1,3 +1,4 @@
+import { t as tr, useLocale } from "../i18n";
 import { useMemo } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 import { Icon, IconName } from "./icons";
@@ -16,6 +17,7 @@ interface StatsPanelProps {
 }
 
 export function StatsPanel({ stats, isLoading }: StatsPanelProps) {
+  useLocale();
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const loading = isLoading ?? stats === undefined;
@@ -30,11 +32,11 @@ export function StatsPanel({ stats, isLoading }: StatsPanelProps) {
 
   const statItems = useMemo(
     () => [
-      { label: "Days Completed", value: safeStats.totalDaysCompleted, icon: "trophy" as IconName },
-      { label: "Current Streak", value: safeStats.currentStreak, icon: "flame" as IconName },
-      { label: "Longest Streak", value: safeStats.longestStreak, icon: "bolt" as IconName },
-      { label: "Tasks Completed", value: safeStats.totalTasksCompleted, icon: "checkCircle" as IconName },
-      { label: "Avg Completion", value: `${safeStats.averageCompletionRate.toFixed(0)}%`, icon: "chart" as IconName },
+      { label: tr("Days Completed"), value: safeStats.totalDaysCompleted, icon: "trophy" as IconName },
+      { label: tr("Current Streak"), value: safeStats.currentStreak, icon: "flame" as IconName },
+      { label: tr("Longest Streak"), value: safeStats.longestStreak, icon: "bolt" as IconName },
+      { label: tr("Tasks Completed"), value: safeStats.totalTasksCompleted, icon: "checkCircle" as IconName },
+      { label: tr("Avg Completion"), value: `${safeStats.averageCompletionRate.toFixed(0)}%`, icon: "chart" as IconName },
     ],
     [safeStats.totalDaysCompleted, safeStats.currentStreak, safeStats.longestStreak, safeStats.totalTasksCompleted, safeStats.averageCompletionRate]
   );

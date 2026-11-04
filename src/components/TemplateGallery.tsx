@@ -1,3 +1,4 @@
+import { t as tr, useLocale } from "../i18n";
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -15,13 +16,14 @@ export function TemplateGallery({
   onDone: () => void;
   onClose?: () => void;
 }) {
+  useLocale();
   const apply = useMutation(api.workspace.applyStarter);
   const action = useSaveAction();
   const [draft, setDraft] = useState<Starter | null>(null);
   const [included, setIncluded] = useState<boolean[]>([]);
   const request = useRef(crypto.randomUUID());
   const select = (starter: Starter) => {
-    setDraft({ ...starter, tasks: starter.tasks.map((task) => ({ ...task })) });
+    setDraft({ ...starter, name: tr(starter.name), description: tr(starter.description), timeSlot: tr(starter.timeSlot), tasks: starter.tasks.map((task) => ({ ...task, name: tr(task.name), ...(task.fallbackName ? {fallbackName: tr(task.fallbackName)} : {}) })) });
     setIncluded(starter.tasks.map(() => true));
     request.current = crypto.randomUUID();
     action.setError("");
@@ -30,34 +32,32 @@ export function TemplateGallery({
     <section
       className="rounded-2xl border border-white/10 bg-black/30 p-5"
       data-no-swipe
-      aria-label="Ready-made templates"
+      aria-label={tr("Ready-made templates")}
     >
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">
-          {draft ? draft.name : "Start with something simple"}
+          {draft ? draft.name : tr("Start with something simple")}
         </h2>
         {onClose && (
           <button onClick={onClose} disabled={action.busy} className={button}>
-            Close
-          </button>
+            {tr("Close")} </button>
         )}
       </div>
       {!draft ? (
         <>
           <p className="mt-2 text-sm text-white/60">
-            Choose a small daily routine, or add your own action.
-          </p>
+            {tr("Choose a small daily routine, or add your own action.")} </p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {READY_TEMPLATES.map((starter) => (
               <button
                 key={starter.id}
                 onClick={() => select(starter)}
-                className={`${button} p-4 text-left`}
+                className={`${button} p-4 text-start`}
               >
-                <span className="block font-semibold">{starter.name}</span>
+                <span className="block font-semibold">{tr(starter.name)}</span>
                 <span className="mt-1 block text-xs text-white/55">
-                  {starter.tasks.length} daily{" "}
-                  {starter.tasks.length === 1 ? "action" : "actions"}
+                  {starter.tasks.length} {tr("daily")}{" "}
+                  {starter.tasks.length === 1 ? tr("action") : tr("actions")}
                 </span>
               </button>
             ))}
@@ -67,15 +67,14 @@ export function TemplateGallery({
             onClick={() =>
               select({
                 id: "own",
-                name: "My daily routine",
+                name: tr("My daily routine"),
                 description: "",
                 timeSlot: "Any time",
                 tasks: [{ name: "" }],
               })
             }
           >
-            Add my own action
-          </button>
+            {tr("Add my own action")} </button>
         </>
       ) : (
         <form
@@ -96,13 +95,12 @@ export function TemplateGallery({
           }}
         >
           <p className="text-sm text-white/60">
-            Edit the actions or uncheck any you don't want. These repeat daily.
-          </p>
+            {tr("Edit the actions or uncheck any you don't want. These repeat daily.")} </p>
           {draft.tasks.map((task, index) => (
             <div key={index} className="flex items-center gap-3">
               <input
                 type="checkbox"
-                aria-label={`Include action ${index + 1}`}
+                aria-label={tr("Include action {0}", {0: index + 1})}
                 checked={included[index]}
                 disabled={action.busy}
                 className="h-5 w-5 shrink-0"
@@ -115,12 +113,12 @@ export function TemplateGallery({
                 }
               />
               <input
-                aria-label={`Action ${index + 1}`}
+                aria-label={tr("Action {0}", {0: index + 1})}
                 value={task.name}
                 required={included[index]}
                 maxLength={180}
                 disabled={action.busy || !included[index]}
-                placeholder="What would you like to do?"
+                placeholder={tr("What would you like to do?")}
                 className="min-h-11 min-w-0 flex-1 rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-base disabled:opacity-40"
                 onChange={(event) =>
                   setDraft({
@@ -135,11 +133,9 @@ export function TemplateGallery({
           ))}
           <details className="text-sm text-white/65">
             <summary className="cursor-pointer py-2">
-              Name and timing (optional)
-            </summary>
+              {tr("Name and timing (optional)")} </summary>
             <label className="mt-2 block">
-              Routine name
-              <input
+              {tr("Routine name")} <input
                 className="mt-1 block min-h-11 w-full rounded-xl border border-white/15 bg-black/30 px-3"
                 value={draft.name}
                 maxLength={80}
@@ -151,8 +147,7 @@ export function TemplateGallery({
               />
             </label>
             <label className="mt-3 block">
-              When
-              <input
+              {tr("When")} <input
                 className="mt-1 block min-h-11 w-full rounded-xl border border-white/15 bg-black/30 px-3"
                 value={draft.timeSlot}
                 maxLength={48}
@@ -174,7 +169,7 @@ export function TemplateGallery({
               disabled={action.busy || !included.some(Boolean)}
               className="min-h-11 rounded-xl bg-[rgb(var(--sw-accent-rgb))] px-5 py-2 text-sm font-semibold text-black disabled:opacity-50"
             >
-              {action.busy ? "Adding…" : "Add to my day"}
+              {action.busy ? tr("Adding…") : tr("Add to my day")}
             </button>
             <button
               type="button"
@@ -182,8 +177,7 @@ export function TemplateGallery({
               disabled={action.busy}
               onClick={() => setDraft(null)}
             >
-              Back
-            </button>
+              {tr("Back")} </button>
           </div>
         </form>
       )}

@@ -55,7 +55,7 @@ const paths: Record<IconName, ReactNode> = {
 
 export function Icon({ name, className = "h-5 w-5", ...props }: { name: IconName; className?: string } & SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true" {...props}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={`${className ?? ""} ${name === "chevronLeft" || name === "chevronRight" ? "rtl:rotate-180" : ""}`} aria-hidden="true" {...props}>
       {paths[name]}
     </svg>
   );

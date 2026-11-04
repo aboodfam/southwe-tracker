@@ -1,3 +1,5 @@
+import { LanguageSelector } from "./components/LanguageSelector";
+import { t as tr, useLocale } from "./i18n";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useAction, useQuery } from "convex/react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -32,6 +34,7 @@ async function sha256Hex(value: string) {
 }
 
 export function TrustedDeviceGate({ children }: { children: ReactNode }) {
+  useLocale();
   const { signOut } = useAuthActions();
   const requestCode = useAction(api.deviceAuth.requestDeviceCode);
   const verifyCode = useAction(api.deviceAuth.verifyDeviceCode);
@@ -41,7 +44,7 @@ export function TrustedDeviceGate({ children }: { children: ReactNode }) {
   const [maskedEmail, setMaskedEmail] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const label = useMemo(() => (typeof navigator === "undefined" ? "This device" : deviceLabel()), []);
+  const label = useMemo(() => (typeof navigator === "undefined" ? tr("This device") : deviceLabel()), []);
 
   useEffect(() => {
     const token = getOrCreateDeviceToken();
@@ -58,9 +61,9 @@ export function TrustedDeviceGate({ children }: { children: ReactNode }) {
       const result = await requestCode({ deviceHash, label });
       setMaskedEmail(result.maskedEmail);
       sessionStorage.setItem(`ceventic_device_code_sent:${deviceHash}`, "1");
-      if (manual) toast.success("A new security code was sent");
+      if (manual) toast.success(tr("A new security code was sent"));
     } catch (error: any) {
-      toast.error(error?.message ?? "Could not send the security code");
+      toast.error(error?.message ?? tr("Could not send the security code"));
     } finally {
       setSending(false);
     }
@@ -91,9 +94,9 @@ export function TrustedDeviceGate({ children }: { children: ReactNode }) {
     setVerifying(true);
     try {
       await verifyCode({ code, deviceToken, label });
-      toast.success("Device verified for 30 days");
+      toast.success(tr("Device verified for 30 days"));
     } catch (error: any) {
-      toast.error(error?.message ?? "Could not verify this device");
+      toast.error(error?.message ?? tr("Could not verify this device"));
     } finally {
       setVerifying(false);
     }
@@ -102,9 +105,10 @@ export function TrustedDeviceGate({ children }: { children: ReactNode }) {
   return (
     <div className="relative z-20 min-h-screen bg-black px-4 py-8 text-white sm:grid sm:place-items-center">
       <div className="mx-auto w-full max-w-md pt-[10vh] sm:pt-0">
+        <div className="mb-5 flex justify-end"><LanguageSelector /></div>
         <div className="mb-7 flex items-center gap-3 text-white/45">
           <div className="h-px flex-1 bg-white/10" />
-          <span className="text-[11px] font-semibold uppercase tracking-[0.22em]">Security check</span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.22em]">{tr("Security check")}</span>
           <div className="h-px flex-1 bg-white/10" />
         </div>
         <div className="rounded-[28px] border border-white/10 bg-[#090909] p-5 shadow-[0_24px_80px_rgba(0,0,0,.55)] sm:p-7">
@@ -113,16 +117,15 @@ export function TrustedDeviceGate({ children }: { children: ReactNode }) {
               <rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /><path d="M12 14v2" />
             </svg>
           </div>
-          <h1 className="mt-5 text-2xl font-bold tracking-tight">Verify this device</h1>
+          <h1 className="mt-5 text-2xl font-bold tracking-tight">{tr("Verify this device")}</h1>
           <p className="mt-2 text-sm leading-6 text-white/48">
-            {maskedEmail ? <>We sent a 6-digit code to <span className="font-semibold text-white/70">{maskedEmail}</span>.</> : "We’re sending a 6-digit code to your account email."} This device will stay trusted for 30 days.
-          </p>
+            {maskedEmail ? <>{tr("We sent a 6-digit code to")} <span className="font-semibold text-white/70">{maskedEmail}</span>.</> : tr("We’re sending a 6-digit code to your account email.")} {tr("This device will stay trusted for 30 days.")} </p>
 
           <input
             value={code}
             onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
             onKeyDown={(event) => { if (event.key === "Enter") void verify(); }}
-            inputMode="numeric"
+            inputMode="numeric" dir="ltr"
             autoComplete="one-time-code"
             autoFocus
             placeholder="000000"
@@ -134,14 +137,14 @@ export function TrustedDeviceGate({ children }: { children: ReactNode }) {
             disabled={verifying || code.length !== 6}
             className="mt-3 w-full rounded-2xl bg-[image:var(--sw-gradient)] px-4 py-3.5 font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
           >
-            {verifying ? "Checking…" : "Verify device"}
+            {verifying ? tr("Checking…") : tr("Verify device")}
           </button>
 
           <div className="mt-4 flex items-center justify-between gap-3 text-xs">
             <button onClick={() => void send(true)} disabled={sending} className="text-white/50 transition hover:text-white disabled:opacity-40">
-              {sending ? "Sending…" : "Resend code"}
+              {sending ? tr("Sending…") : tr("Resend code")}
             </button>
-            <button onClick={() => void signOut()} className="text-white/40 transition hover:text-white">Sign out</button>
+            <button onClick={() => void signOut()} className="text-white/40 transition hover:text-white">{tr("Sign out")}</button>
           </div>
         </div>
       </div>

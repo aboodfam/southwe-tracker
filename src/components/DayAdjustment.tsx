@@ -1,3 +1,4 @@
+import { t as tr, useLocale } from "../i18n";
 import { useState } from "react";
 import type { DayState, Adjustment } from "../../convex/supportModel";
 
@@ -24,6 +25,7 @@ export function DayAdjustment({
   onApply: (state: DayState) => void;
   onCancel: () => void;
 }) {
+  useLocale();
   const available = items.filter((item) => !item.completed && !item.locked);
   const [kept, setKept] = useState(() =>
     available
@@ -40,11 +42,9 @@ export function DayAdjustment({
       className="rounded-2xl border border-white/15 bg-black/30 p-5"
       data-no-swipe
     >
-      <h2 className="text-lg font-semibold">What do you want to keep today?</h2>
+      <h2 className="text-lg font-semibold">{tr("What do you want to keep today?")}</h2>
       <p className="mt-2 text-sm leading-6 text-white/60">
-        Uncheck anything optional. It will be set aside for today, without
-        marking it complete.
-      </p>
+        {tr("Uncheck anything optional. It will be set aside for today, without marking it complete.")} </p>
       <form
         className="mt-4"
         onSubmit={(event) => {
@@ -94,9 +94,7 @@ export function DayAdjustment({
           ))}
         </fieldset>
         <p className="mt-3 text-xs leading-5 text-white/50">
-          Your usual routine returns tomorrow. Workouts and Athkar stay
-          unchanged.
-        </p>
+          {tr("Your usual routine returns tomorrow. Workouts and Athkar stay unchanged.")} </p>
         {error && (
           <p role="alert" className="mt-3 text-sm text-red-300">
             {error}
@@ -107,7 +105,7 @@ export function DayAdjustment({
             disabled={busy}
             className="min-h-11 rounded-xl bg-[rgb(var(--sw-accent-rgb))] px-5 py-2 text-sm font-semibold text-black disabled:opacity-50"
           >
-            {busy ? "Saving…" : "Save today"}
+            {busy ? tr("Saving…") : tr("Save today")}
           </button>
           <button
             type="button"
@@ -115,8 +113,7 @@ export function DayAdjustment({
             onClick={onCancel}
             className="min-h-11 rounded-xl px-4 py-2 text-sm text-white/65"
           >
-            Cancel
-          </button>
+            {tr("Cancel")} </button>
         </div>
       </form>
     </section>

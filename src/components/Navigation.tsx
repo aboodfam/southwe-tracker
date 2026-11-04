@@ -1,3 +1,4 @@
+import { t as tr, useLocale } from "../i18n";
 import { useTheme } from "../contexts/ThemeContext";
 import { Icon, IconName } from "./icons";
 
@@ -8,17 +9,18 @@ interface NavigationProps {
 }
 
 export function Navigation({ currentPage, onPageChange, hiddenPages }: NavigationProps) {
+  useLocale();
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
 
   const pages: { id: NavigationProps["currentPage"]; name: string; icon: IconName }[] = [
-    { id: "today", name: "Today", icon: "calendar" },
-    { id: "routines", name: "Routines", icon: "routines" },
-    { id: "workout", name: "Workout", icon: "workout" },
-    { id: "habits", name: "Habits", icon: "habits" },
-    { id: "progress", name: "Progress", icon: "progress" },
-    { id: "athkar", name: "Athkar", icon: "athkar" },
-    { id: "macros", name: "Macros", icon: "macros" },
+    { id: "today", name: tr("Today"), icon: "calendar" },
+    { id: "routines", name: tr("Routines"), icon: "routines" },
+    { id: "workout", name: tr("Workout"), icon: "workout" },
+    { id: "habits", name: tr("Habits"), icon: "habits" },
+    { id: "progress", name: tr("Progress"), icon: "progress" },
+    { id: "athkar", name: tr("Athkar"), icon: "athkar" },
+    { id: "macros", name: tr("Macros"), icon: "macros" },
   ];
 
   return (

@@ -1,3 +1,4 @@
+import { t as tr, useLocale } from "./i18n";
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTheme } from "./contexts/ThemeContext";
@@ -7,6 +8,7 @@ function isTauriDesktop() {
 }
 
 export function DesktopFullscreenButton() {
+  useLocale();
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const [isDesktop, setIsDesktop] = useState(false);
@@ -70,8 +72,8 @@ export function DesktopFullscreenButton() {
       onClick={() => void toggleFullscreen()}
       className={`grid h-[46px] w-[46px] shrink-0 place-items-center rounded-xl border ${colors.border} bg-black/45 text-white/65 shadow-lg transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white active:scale-[0.97]`}
       style={{ boxShadow: `0 0 18px rgb(var(--sw-accent-rgb) / .08)` }}
-      title={isFullscreen ? "Exit fullscreen (F11)" : "Enter fullscreen (F11)"}
-      aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+      title={isFullscreen ? tr("Exit fullscreen (F11)") : tr("Enter fullscreen (F11)")}
+      aria-label={isFullscreen ? tr("Exit fullscreen") : tr("Enter fullscreen")}
       aria-pressed={isFullscreen}
     >
       {isFullscreen ? (

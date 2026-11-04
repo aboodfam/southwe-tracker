@@ -1,3 +1,4 @@
+import { t as tr, useLocale } from "../i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -48,22 +49,24 @@ const MUSCLE_CATEGORIES = [
 
 const SPLITS = {
   days: {
-    label: "Days Split (Day 1 → Day 7)",
+    get label() { return tr("Days Split (Day 1 → Day 7)"); },
     names: ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7"],
   },
   ppl: {
-    label: "Push / Pull / Legs",
+    get label() { return tr("Push / Pull / Legs"); },
     names: ["Push", "Pull", "Legs", "Push", "Pull", "Legs", "Rest"],
   },
   bro: {
-    label: "Bro Split",
+    get label() { return tr("Bro Split"); },
     names: ["Chest", "Back", "Shoulders", "Arms", "Legs", "Abs", "Rest"],
   },
   arnold: {
-    label: "Arnold Split",
+    get label() { return tr("Arnold Split"); },
     names: ["Chest & Back", "Shoulders & Arms", "Legs", "Chest & Back", "Shoulders & Arms", "Legs", "Rest"],
   },
 } as const;
+
+function muscleLabel(name: string) { return tr(name === "Back" ? "Back muscles" : name); }
 
 function rgbaFromRgb(rgb: string, a: number) {
   // rgb like "rgb(34, 211, 238)"
@@ -73,6 +76,7 @@ function rgbaFromRgb(rgb: string, a: number) {
 }
 
 export function WorkoutPage() {
+  useLocale();
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const accent = colors.primary;
@@ -241,10 +245,10 @@ export function WorkoutPage() {
       await applyWorkoutSplit({ names: template });
       setSelectedIdx(0);
       setSplitPreviewNames(null);
-      toast.success("Split applied");
+      toast.success(tr("Split applied"));
     } catch (e: any) {
       setSplitPreviewNames(null);
-      toast.error(e?.message ?? "Failed to apply split");
+      toast.error(e?.message ?? tr("Failed to apply split"));
     } finally {
       splitLock.current = false;
       setApplyingSplit(false);
@@ -266,14 +270,14 @@ export function WorkoutPage() {
   const saveDay = async () => {
     if (!dayEditId) return;
     const n = dayName.trim();
-    if (!n) return toast.error("Day name is required");
+    if (!n) return toast.error(tr("Day name is required"));
 
     try {
       await updateDay({ dayId: dayEditId, name: n, warmupNotes: undefined });
-      toast.success("Day updated");
+      toast.success(tr("Day updated"));
       setDayModalOpen(false);
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed");
+      toast.error(e?.message ?? tr("Failed"));
     }
   };
 
@@ -330,11 +334,11 @@ export function WorkoutPage() {
     const n = exName.trim();
     const r = exReps.trim();
     const m = String(exMuscles).trim();
-    if (!n) return toast.error("Exercise name is required");
-    if (!r) return toast.error("Reps is required");
-    if (!m) return toast.error("Muscles is required");
+    if (!n) return toast.error(tr("Exercise name is required"));
+    if (!r) return toast.error(tr("Reps is required"));
+    if (!m) return toast.error(tr("Muscles is required"));
     if (!Number.isInteger(exSets) || exSets < 1 || exSets > 100) {
-      setExerciseError("Sets must be a whole number from 1 to 100.");
+      setExerciseError(tr("Sets must be a whole number from 1 to 100."));
       return;
     }
 
@@ -352,7 +356,7 @@ export function WorkoutPage() {
           isWarmup: false,
           notes: exNotes.trim() || undefined,
         });
-        toast.success("Exercise updated");
+        toast.success(tr("Exercise updated"));
       } else {
         const created = await addExercise({
   dayId: selectedDay._id,
@@ -374,12 +378,12 @@ if (created && typeof (created as any).id === "string") {
   });
 }
 
-toast.success("Exercise added");
+toast.success(tr("Exercise added"));
 play("notification", 0.9);
       }
       setExModalOpen(false);
     } catch (e: any) {
-      setExerciseError(e?.message ?? "Couldn't save. Your entry is still here—please try again.");
+      setExerciseError(e?.message ?? tr("Couldn't save. Your entry is still here—please try again."));
     } finally {
       saveExerciseLock.current = false;
       setSavingExercise(false);
@@ -390,10 +394,10 @@ play("notification", 0.9);
     if (!selectedDay || !exEditId) return;
     try {
       await deleteExercise({ dayId: selectedDay._id, exerciseId: exEditId });
-      toast.success("Exercise moved to My workspace → Recently deleted.");
+      toast.success(tr("Exercise moved to My workspace → Recently deleted."));
       setExModalOpen(false);
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed");
+      toast.error(e?.message ?? tr("Failed"));
     }
   };
 
@@ -415,7 +419,7 @@ play("notification", 0.9);
         }
       }
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed");
+      toast.error(e?.message ?? tr("Failed"));
     } finally {
       workoutLock.current = false;
       setWorkoutBusy(false);
@@ -429,9 +433,9 @@ play("notification", 0.9);
     try {
       await completeWorkout({ dayId: selectedDay._id, dateKey });
       play("complete", 1.15);
-      toast.success("Workout saved as complete.");
+      toast.success(tr("Workout saved as complete."));
     } catch (e: any) {
-      toast.error(e?.message ?? "Could not complete workout");
+      toast.error(e?.message ?? tr("Could not complete workout"));
     } finally {
       workoutLock.current = false;
       setWorkoutBusy(false);
@@ -444,10 +448,10 @@ play("notification", 0.9);
     if (!selectedDay) return;
     try {
       await deleteDay({ dayId: selectedDay._id });
-      toast.success("Day moved to My workspace → Recently deleted.");
+      toast.success(tr("Day moved to My workspace → Recently deleted."));
       setConfirmDeleteDay(false);
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed");
+      toast.error(e?.message ?? tr("Failed"));
     }
   };
 
@@ -463,8 +467,7 @@ play("notification", 0.9);
             className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight"
             style={{ color: colors.primary }}
           >
-            Workout Routine
-          </h1>
+            {tr("Workout Routine")} </h1>
           <div
             className="absolute -inset-4 sm:-inset-6 blur-2xl opacity-60 pointer-events-none"
             style={{
@@ -474,8 +477,7 @@ play("notification", 0.9);
         </div>
 
         <p className="mt-2 sm:mt-3 text-sm sm:text-base" style={{ color: "rgba(255,255,255,0.65)" }}>
-          Build strength, one rep at a time
-        </p>
+          {tr("Build strength, one rep at a time")} </p>
 
         <div className="mt-3 sm:mt-4 flex justify-center">
           <div
@@ -495,8 +497,8 @@ play("notification", 0.9);
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="text-sm font-semibold text-white">Split Template</div>
-            <div className="text-xs text-white/45">Pick a split → apply → then edit exercises freely.</div>
+            <div className="text-sm font-semibold text-white">{tr("Split Template")}</div>
+            <div className="text-xs text-white/45">{tr("Pick a split → apply → then edit exercises freely.")}</div>
           </div>
 
           <div className="flex gap-2">
@@ -522,7 +524,7 @@ play("notification", 0.9);
                 boxShadow: `0 0 22px ${rgbaFromRgb(accent, 0.14)}`,
               }}
             >
-              {applyingSplit ? "Applying…" : "Apply"}
+              {applyingSplit ? tr("Applying…") : tr("Apply")}
             </button>
           </div>
         </div>
@@ -530,11 +532,11 @@ play("notification", 0.9);
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard title="Total Workouts" value={stats?.totalWorkouts ?? 0} delayMs={40} />
-        <StatCard title="Current Streak" value={stats?.currentStreak ?? 0} delayMs={80} />
-        <StatCard title="Longest Streak" value={stats?.longestStreak ?? 0} delayMs={120} />
+        <StatCard title={tr("Total Workouts")} value={stats?.totalWorkouts ?? 0} delayMs={40} />
+        <StatCard title={tr("Current Streak")} value={stats?.currentStreak ?? 0} delayMs={80} />
+        <StatCard title={tr("Longest Streak")} value={stats?.longestStreak ?? 0} delayMs={120} />
         <StatCard
-          title="Avg Completion"
+          title={tr("Avg Completion")}
           value={`${Math.round(stats?.averageCompletionRate ?? 0)}%`}
           delayMs={160}
         />
@@ -570,7 +572,7 @@ play("notification", 0.9);
                     className="text-[10px] sm:text-[11px]"
                     style={{ color: "rgba(255,255,255,0.45)" }}
                   >
-                    Day {i + 1}
+                    {tr("Day")} {i + 1}
                   </div>
                   <div
                     className="text-xs sm:text-sm font-bold truncate"
@@ -580,7 +582,7 @@ play("notification", 0.9);
                     {displayName}
                   </div>
                   <div className="text-[10px] sm:text-[11px] mt-1" style={{ color: "rgba(255,255,255,0.45)" }}>
-                    {isRestLike ? "Rest" : d.exercises.length ? "Train" : "Not set up"}
+                    {isRestLike ? tr("Rest") : d.exercises.length ? tr("Train") : tr("Not set up")}
                   </div>
                 </button>
               );
@@ -590,9 +592,9 @@ play("notification", 0.9);
       </div>
 
       {/* Loading hint */}
-      {!daysLoading && days.length === 0 && <div className="rounded-2xl border border-dashed border-white/15 p-6 text-center"><h2 className="font-bold text-white">Build your first training week</h2><p className="mt-2 text-sm text-white/60">Choose a split above and apply it. Then add exercises to each day. Nothing is created until you choose.</p></div>}
+      {!daysLoading && days.length === 0 && <div className="rounded-2xl border border-dashed border-white/15 p-6 text-center"><h2 className="font-bold text-white">{tr("Build your first training week")}</h2><p className="mt-2 text-sm text-white/60">{tr("Choose a split above and apply it. Then add exercises to each day. Nothing is created until you choose.")}</p></div>}
       {daysLoading && (
-        <div className="text-center text-white/50 text-sm">Loading workout…</div>
+        <div className="text-center text-white/50 text-sm">{tr("Loading workout…")}</div>
       )}
 
       {/* Main panel */}
@@ -610,27 +612,24 @@ play("notification", 0.9);
             <div className="flex items-start justify-between gap-3 sm:gap-4">
               <div className="min-w-0 flex-1">
                 <div className="text-base sm:text-lg md:text-xl font-bold text-white truncate">
-                  Day {selectedIdx + 1}: {splitPreviewNames?.[selectedIdx] ?? selectedDay.name}
+                  {tr("Day")} {selectedIdx + 1}: {splitPreviewNames?.[selectedIdx] ?? selectedDay.name}
                 </div>
                 <div className="mt-1 sm:mt-2 text-sm" style={{ color: "rgba(255,255,255,0.55)" }}>
-                  Progress
-                </div>
+                  {tr("Progress")} </div>
               </div>
 
               <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
-                <button onClick={() => { setCopyName(`${selectedDay.name} copy`); setCopyOpen(true); }} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/80">Copy day</button>
+                <button onClick={() => { setCopyName(tr("{0} copy", {0: selectedDay.name})); setCopyOpen(true); }} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/80">{tr("Copy day")}</button>
                 <button
                   onClick={openEditDay}
                   className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 transition text-xs sm:text-sm"
                 >
-                  Edit
-                </button>
+                  {tr("Edit")} </button>
                 <button
                   onClick={() => setConfirmDeleteDay(true)}
                   className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-red-500/10 border border-red-500/20 text-red-200 hover:bg-red-500/15 transition text-xs sm:text-sm"
                 >
-                  Delete
-                </button>
+                  {tr("Delete")} </button>
               </div>
             </div>
 
@@ -668,26 +667,25 @@ play("notification", 0.9);
                     : undefined
                 }
               >
-                {workoutBusy ? "Saving…" : (todayProgress as any)?.completedWorkout === true
-                  ? "Workout Completed"
+                {workoutBusy ? tr("Saving…") : (todayProgress as any)?.completedWorkout === true
+                  ? tr("Workout Completed")
                   : rate >= 70
-                    ? "Complete Workout"
-                    : `Reach 70% to complete (${Math.round(rate)}%)`}
+                    ? tr("Complete Workout")
+                    : tr("Reach 70% to complete ({0}%)", {0: Math.round(rate)})}
               </button>
             )}
           </div>
 
           {/* No exercises */}
           {orderedExercises.length === 0 ? (
-            <SectionCard title="Exercises" subtitle="" accent={accent}>
+            <SectionCard title={tr("Exercises")} subtitle="" accent={accent}>
               <div className="space-y-3">
-                <div className="text-white/55 text-sm">No exercises yet.</div>
+                <div className="text-white/55 text-sm">{tr("No exercises yet.")}</div>
                 <button
                   onClick={() => openAddExercise()}
                   className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/[0.07] hover:text-white"
                 >
-                  + Add Exercise
-                </button>
+                  {tr("+ Add Exercise")} </button>
               </div>
             </SectionCard>
           ) : (
@@ -697,7 +695,7 @@ play("notification", 0.9);
                 className="animate-float-in"
                 style={{ ["--delay" as any]: `${180 + gi * 60}ms` }}
               >
-                <SectionCard title={g.title} subtitle="" accent={accent}>
+                <SectionCard title={muscleLabel(g.title)} subtitle="" accent={accent}>
                 <div className="space-y-2">
                   {g.items.map((ex, ei) => (
                     <div
@@ -720,8 +718,7 @@ play("notification", 0.9);
                     onClick={() => openAddExercise(g.title)}
                     className="mt-2 w-full rounded-xl border border-white/10 bg-black/25 py-2.5 sm:py-3 text-sm text-white/70 hover:text-white/90 hover:bg-black/35 transition"
                   >
-                    + Add {g.title} Exercise
-                  </button>
+                    {tr("+ Add")} {g.title} {tr("Exercise")} </button>
                 </div>
                 </SectionCard>
               </div>
@@ -735,39 +732,39 @@ play("notification", 0.9);
               className="w-full rounded-2xl border border-white/10 bg-black/25 p-4 sm:p-5 text-white/70 hover:text-white/90 hover:border-white/20 transition"
               style={{ boxShadow: `0 0 40px ${rgbaFromRgb(accent, 0.06)}` }}
             >
-              <div className="text-sm font-semibold">+ Add Exercise</div>
-              <div className="text-xs text-white/40 mt-1">Pick a muscle category, set reps, done.</div>
+              <div className="text-sm font-semibold">{tr("+ Add Exercise")}</div>
+              <div className="text-xs text-white/40 mt-1">{tr("Pick a muscle category, set reps, done.")}</div>
             </button>
           </div>
         </div>
       )}
 
-      {copyOpen && selectedDay && <Modal title="Copy workout day" accent={accent} onClose={() => { if (!copyLock.current) setCopyOpen(false); }}>
+      {copyOpen && selectedDay && <Modal title={tr("Copy workout day")} accent={accent} onClose={() => { if (!copyLock.current) setCopyOpen(false); }}>
         <form className="space-y-4" onSubmit={async event => {
           event.preventDefault();
           if (copyLock.current || !copyName.trim()) return;
           copyLock.current = true; setCopying(true);
           try {
             await copyDay({ dayId: selectedDay._id, name: copyName.trim() });
-            setCopyOpen(false); toast.success("Day copied. The original and its history are unchanged.");
-          } catch (error: any) { toast.error(error?.message ?? "Could not copy this day."); }
+            setCopyOpen(false); toast.success(tr("Day copied. The original and its history are unchanged."));
+          } catch (error: any) { toast.error(error?.message ?? tr("Could not copy this day.")); }
           finally { copyLock.current = false; setCopying(false); }
         }}>
-          <p className="text-sm text-white/60">Creates a new day with the same {selectedDay.exercises.length} exercises. Completion checkmarks and result history are not copied.</p>
-          <label className="block text-sm text-white/70">New day name<input autoFocus required maxLength={80} value={copyName} onChange={event => setCopyName(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-white" /></label>
-          <button disabled={copying} className="w-full rounded-xl bg-[rgb(var(--sw-accent-rgb))] px-4 py-3 font-bold text-black disabled:opacity-50">{copying ? "Copying…" : "Create copy"}</button>
+          <p className="text-sm text-white/60">{tr("Creates a new day with the same")} {selectedDay.exercises.length} {tr("exercises. Completion checkmarks and result history are not copied.")}</p>
+          <label className="block text-sm text-white/70">{tr("New day name")}<input autoFocus required maxLength={80} value={copyName} onChange={event => setCopyName(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-white" /></label>
+          <button disabled={copying} className="w-full rounded-xl bg-[rgb(var(--sw-accent-rgb))] px-4 py-3 font-bold text-black disabled:opacity-50">{copying ? tr("Copying…") : tr("Create copy")}</button>
         </form>
       </Modal>}
       {/* Day modal */}
       {dayModalOpen && (
-        <Modal onClose={() => setDayModalOpen(false)} accent={accent} title="Edit Day">
+        <Modal onClose={() => setDayModalOpen(false)} accent={accent} title={tr("Edit Day")}>
           <div className="space-y-3">
-            <label className="text-xs text-white/55">Day name</label>
+            <label className="text-xs text-white/55">{tr("Day name")}</label>
             <input
               value={dayName}
               onChange={(e) => setDayName(e.target.value)}
               className="w-full rounded-xl bg-black/35 border border-white/10 px-3 py-2 text-white/90 placeholder:text-white/30 focus:outline-none focus:border-white/20"
-              placeholder="Push / Pull / Legs / Day 1..."
+              placeholder={tr("Push / Pull / Legs / Day 1...")}
               autoFocus
             />
 
@@ -779,14 +776,12 @@ play("notification", 0.9);
                   background: `linear-gradient(90deg, ${rgbaFromRgb(accent, 1)}, ${rgbaFromRgb(accent, 0.75)})`,
                 }}
               >
-                Save
-              </button>
+                {tr("Save")} </button>
               <button
                 onClick={() => setDayModalOpen(false)}
                 className="flex-1 rounded-xl py-2 font-semibold bg-white/10 text-white hover:bg-white/15 transition"
               >
-                Cancel
-              </button>
+                {tr("Cancel")} </button>
             </div>
           </div>
         </Modal>
@@ -797,20 +792,20 @@ play("notification", 0.9);
         <Modal
           onClose={() => { if (!saveExerciseLock.current) setExModalOpen(false); }}
           accent={accent}
-          title={exEditId ? "Edit Exercise" : "Add Exercise"}
+          title={exEditId ? tr("Edit Exercise") : tr("Add Exercise")}
         >
           <div className="space-y-3">
-            <label className="text-xs text-white/55">Name</label>
+            <label className="text-xs text-white/55">{tr("Name")}</label>
             <input
               value={exName}
               onChange={(e) => setExName(e.target.value)}
               className="w-full rounded-xl bg-black/35 border border-white/10 px-3 py-2 text-white/90 placeholder:text-white/30 focus:outline-none focus:border-white/20"
-              placeholder="Exercise name"
+              placeholder={tr("Exercise name")}
             />
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-white/55">Sets</label>
+                <label className="text-xs text-white/55">{tr("Sets")}</label>
                 <input
                   type="number"
                   min={1}
@@ -822,17 +817,17 @@ play("notification", 0.9);
                 />
               </div>
               <div>
-                <label className="text-xs text-white/55">Reps</label>
+                <label className="text-xs text-white/55">{tr("Reps")}</label>
                 <input
                   value={exReps}
                   onChange={(e) => setExReps(e.target.value)}
                   className="w-full rounded-xl bg-black/35 border border-white/10 px-3 py-2 text-white/90 placeholder:text-white/30 focus:outline-none focus:border-white/20"
-                  placeholder="8-12 / 30s hold"
+                  placeholder={tr("8-12 / 30s hold")}
                 />
               </div>
             </div>
 
-            <label className="text-xs text-white/55">Muscle Category</label>
+            <label className="text-xs text-white/55">{tr("Muscle Category")}</label>
             <select
               value={exMuscles}
               onChange={(e) => setExMuscles(e.target.value as any)}
@@ -840,17 +835,17 @@ play("notification", 0.9);
             >
               {MUSCLE_CATEGORIES.map((m) => (
                 <option key={m} value={m}>
-                  {m}
+                  {muscleLabel(m)}
                 </option>
               ))}
             </select>
 
-            <label className="text-xs text-white/55">Notes (optional)</label>
+            <label className="text-xs text-white/55">{tr("Notes (optional)")}</label>
             <input
               value={exNotes}
               onChange={(e) => setExNotes(e.target.value)}
               className="w-full rounded-xl bg-black/35 border border-white/10 px-3 py-2 text-white/90 placeholder:text-white/30 focus:outline-none focus:border-white/20"
-              placeholder="Optional notes"
+              placeholder={tr("Optional notes")}
             />
 
             {exerciseError && <p role="alert" className="text-sm text-red-300">{exerciseError}</p>}
@@ -863,11 +858,11 @@ play("notification", 0.9);
                   background: `linear-gradient(90deg, ${rgbaFromRgb(accent, 1)}, ${rgbaFromRgb(accent, 0.75)})`,
                 }}
               >
-                {savingExercise ? "Saving…" : "Save"}
+                {savingExercise ? tr("Saving…") : tr("Save")}
               </button>
 
               {exEditId ? (
-                <button disabled={savingExercise} onClick={() => { setExEditId(null); setExName(`${exName} copy`); }} className="rounded-xl border border-white/10 px-3 py-2 text-sm text-white/80">Save as copy</button>
+                <button disabled={savingExercise} onClick={() => { setExEditId(null); setExName(tr("{0} copy", {0: exName})); }} className="rounded-xl border border-white/10 px-3 py-2 text-sm text-white/80">{tr("Save as copy")}</button>
               ) : null}
               {exEditId ? (
                 <button
@@ -875,15 +870,13 @@ play("notification", 0.9);
                   onClick={doDeleteExercise}
                   className="rounded-xl py-2 px-4 font-semibold bg-red-500/12 border border-red-500/20 text-red-200 hover:bg-red-500/18 transition"
                 >
-                  Delete
-                </button>
+                  {tr("Delete")} </button>
               ) : (
                 <button
                   onClick={() => setExModalOpen(false)}
                   className="flex-1 rounded-xl py-2 font-semibold bg-white/10 text-white hover:bg-white/15 transition"
                 >
-                  Cancel
-                </button>
+                  {tr("Cancel")} </button>
               )}
             </div>
           </div>
@@ -892,36 +885,32 @@ play("notification", 0.9);
 
       {/* Confirm delete day modal */}
       {confirmDeleteDay && (
-        <Modal onClose={() => setConfirmDeleteDay(false)} accent={accent} title="Delete this day?">
+        <Modal onClose={() => setConfirmDeleteDay(false)} accent={accent} title={tr("Delete this day?")}>
           <div className="text-white/70 text-sm">
-            This removes the day from your active workouts. Restore it in My workspace → Recently deleted. Historical progress stays intact.
-          </div>
+            {tr("This removes the day from your active workouts. Restore it in My workspace → Recently deleted. Historical progress stays intact.")} </div>
           <div className="flex gap-2 pt-4">
             <button
               onClick={doDeleteDay}
               className="flex-1 rounded-xl py-2 font-semibold bg-red-500/15 border border-red-500/20 text-red-200 hover:bg-red-500/20 transition"
             >
-              Delete
-            </button>
+              {tr("Delete")} </button>
             <button
               onClick={() => setConfirmDeleteDay(false)}
               className="flex-1 rounded-xl py-2 font-semibold bg-white/10 text-white hover:bg-white/15 transition"
             >
-              Cancel
-            </button>
+              {tr("Cancel")} </button>
           </div>
         </Modal>
       )}
 
       {/* Split confirmation modal */}
       {showSplitConfirm && (
-        <Modal onClose={() => setShowSplitConfirm(false)} accent={accent} title="Apply Split?">
+        <Modal onClose={() => setShowSplitConfirm(false)} accent={accent} title={tr("Apply Split?")}>
           <div className="text-white/70 text-sm mb-4">
-            {days.length ? "Rename the first seven days using the " : "Create seven days using the "}<strong className="text-white">{SPLITS[splitKey].label}</strong> template? Existing exercises, notes, extra days and history will be kept.
-          </div>
+            {days.length ? tr("Rename the first seven days using the ") : tr("Create seven days using the ")}<strong className="text-white">{SPLITS[splitKey].label}</strong> {tr("template? Existing exercises, notes, extra days and history will be kept.")} </div>
           <div className="flex gap-2">
-            <button onClick={confirmApplySplit} className="flex-1 rounded-xl py-2 font-semibold text-black" style={{ background: `linear-gradient(90deg, ${rgbaFromRgb(accent, 1)}, ${rgbaFromRgb(accent, 0.75)})` }}>Apply</button>
-            <button onClick={() => setShowSplitConfirm(false)} className="flex-1 rounded-xl py-2 font-semibold bg-white/10 text-white hover:bg-white/15 transition">Cancel</button>
+            <button onClick={confirmApplySplit} className="flex-1 rounded-xl py-2 font-semibold text-black" style={{ background: `linear-gradient(90deg, ${rgbaFromRgb(accent, 1)}, ${rgbaFromRgb(accent, 0.75)})` }}>{tr("Apply")}</button>
+            <button onClick={() => setShowSplitConfirm(false)} className="flex-1 rounded-xl py-2 font-semibold bg-white/10 text-white hover:bg-white/15 transition">{tr("Cancel")}</button>
           </div>
         </Modal>
       )}
@@ -938,6 +927,7 @@ function StatCard({
   value: any;
   delayMs?: number;
 }) {
+  useLocale();
   return (
     <div
       className="rounded-2xl border border-white/10 bg-black/30 p-3 sm:p-4 animate-float-in"
@@ -960,6 +950,7 @@ function SectionCard({
   children: React.ReactNode;
   accent: string;
 }) {
+  useLocale();
   return (
     <div
       className="rounded-2xl border bg-black/30 p-4 sm:p-5 md:p-6"
@@ -1001,19 +992,20 @@ function ExerciseRow({
   onEdit: () => void;
   accent: string;
 }) {
+  useLocale();
   return (
     <div className="rounded-xl border border-white/10 bg-black/25 hover:bg-black/35 transition p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
       <button
         onClick={onToggle}
         disabled={disabled}
         aria-pressed={checked}
-        aria-label={`${checked ? "Uncheck" : "Complete"} ${ex.name}`}
+        aria-label={`${checked ? tr("Uncheck") : tr("Complete")} ${ex.name}`}
         className="mt-0.5 sm:mt-1 w-5 h-5 sm:w-6 sm:h-6 rounded-md border flex items-center justify-center flex-shrink-0"
         style={{
           borderColor: checked ? rgbaFromRgb(accent, 0.8) : "rgba(255,255,255,0.18)",
           background: checked ? rgbaFromRgb(accent, 0.18) : "transparent",
         }}
-        title="Complete"
+        title={tr("Complete")}
       >
         {checked ? <span style={{ color: "white", fontSize: 10 }}>✓</span> : null}
       </button>
@@ -1021,7 +1013,7 @@ function ExerciseRow({
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold text-white truncate">{ex.name}</div>
         <div className="mt-1 text-xs text-white/55">
-          {ex.sets} sets × {ex.reps} • {ex.muscles || 'No muscle group'}
+          {ex.sets} {tr("sets ×")} {ex.reps} • {ex.muscles ? muscleLabel(ex.muscles) : tr("No muscle group")}
           {ex.notes ? <span className="text-white/40"> • {ex.notes}</span> : null}
         </div>
       </div>
@@ -1030,8 +1022,7 @@ function ExerciseRow({
         onClick={onEdit}
         className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-white/5 border border-white/10 text-white/75 hover:bg-white/10 transition text-xs flex-shrink-0"
       >
-        Edit
-      </button>
+        {tr("Edit")} </button>
     </div>
   );
 }
@@ -1047,6 +1038,7 @@ function Modal({
   onClose: () => void;
   accent: string;
 }) {
+  useLocale();
   const panel = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
@@ -1089,7 +1081,7 @@ function Modal({
         type="button"
         className="absolute inset-0 h-full w-full cursor-default bg-black/75"
         onClick={onClose}
-        aria-label="Close dialog"
+        aria-label={tr("Close dialog")}
       />
       <div
         ref={panel}
@@ -1105,7 +1097,7 @@ function Modal({
             type="button"
             onClick={onClose}
             className="flex-shrink-0 rounded-lg px-2 py-1 text-white/60 transition hover:bg-white/5 hover:text-white/90"
-            aria-label="Close dialog"
+            aria-label={tr("Close dialog")}
           >
             ✕
           </button>

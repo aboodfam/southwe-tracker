@@ -1,3 +1,4 @@
+import { t as tr, useLocale } from "../i18n";
 import React, {
   createContext,
   useCallback,
@@ -30,28 +31,28 @@ export const SOUND_PACKS: Record<
   { name: string; description: string }
 > = {
   neon: {
-    name: "Neon",
-    description: "Clean cyber chimes — modern and satisfying",
+    get name() { return tr("Neon"); },
+    get description() { return tr("Clean cyber chimes — modern and satisfying"); },
   },
   arcade: {
-    name: "Arcade",
-    description: "Retro game feel — punchy + fun rewards",
+    get name() { return tr("Arcade"); },
+    get description() { return tr("Retro game feel — punchy + fun rewards"); },
   },
   cinematic: {
-    name: "Cinematic",
-    description: "Bigger wins — soft bass + airy sparkle",
+    get name() { return tr("Cinematic"); },
+    get description() { return tr("Bigger wins — soft bass + airy sparkle"); },
   },
   lofi: {
-    name: "Lo‑Fi",
-    description: "Warm and subtle — rewarding without being loud",
+    get name() { return tr("Lo‑Fi"); },
+    get description() { return tr("Warm and subtle — rewarding without being loud"); },
   },
   crystal: {
-    name: "Crystal",
-    description: "Bright bells — premium, shiny and clear",
+    get name() { return tr("Crystal"); },
+    get description() { return tr("Bright bells — premium, shiny and clear"); },
   },
   custom: {
-    name: "Custom",
-    description: "Upload your own reward sounds",
+    get name() { return tr("Custom"); },
+    get description() { return tr("Upload your own reward sounds"); },
   },
 };
 
@@ -103,6 +104,7 @@ function hasKey<T extends Record<string, any>>(obj: T, key: string): key is Extr
 }
 
 export function SoundProvider({ children }: { children: React.ReactNode }) {
+  useLocale();
   const [enabled, setEnabledState] = useState<boolean>(() => {
     const raw = localStorage.getItem(LS_ENABLED);
     if (raw === null) return true;
@@ -577,13 +579,13 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
     // Keep it safe and fast
     const maxBytes = 1_500_000; // 1.5MB
     if (file.size > maxBytes) {
-      throw new Error("File too large. Use a short sound under 1.5MB.");
+      throw new Error(tr("File too large. Use a short sound under 1.5MB."));
     }
 
     const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.onerror = () => reject(new Error(tr("Failed to read file")));
       reader.readAsDataURL(file);
     });
 
