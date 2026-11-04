@@ -99,14 +99,17 @@ test("each category starts a fresh occurrence at its local start, including slee
   }
 });
 
-test("swipe motion follows the finger while navigation mirrors Arabic's tab order", () => {
-  expect(swipeNavigation(-80, false)).toEqual({next: true, motion: "left"});
-  expect(swipeNavigation(-80, true)).toEqual({next: false, motion: "left"});
-  expect(swipeNavigation(80, false)).toEqual({next: false, motion: "right"});
-  expect(swipeNavigation(80, true)).toEqual({next: true, motion: "right"});
-  expect(pageMotion(0, 1, false)).toBe("left");
-  expect(pageMotion(0, 1, true)).toBe("right");
-  expect(pageMotion(1, 0, true)).toBe("left");
+test("swipe motion and page order stay consistent across all interface languages", () => {
+  const previous = getLocale();
+  try {
+    for (const locale of ["en", "ar", "es", "fr", "zh"] as const) {
+      setLocale(locale);
+      expect(swipeNavigation(-80)).toEqual({next: true, motion: "left"});
+      expect(swipeNavigation(80)).toEqual({next: false, motion: "right"});
+      expect(pageMotion(0, 1)).toBe("left");
+      expect(pageMotion(1, 0)).toBe("right");
+    }
+  } finally { setLocale(previous); }
 });
 
 test("fitness labels use the muscle meaning of Back, familiar Arabic terms, and preserve custom names", () => {

@@ -16,5 +16,6 @@ export function useAthkarWindows() {
       document.removeEventListener("visibilitychange", refresh);
     };
   }, []);
-  return Object.fromEntries(categories.map((category, index) => [category, value.split("|")[index]])) as Record<ScheduledAthkarCategory, string>;
+  const keys = value.split("|");
+  return Object.fromEntries(categories.map((category, index) => [category, keys[index]])) as Record<ScheduledAthkarCategory, string>;
 }

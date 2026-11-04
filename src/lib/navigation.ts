@@ -1,11 +1,11 @@
 export type PageMotion = "left" | "right";
-/** Motion describes the direction the content travels, independently of text direction. */
-export function pageMotion(fromIndex: number, toIndex: number, rtl: boolean): PageMotion {
-  return (toIndex >= fromIndex) !== rtl ? "left" : "right";
+/** Navigation order and physical motion stay the same in every language. */
+export function pageMotion(fromIndex: number, toIndex: number): PageMotion {
+  return toIndex >= fromIndex ? "left" : "right";
 }
-export function swipeNavigation(deltaX: number, rtl: boolean) {
+export function swipeNavigation(deltaX: number) {
   return {
-    next: (deltaX < 0) !== rtl,
+    next: deltaX < 0,
     motion: deltaX < 0 ? "left" as const : "right" as const,
   };
 }

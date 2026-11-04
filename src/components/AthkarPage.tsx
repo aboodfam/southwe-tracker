@@ -104,7 +104,7 @@ function clampPercent(value: number) {
 }
 
 export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetchedAthkar?: Dhikr[]; onFocusModeChange?: (focused: boolean) => void }) {
-  const locale = useLocale();
+  useLocale();
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
   const { play } = useSound();
@@ -355,13 +355,13 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
 
   const goNext = (motion?: PageMotion) => {
     if (currentIndex >= filteredAthkar.length - 1) return;
-    setSlideDirection(motion ?? (locale === "ar" ? "right" : "left"));
+    setSlideDirection(motion ?? "left");
     setCurrentIndex((index) => index + 1);
   };
 
   const goPrevious = (motion?: PageMotion) => {
     if (currentIndex <= 0) return;
-    setSlideDirection(motion ?? (locale === "ar" ? "left" : "right"));
+    setSlideDirection(motion ?? "right");
     setCurrentIndex((index) => index - 1);
   };
 
@@ -378,7 +378,7 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
     const dx = end.clientX - start.x;
     const dy = end.clientY - start.y;
     if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
-    const swipe = swipeNavigation(dx, locale === "ar");
+    const swipe = swipeNavigation(dx);
     if (swipe.next) goNext(swipe.motion);
     else goPrevious(swipe.motion);
   };
@@ -634,7 +634,7 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
                 </div>
               </div>
 
-              <div className={`relative px-5 py-8 sm:px-8 sm:py-10 ${slideClass}`}>
+              <div key={currentIndex} className={`relative px-5 py-8 sm:px-8 sm:py-10 ${slideClass}`}>
                 <div className="mx-auto min-h-[42vh] max-w-3xl sm:min-h-[300px]">
                   <div dir="rtl" className="athkar-arabic-text text-right text-white sm:text-[2rem] sm:leading-[2.05] lg:text-[2.2rem]">{currentDhikr.text}</div>
                   {currentDhikr.translation && <p dir="auto" className="mt-8 border-t border-white/[0.07] pt-5 text-center text-sm leading-7 text-white/50 sm:text-base">{currentDhikr.translation}</p>}

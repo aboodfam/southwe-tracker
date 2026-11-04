@@ -15,6 +15,7 @@ export type Locale = (typeof LANGUAGES)[number]["code"];
 const STORAGE_KEY = "ceventic_language";
 const dictionaries: Record<Exclude<Locale, "en">, Record<string, string>> = { ar, es, fr, zh };
 const listeners = new Set<() => void>();
+const numberFormats = new Map<Locale, Intl.NumberFormat>();
 export function isLocale(value: unknown): value is Locale {
   return LANGUAGES.some((language) => language.code === value);
 }
@@ -27,17 +28,26 @@ function readLocale(): Locale {
 }
 let locale: Locale = readLocale();
 export function getLocale(): Locale { return locale; }
-export function formatNumber(value: number): string { return new Intl.NumberFormat(getIntlLocale()).format(value); }
+export function formatNumber(value: number): string {
+  let formatter = numberFormats.get(locale);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(getIntlLocale());
+    numberFormats.set(locale, formatter);
+  }
+  return formatter.format(value);
+}
 export function getIntlLocale(): string { return locale === "zh" ? "zh-CN" : locale; }
 function updateDocument() {
   if (typeof document === "undefined") return;
   document.documentElement.lang = getIntlLocale();
-  document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
+  // Language changes the copy, never the positions of controls or navigation.
+  document.documentElement.dir = "ltr";
 }
 export function setLocale(next: Locale) {
   if (!isLocale(next)) return;
-  locale = next;
   try { localStorage.setItem(STORAGE_KEY, next); } catch { /* Keep the in-memory preference. */ }
+  if (locale === next) { updateDocument(); return; }
+  locale = next;
   updateDocument();
   listeners.forEach((listener) => listener());
 }
@@ -52,17 +62,20 @@ export function useLocale() {
 /** Only app-owned messages are passed here; user-authored data stays untouched. */
 export function t(message: string, values: Record<string, string | number> = {}): string {
   const translated = locale === "en" ? message : dictionaries[locale][message] ?? message;
+  if (!translated.includes("{")) return translated;
   return translated.replace(/\{(\w+)\}/g, (token, key: string) => {
     const value = values[key];
     if (value === undefined) return token;
-    return typeof value === "number" ? new Intl.NumberFormat(getIntlLocale()).format(value) : value;
+    return typeof value === "number" ? formatNumber(value) : value;
   });
 }
 updateDocument();
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (event) => {
     if (event.key !== STORAGE_KEY && event.key !== null) return;
-    locale = readLocale();
+    const next = readLocale();
+    if (next === locale) return;
+    locale = next;
     updateDocument();
     listeners.forEach((listener) => listener());
   });

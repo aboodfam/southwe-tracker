@@ -1,4 +1,4 @@
-import { t as tr, useLocale } from "../i18n";
+import { t as tr } from "../i18n";
 import React, {
   createContext,
   useCallback,
@@ -104,7 +104,6 @@ function hasKey<T extends Record<string, any>>(obj: T, key: string): key is Extr
 }
 
 export function SoundProvider({ children }: { children: React.ReactNode }) {
-  useLocale();
   const [enabled, setEnabledState] = useState<boolean>(() => {
     const raw = localStorage.getItem(LS_ENABLED);
     if (raw === null) return true;

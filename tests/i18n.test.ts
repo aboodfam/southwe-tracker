@@ -67,14 +67,14 @@ describe("localized interface", () => {
     expect(getLocale()).toBe("en");
   });
 
-  it("persists the selection and resets RTL when leaving Arabic", () => {
+  it("persists Arabic while preserving the same layout direction in every language", () => {
     const data = new Map<string, string>();
     const documentElement = { lang: "en", dir: "ltr" };
     vi.stubGlobal("localStorage", { setItem: (key: string, value: string) => data.set(key, value), getItem: (key: string) => data.get(key) ?? null });
     vi.stubGlobal("document", { documentElement });
     setLocale("ar");
     expect(data.get("ceventic_language")).toBe("ar");
-    expect(documentElement).toEqual({lang: "ar", dir: "rtl"});
+    expect(documentElement).toEqual({lang: "ar", dir: "ltr"});
     setLocale("zh");
     expect(documentElement).toEqual({lang: "zh-CN", dir: "ltr"});
   });

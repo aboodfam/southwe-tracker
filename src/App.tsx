@@ -78,7 +78,6 @@ function parseColorToRgb(input: string): RGB {
    ✅ full page height (scroll-safe)
    ========================= */
 function StarfieldBackground() {
-  useLocale();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number | null>(null);
 
@@ -456,7 +455,6 @@ function CreateRoutineCard() {
 /* ========================= */
 
 export default function App() {
-  useLocale();
   const legalPath = typeof window !== "undefined" ? window.location.pathname.replace(/\/+$/, "") : "";
   const legalHash = typeof window !== "undefined" ? window.location.hash : "";
   if (legalPath === "/privacy" || legalHash === "#/privacy") return <LegalPage kind="privacy" />;
@@ -473,7 +471,6 @@ export default function App() {
 }
 
 function AppContent() {
-  const locale = useLocale();
   const [currentPage, setCurrentPage] = useState<Page>("today");
   const [swapKey, setSwapKey] = useState(0);
   const [swapDir, setSwapDir] = useState<"left" | "right">("left");
@@ -514,7 +511,7 @@ function AppContent() {
 
     const fromIndex = PAGE_ORDER.indexOf(currentPage);
     const toIndex = PAGE_ORDER.indexOf(page);
-    setSwapDir(direction ?? pageMotion(fromIndex, toIndex, locale === "ar"));
+    setSwapDir(direction ?? pageMotion(fromIndex, toIndex));
     setCurrentPage(page);
     setSwapKey((key) => key + 1);
 
@@ -529,13 +526,13 @@ function AppContent() {
   const goPrev = (motion?: PageMotion) => {
     const idx = PAGE_ORDER.indexOf(currentPage);
     const next = PAGE_ORDER[(idx - 1 + PAGE_ORDER.length) % PAGE_ORDER.length];
-    navigateToPage(next, motion ?? (locale === "ar" ? "left" : "right"));
+    navigateToPage(next, motion ?? "right");
   };
 
   const goNext = (motion?: PageMotion) => {
     const idx = PAGE_ORDER.indexOf(currentPage);
     const next = PAGE_ORDER[(idx + 1) % PAGE_ORDER.length];
-    navigateToPage(next, motion ?? (locale === "ar" ? "right" : "left"));
+    navigateToPage(next, motion ?? "left");
   };
 
   const swipeRef = useRef({ x: 0, y: 0, active: false, locked: false });
@@ -570,7 +567,7 @@ function AppContent() {
     const THRESH = 70;
     if (Math.abs(dx) > THRESH && Math.abs(dx) > Math.abs(dy) * 1.4) {
       swipeRef.current.locked = true;
-      const swipe = swipeNavigation(dx, locale === "ar");
+      const swipe = swipeNavigation(dx);
       if (swipe.next) goNext(swipe.motion);
       else goPrev(swipe.motion);
       // small delay to avoid multiple triggers
