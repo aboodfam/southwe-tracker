@@ -882,5 +882,16 @@
   "Save a plan": "حفظ خطة",
   "Import a file": "استيراد ملف",
   "Deleted items": "المحذوفات",
-  "Current split": "تقسيمك الحالي"
+  "Current split": "تقسيمك الحالي",
+  "Choose a template": "اختر قالبًا",
+  "Optional: apply a template to rename your workout days.": "اختياري: طبّق قالبًا لتغيير أسماء أيام تدريبك.",
+  "Progress views": "عرض التقدم",
+  "Overview": "نظرة عامة",
+  "Trends": "المؤشرات",
+  "Training": "التدريب",
+  "Milestones": "الإنجازات",
+  "earned · Lifetime progress": "إنجازات · تقدمك منذ البداية",
+  "Prayer session": "جلسة الصلاة",
+  "Previous Isha": "العشاء السابق",
+  "Each prayer has its own counters. Progress resumes within the same prayer.": "لكل صلاة عدّاداتها الخاصة. يُحفظ تقدمك عند العودة إلى الصلاة نفسها."
 }

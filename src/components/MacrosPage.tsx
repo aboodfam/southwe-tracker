@@ -1,3 +1,4 @@
+import { ChoiceSelect } from "./ChoiceSelect";
 import { t as tr, useLocale } from "../i18n";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
@@ -309,14 +310,7 @@ function MacroForm({ userId, savedProfile }: { userId: Id<"users">; savedProfile
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <label className="space-y-1">
                     <div className={`${colors.textSecondary} text-xs`}>{tr("Sex")}</div>
-                    <select
-                      value={sex}
-                      onChange={(e) => setSex(e.target.value as Sex)}
-                      className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
-                    >
-                      <option value="male">{tr("Male")}</option>
-                      <option value="female">{tr("Female")}</option>
-                    </select>
+                    <ChoiceSelect label={tr("Sex")} value={sex} onChange={setSex} className="w-full" options={[{value: "male", label: tr("Male")}, {value: "female", label: tr("Female")}]} />
                   </label>
 
                   <label className="space-y-1">
@@ -360,45 +354,18 @@ function MacroForm({ userId, savedProfile }: { userId: Id<"users">; savedProfile
 
                   <label className="space-y-1">
                     <div className={`${colors.textSecondary} text-xs`}>{tr("Goal")}</div>
-                    <select
-                      value={goal}
-                      onChange={(e) => setGoal(e.target.value as Goal)}
-                      className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
-                    >
-                      <option value="maintain">{tr("Maintain")}</option>
-                      <option value="cut">{tr("Cut (fat loss)")}</option>
-                      <option value="bulk">{tr("Bulk (muscle gain)")}</option>
-                    </select>
+                    <ChoiceSelect label={tr("Goal")} value={goal} onChange={setGoal} className="w-full" options={[{value: "maintain", label: tr("Maintain")}, {value: "cut", label: tr("Cut (fat loss)")}, {value: "bulk", label: tr("Bulk (muscle gain)")}]} />
                   </label>
 
                   <label className="space-y-1">
                     <div className={`${colors.textSecondary} text-xs`}>{tr("Pace")}</div>
-                    <select
-                      value={pace}
-                      onChange={(e) => setPace(e.target.value as Pace)}
-                      disabled={goal === "maintain"}
-                      className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10 ${goal === "maintain" ? "opacity-60 cursor-not-allowed" : ""}`}
-                    >
-                      <option value="mild">{tr("Mild")}</option>
-                      <option value="moderate">{tr("Moderate")}</option>
-                      <option value="aggressive">{tr("Aggressive")}</option>
-                    </select>
+                    <ChoiceSelect label={tr("Pace")} value={pace} onChange={setPace} disabled={goal === "maintain"} className="w-full" options={[{value: "mild", label: tr("Mild")}, {value: "moderate", label: tr("Moderate")}, {value: "aggressive", label: tr("Aggressive")}]} />
                   </label>
                 </div>
 
                 <label className="mt-4 block space-y-1">
                   <div className={`${colors.textSecondary} text-xs`}>{tr("Activity Level")}</div>
-                  <select
-                    value={activityId}
-                    onChange={(e) => setActivityId(e.target.value as any)}
-                    className={`w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 ${colors.text} focus:outline-none focus:ring-2 focus:ring-white/10`}
-                  >
-                    {ACTIVITY.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.label} — {a.sub}
-                      </option>
-                    ))}
-                  </select>
+                  <ChoiceSelect label={tr("Activity Level")} value={activityId} onChange={setActivityId} className="w-full" options={ACTIVITY.map(item => ({value: item.id, label: `${item.label} — ${item.sub}`}))} />
                 </label>
               </div>
 

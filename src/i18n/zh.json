@@ -882,5 +882,16 @@
   "Save a plan": "保存一个计划",
   "Import a file": "导入文件",
   "Deleted items": "已删除项目",
-  "Current split": "当前分化"
+  "Current split": "当前分化",
+  "Choose a template": "选择模板",
+  "Optional: apply a template to rename your workout days.": "可选：应用模板来重命名训练日。",
+  "Progress views": "进度视图",
+  "Overview": "概览",
+  "Trends": "趋势",
+  "Training": "训练",
+  "Milestones": "里程碑",
+  "earned · Lifetime progress": "已获得 · 累计进度",
+  "Prayer session": "礼拜时段",
+  "Previous Isha": "上次宵礼",
+  "Each prayer has its own counters. Progress resumes within the same prayer.": "每次礼拜有独立计数，同一次礼拜可继续上次进度。"
 }

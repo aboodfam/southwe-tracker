@@ -1,3 +1,4 @@
+import { ChoiceSelect } from "./ChoiceSelect";
 import { WORKOUT_SPLITS, resolveWorkoutSplit, type WorkoutSplit } from "../lib/workoutSplits";
 import { muscleLabel } from "../i18n/fitness";
 import { t as tr, useLocale } from "../i18n";
@@ -469,25 +470,15 @@ play("notification", 0.9);
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="text-sm font-semibold text-white">{tr("Split Template")}</div>
-            <div className="text-xs text-white/45">{tr("Pick a split → apply → then edit exercises freely.")}</div>
+            <div className="text-xs text-white/45">{tr("Optional: apply a template to rename your workout days.")}</div>
           </div>
 
           <div className="flex gap-2">
-            <select
-              value={splitKey}
-              aria-label={tr("Split Template")}
-              onChange={(e) => setSplitChoice(e.target.value as WorkoutSplit)}
-              disabled={applyingSplit || daysLoading}
-              className="rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-white/20 min-w-0 flex-1 sm:flex-none disabled:cursor-wait disabled:opacity-50"
-            >
-              {splitKey === "loading" && <option value="loading" disabled>{tr("Loading workout…")}</option>}
-              {splitKey === "current" && <option value="current" disabled>{tr("Current split")}</option>}
-              {Object.entries(SPLITS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v.label}
-                </option>
-              ))}
-            </select>
+            <ChoiceSelect label={tr("Split Template")} value={splitKey}
+              placeholder={daysLoading ? tr("Loading workout…") : tr("Choose a template")}
+              onChange={value => setSplitChoice(value as WorkoutSplit)} disabled={applyingSplit || daysLoading}
+              className="min-w-0 flex-1 sm:flex-none sm:w-64"
+              options={Object.entries(SPLITS).map(([value, item]) => ({value, label: item.label}))} />
 
             <button
               onClick={applySplitTemplate}
@@ -802,17 +793,7 @@ play("notification", 0.9);
             </div>
 
             <label className="text-xs text-white/55">{tr("Muscle Category")}</label>
-            <select
-              value={exMuscles}
-              onChange={(e) => setExMuscles(e.target.value as any)}
-              className="w-full rounded-xl bg-black/35 border border-white/10 px-3 py-2 text-white/90 focus:outline-none focus:border-white/20"
-            >
-              {MUSCLE_CATEGORIES.map((m) => (
-                <option key={m} value={m}>
-                  {muscleLabel(m)}
-                </option>
-              ))}
-            </select>
+            <ChoiceSelect label={tr("Muscle Category")} value={exMuscles} onChange={value => setExMuscles(value)} className="w-full" options={MUSCLE_CATEGORIES.map(value => ({value, label: muscleLabel(value)}))} />
 
             <label className="text-xs text-white/55">{tr("Notes (optional)")}</label>
             <input

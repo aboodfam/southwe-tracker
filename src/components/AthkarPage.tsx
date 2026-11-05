@@ -1,3 +1,6 @@
+import { usePrayerTimes } from "../hooks/usePrayerTimes";
+import { currentPrayerSessionKey, prayerSessionName, PRAYER_NAMES } from "../lib/prayerSessions";
+import { ChoiceSelect } from "./ChoiceSelect";
 import { athkarSwipeNavigation, type PageMotion } from "../lib/navigation";
 import { useAthkarWindows } from "../hooks/useAthkarWindows";
 import type { ScheduledAthkarCategory } from "../lib/athkarSchedule";
@@ -58,9 +61,9 @@ function readPendingPrayerSession() {
   try {
     const value = sessionStorage.getItem(PRAYER_SESSION_KEY);
     sessionStorage.removeItem(PRAYER_SESSION_KEY);
-    return value || "prayer:manual";
+    return value && /^prayer:\d{4}-\d{2}-\d{2}:(fajr|dhuhr|asr|maghrib|isha)$/.test(value) ? value : null;
   } catch {
-    return "prayer:manual";
+    return null;
   }
 }
 
@@ -110,6 +113,8 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
   const { play } = useSound();
   const dateKey = useLocalDateKey();
   const windows = useAthkarWindows();
+  const prayerClock = usePrayerTimes(true);
+  const defaultPrayerKey = currentPrayerSessionKey(prayerClock.now, prayerClock.timings);
   const windowSignature = Object.values(windows).join("|");
   const [preparedWindows, setPreparedWindows] = useState<Record<string, string>>({});
   const [prepareError, setPrepareError] = useState(false);
@@ -139,8 +144,9 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
   const [optimisticCounts, setOptimisticCounts] = useState<Record<string, number>>({});
   const [optimisticPrayerCounts, setOptimisticPrayerCounts] = useState<Record<string, number>>({});
   const [selectedCategory, setSelectedCategory] = useState<string | null>(initialCategoryRef.current);
-  const selectedWindowKey = windows[selectedCategory as ScheduledAthkarCategory] ?? dateKey;
-  const [prayerSessionKey, setPrayerSessionKey] = useState(initialPrayerSessionRef.current);
+  const [prayerChoice, setPrayerChoice] = useState<{dateKey: string; key: string; occurrenceKey: string} | null>(() => initialPrayerSessionRef.current && (initialPrayerSessionRef.current.split(":")[1] === dateKey || initialPrayerSessionRef.current === defaultPrayerKey) ? {dateKey, key: initialPrayerSessionRef.current, occurrenceKey: defaultPrayerKey} : null);
+  const prayerSessionKey = prayerChoice?.dateKey === dateKey && prayerChoice.occurrenceKey === defaultPrayerKey ? prayerChoice.key : defaultPrayerKey;
+  const selectedWindowKey = selectedCategory === "prayer" ? prayerSessionKey.split(":")[1] : windows[selectedCategory as ScheduledAthkarCategory] ?? dateKey;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [positionReady, setPositionReady] = useState(false);
   const [editingDhikr, setEditingDhikr] = useState<Dhikr | null>(null);
@@ -156,7 +162,7 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
     api.athkar.getPrayerSession,
     selectedCategory === "prayer" ? { sessionKey: prayerSessionKey } : "skip",
   );
-  const manualPrayerSession = useQuery(api.athkar.getPrayerSession, { sessionKey: "prayer:manual" });
+  const cardPrayerSession = useQuery(api.athkar.getPrayerSession, { sessionKey: prayerSessionKey });
 
   useEffect(() => {
     if (isLoading || seededOnceRef.current) return;
@@ -175,8 +181,8 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
     [prayerSession?.counts],
   );
   const manualPrayerCounts = useMemo(
-    () => new Map((manualPrayerSession?.counts ?? []).map((row) => [String(row.dhikrId), row.count])),
-    [manualPrayerSession?.counts],
+    () => new Map((cardPrayerSession?.counts ?? []).map((row) => [String(row.dhikrId), row.count])),
+    [cardPrayerSession?.counts],
   );
 
   // Prepare every card, not just the category the user opens. The server does
@@ -201,7 +207,7 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
         ? selectedPrayerCounts.get(String(dhikr._id)) ?? 0
         : manualPrayerCounts.get(String(dhikr._id)) ?? 0;
       return selectedCategory === "prayer"
-        ? optimisticPrayerCounts[dhikr._id] ?? stored
+        ? (positionReady && preparedSessionRef.current === `prayer:${prayerSessionKey}` ? optimisticPrayerCounts[dhikr._id] : undefined) ?? stored
         : stored;
     }
     return optimisticCounts[dhikr._id] ?? dhikr.currentCount;
@@ -235,9 +241,7 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
   );
 
   const selectedCategoryDef = categories.find((category) => category.id === selectedCategory) ?? null;
-  const prayerName = prayerSessionKey.startsWith("prayer:") && prayerSessionKey !== "prayer:manual"
-    ? prayerSessionKey.split(":").at(-1)
-    : null;
+  const prayerName = prayerSessionName(prayerSessionKey);
   const selectedCategoryTitle = selectedCategory === "prayer" && prayerName
     ? tr("After {0} Prayer", {0: tr(prayerName.charAt(0).toUpperCase()+prayerName.slice(1))})
     : selectedCategoryDef?.name ?? tr("Athkar");
@@ -263,14 +267,17 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
     const clampIndex = (index: number) => Math.max(0, Math.min(maxIndex, index));
 
     if (selectedCategory === "prayer") {
+      if (prayerClock.status === "idle" || prayerClock.status === "loading") { preparedSessionRef.current = ""; return; }
       void ensurePrayerSession({ sessionKey: prayerSessionKey })
         .then((session) => {
+          if (preparedSessionRef.current !== sessionIdentity) return;
           setCurrentIndex(clampIndex(session?.currentIndex ?? 0));
           setPositionReady(true);
         })
         .catch(() => {
-          setCurrentIndex(0);
-          setPositionReady(true);
+          if (preparedSessionRef.current !== sessionIdentity) return;
+          preparedSessionRef.current = "";
+          setPrepareError(true);
         });
       return;
     }
@@ -297,7 +304,7 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
 
     setCurrentIndex(clampIndex(readSavedCustomIndex(selectedCategory)));
     setPositionReady(true);
-  }, [selectedCategory, prayerSessionKey, selectedWindowKey, isLoading, athkar, retry, ensurePrayerSession, prepareCategorySession]);
+  }, [selectedCategory, prayerSessionKey, selectedWindowKey, isLoading, athkar, retry, prayerClock.status, ensurePrayerSession, prepareCategorySession]);
 
   useEffect(() => {
     if (!selectedCategory || !positionReady) return;
@@ -339,7 +346,6 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
     preparedSessionRef.current = "";
     setPositionReady(false);
     setOptimisticPrayerCounts({});
-    if (categoryId === "prayer") setPrayerSessionKey("prayer:manual");
     setSelectedCategory(categoryId);
     setCurrentIndex(0);
     setShowAddForm(false);
@@ -393,6 +399,7 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
     play(next >= dhikr.targetCount ? "success" : "notification", next >= dhikr.targetCount ? 0.85 : 0.25);
 
     if (dhikr.category === "prayer" && selectedCategory === "prayer") {
+      if (!positionReady || preparedSessionRef.current !== `prayer:${prayerSessionKey}`) return;
       setOptimisticPrayerCounts((state) => ({ ...state, [dhikrId]: next }));
       incrementPrayerSession({ sessionKey: prayerSessionKey, dhikrId: dhikrId as Id<"athkar"> }).catch((error: any) => {
         setOptimisticPrayerCounts((state) => {
@@ -420,6 +427,7 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
     const dhikr = athkar.find((item: Dhikr) => item._id === dhikrId);
     if (!dhikr) return;
     if (dhikr.category === "prayer" && selectedCategory === "prayer") {
+      if (!positionReady || preparedSessionRef.current !== `prayer:${prayerSessionKey}`) return;
       setOptimisticPrayerCounts((state) => ({ ...state, [dhikrId]: 0 }));
       try {
         await resetPrayerDhikr({ sessionKey: prayerSessionKey, dhikrId: dhikrId as Id<"athkar"> });
@@ -604,6 +612,11 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
             <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white/45 backdrop-blur-xl">{filteredAthkar.length} {tr("items")}</div>
           </div>
 
+          {selectedCategory === "prayer" && <div className="px-4 sm:px-0"><ChoiceSelect label={tr("Prayer session")} value={prayerSessionKey} className="w-full sm:w-64" onChange={key => {preparedSessionRef.current = ""; setPositionReady(false); setPrayerChoice({dateKey, key, occurrenceKey: defaultPrayerKey});}} options={[
+            ...(!PRAYER_NAMES.some(name => `prayer:${dateKey}:${name.toLowerCase()}` === defaultPrayerKey) ? [{value: defaultPrayerKey, label: prayerSessionName(defaultPrayerKey) ? tr("Previous Isha") : tr("Today")}] : []),
+            ...PRAYER_NAMES.map(name => ({value: `prayer:${dateKey}:${name.toLowerCase()}`, label: tr(name)})),
+          ]} /><p className="mt-2 text-xs text-white/45">{tr("Each prayer has its own counters. Progress resumes within the same prayer.")}</p></div>}
+
           {!positionReady ? (
             <div className={`rounded-3xl border ${colors.border} ${colors.backgroundSecondary} p-8 text-center text-sm text-white/55 backdrop-blur-xl`}>
               {tr("Getting your Athkar ready…")} </div>
@@ -732,9 +745,7 @@ export function AthkarPage({ prefetchedAthkar, onFocusModeChange }: { prefetched
               </label>
               <label>
                 <span className="mb-2 block text-xs font-semibold text-white/45">{tr("Category")}</span>
-                <select value={editForm.category} onChange={(e) => setEditForm((state) => ({ ...state, category: e.target.value }))} className={`w-full rounded-xl border ${colors.border} bg-[#090c11] p-3 text-white outline-none focus:border-white/25`}>
-                  {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-                </select>
+                <ChoiceSelect label={tr("Category")} value={editForm.category} onChange={value => setEditForm(state => ({...state, category: value}))} className="w-full" options={categories.map(category => ({value: category.id, label: category.name}))} />
               </label>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">

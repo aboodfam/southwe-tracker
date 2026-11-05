@@ -882,5 +882,16 @@
   "Save a plan": "Enregistrer un plan",
   "Import a file": "Importer un fichier",
   "Deleted items": "Éléments supprimés",
-  "Current split": "Répartition actuelle"
+  "Current split": "Répartition actuelle",
+  "Choose a template": "Choisir un modèle",
+  "Optional: apply a template to rename your workout days.": "Facultatif : appliquez un modèle pour renommer vos jours d’entraînement.",
+  "Progress views": "Vues de progression",
+  "Overview": "Aperçu",
+  "Trends": "Tendances",
+  "Training": "Entraînement",
+  "Milestones": "Étapes",
+  "earned · Lifetime progress": "atteintes · Progression cumulée",
+  "Prayer session": "Session de prière",
+  "Previous Isha": "Icha précédent",
+  "Each prayer has its own counters. Progress resumes within the same prayer.": "Chaque prière a ses propres compteurs. La progression reprend pour la même prière."
 }

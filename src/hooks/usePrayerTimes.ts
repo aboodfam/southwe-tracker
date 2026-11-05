@@ -177,6 +177,7 @@ export function usePrayerTimes(enabled: boolean) {
       setTimings(null);
       return;
     }
+    const controller = new AbortController();
 
     const load = async () => {
       setStatus("loading");
@@ -194,9 +195,10 @@ export function usePrayerTimes(enabled: boolean) {
         return;
       }
 
+      const requestTimeout = window.setTimeout(() => controller.abort(), 8000);
       try {
         const url = `https://api.aladhan.com/v1/timings/${apiDate(dateKey)}?latitude=${encodeURIComponent(location.latitude)}&longitude=${encodeURIComponent(location.longitude)}&method=${method}`;
-        const response = await fetch(url, { headers: { Accept: "application/json" } });
+        const response = await fetch(url, { headers: { Accept: "application/json" }, signal: controller.signal });
         if (!response.ok) throw new Error(tr("Prayer time request failed"));
         const payload = await response.json();
         const source = payload?.data?.timings ?? {};
@@ -222,12 +224,15 @@ export function usePrayerTimes(enabled: boolean) {
           setTimings(null);
           setStatus("unavailable");
         }
+      } finally {
+        window.clearTimeout(requestTimeout);
       }
     };
 
     void load();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [enabled, dateKey, timeZone]);
 

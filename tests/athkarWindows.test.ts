@@ -127,3 +127,33 @@ test("fitness labels use the muscle meaning of Back, familiar Arabic terms, and 
     expect(muscleLabel("Back")).toBe("Back");
   } finally { setLocale(previous); }
 });
+
+test("dated prayer sessions start fresh after days away and never inherit the permanent manual session", async () => {
+  const { db, userId, user, insert } = await setup();
+  const id = await insert("prayer", 30);
+  await db.run(ctx => ctx.db.insert("athkarSessions", {
+    userId, category: "prayer", sessionKey: "prayer:manual", currentIndex: 12,
+    counts: [{dhikrId: id, count: 30}], completed: true, updatedAt: 1,
+  }));
+  const first = "prayer:2026-11-02:manual";
+  expect(await user.mutation(api.athkar.ensurePrayerSession, {sessionKey: first})).toMatchObject({currentIndex: 0, completed: false, counts: [{dhikrId: id, count: 0}]});
+  await user.mutation(api.athkar.incrementPrayerSession, {sessionKey: first, dhikrId: id});
+  expect(await user.mutation(api.athkar.ensurePrayerSession, {sessionKey: first})).toMatchObject({counts: [{dhikrId: id, count: 1}]});
+  for (const sessionKey of ["prayer:2026-11-05:manual", "prayer:2026-11-05:fajr", "prayer:2026-11-05:dhuhr"]) {
+    expect(await user.query(api.athkar.getPrayerSession, {sessionKey})).toMatchObject({completed: false, counts: [{dhikrId: id, count: 0}]});
+    expect(await user.mutation(api.athkar.ensurePrayerSession, {sessionKey})).toMatchObject({currentIndex: 0, completed: false, counts: [{dhikrId: id, count: 0}]});
+  }
+  expect(await user.query(api.athkar.getPrayerSession, {sessionKey: first})).toMatchObject({counts: [{dhikrId: id, count: 1}]});
+  expect(await user.query(api.athkar.getPrayerSession, {sessionKey: "prayer:manual"})).toMatchObject({completed: true});
+});
+
+test("all four daily categories reset after three days away even if unfinished", async () => {
+  const {db, user, insert} = await setup();
+  for (const category of ["morning", "evening", "before_sleep", "waking_up"]) {
+    const id = await insert(category);
+    await user.mutation(api.athkar.prepareCategorySession, {category, windowKey: "2026-11-02"});
+    await user.mutation(api.athkar.incrementCount, {dhikrId: id});
+    await user.mutation(api.athkar.prepareCategorySession, {category, windowKey: "2026-11-05"});
+    expect((await db.run(ctx => ctx.db.get(id)))?.currentCount).toBe(0);
+  }
+});

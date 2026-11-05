@@ -1,3 +1,4 @@
+import { ChoiceSelect } from "./ChoiceSelect";
 import { t as tr, useLocale } from "../i18n";
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
@@ -68,7 +69,7 @@ export function ExerciseResultLog({ dayId, exerciseId, dateKey, history }: {
     }}>
       <p className="text-xs leading-5 text-white/60">{tr("One best set per exercise, per day. This records what you actually did, without changing your prescribed sets or checking off the exercise.")}</p>
       {previous && <p className="text-sm text-white/80">{tr("Last time (")}{previous.date}): {resultLabel(previous)}</p>}
-      <label className="block text-xs text-white/70">{tr("Track")}<select value={mode} onChange={event => { setMode(event.target.value); setValue(""); }} className={field}><option value="reps">{tr("Repetitions")}</option><option value="hold">{tr("Hold duration")}</option></select></label>
+      <label className="block text-xs text-white/70">{tr("Track")}<ChoiceSelect label={tr("Track")} value={mode} onChange={value => { setMode(value); setValue(""); }} className="mt-1 w-full" options={[{value: "reps", label: tr("Repetitions")}, {value: "hold", label: tr("Hold duration")}]} /></label>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-xs text-white/70">{mode === "reps" ? tr("Reps in your best set") : tr("Hold duration (seconds)")}<input autoFocus required inputMode="decimal" type="number" min={mode === "reps" ? 1 : 0.1} max={mode === "reps" ? 1000 : 3600} step={mode === "reps" ? 1 : 0.1} value={value} onChange={event => setValue(event.target.value)} className={field} /></label>
         {mode === "reps" && <label className="text-xs text-white/70">{tr("External load (kg, optional)")}<input type="number" inputMode="decimal" min="0" max="1000" step="0.01" value={load} onChange={event => setLoad(event.target.value)} placeholder={tr("Blank = bodyweight")} className={field} /></label>}
