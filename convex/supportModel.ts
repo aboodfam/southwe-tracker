@@ -56,75 +56,70 @@ export type Starter = {
   timeSlot: string;
   tasks: StarterTask[];
 };
+// Each template is one repeatable session, with a concrete start and finish.
+// These are suggestions copied into a user's draft, never changes to saved routines.
 export const READY_TEMPLATES: Starter[] = [
   {
     id: "study",
-    name: "Study consistently",
+    name: "Study session",
     description:
-      "Make room for one topic and leave yourself a clear next step.",
-    timeSlot: "Afternoon",
+      "Learn one topic, test yourself, and keep track of what needs practice.",
+    timeSlot: "Study time",
     tasks: [
       {
-        name: "Study one topic for 25 minutes",
+        name: "Study the chosen topic",
         minutes: 25,
         fallbackName: "Review one page of that topic",
         fallbackMinutes: 5,
       },
-      { name: "Write the next thing to study", minutes: 2 },
-    ],
-  },
-  {
-    id: "balance",
-    name: "Work & personal life",
-    description: "Give your main priority and one personal commitment a place.",
-    timeSlot: "When ready",
-    tasks: [
+      { name: "Close the notes and explain the topic from memory", minutes: 5 },
       {
-        name: "Work on my main priority for 25 minutes",
-        minutes: 25,
-        fallbackName: "Spend 5 minutes on the first part",
-        fallbackMinutes: 5,
-      },
-      {
-        name: "Make time for one personal activity",
-        minutes: 15,
-        fallbackName: "Spend 5 minutes on that activity",
-        fallbackMinutes: 5,
-      },
-    ],
-  },
-  {
-    id: "routine",
-    name: "A simple daily routine",
-    description: "A little reading and a moment to prepare for tomorrow.",
-    timeSlot: "Evening",
-    tasks: [
-      {
-        name: "Read for 20 minutes",
-        minutes: 20,
-        fallbackName: "Read for 5 minutes",
-        fallbackMinutes: 5,
-      },
-      {
-        name: "Prepare one thing for tomorrow",
-        minutes: 5,
-        fallbackName: "Write down tomorrow's first action",
-        fallbackMinutes: 1,
-      },
-    ],
-  },
-  {
-    id: "restart",
-    name: "Start again gently",
-    description: "One small action. You can build from here.",
-    timeSlot: "Any time",
-    tasks: [
-      {
-        name: "Spend 10 minutes on something that matters",
+        name: "Try a practice question without checking the answer",
         minutes: 10,
-        fallbackName: "Take one 2-minute first step",
-        fallbackMinutes: 2,
       },
+      { name: "Write down one mistake to review next time", minutes: 2 },
+    ],
+  },
+  {
+    id: "morning",
+    name: "Morning setup",
+    description: "Know what is coming and get your first task ready.",
+    timeSlot: "After waking up",
+    tasks: [
+      { name: "Check today's appointments and deadlines", minutes: 2 },
+      { name: "Choose the one task that matters most today", minutes: 2 },
+      { name: "Prepare what you need to start that task", minutes: 3 },
+    ],
+  },
+  {
+    id: "focus",
+    name: "Focused work",
+    description:
+      "Finish one clear piece of work and leave an easy place to resume.",
+    timeSlot: "Work time",
+    tasks: [
+      { name: "Write the result you want from this session", minutes: 2 },
+      { name: "Put your phone away and close unrelated tabs", minutes: 1 },
+      {
+        name: "Work on the result you chose",
+        minutes: 25,
+        fallbackName: "Start the first part",
+        fallbackMinutes: 5,
+      },
+      { name: "Save your work and write the next step", minutes: 2 },
+    ],
+  },
+  {
+    id: "evening",
+    name: "Prepare for tomorrow",
+    description:
+      "Handle the small things tonight so tomorrow is easier to start.",
+    timeSlot: "Before bed",
+    tasks: [
+      { name: "Check tomorrow's first appointment or deadline", minutes: 2 },
+      { name: "Prepare your bag, clothes or workspace", minutes: 5 },
+      { name: "Clear the surface you will use first", minutes: 3 },
+      { name: "Write down tomorrow's first task", minutes: 2 },
     ],
   },
 ];

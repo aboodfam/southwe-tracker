@@ -40,7 +40,7 @@ export function GuidedSetup() {
   return (
     <TemplateGallery
       dateKey={dateKey}
-      onDone={() => toast.success(tr("Open Today to begin your first action."))}
+      onDone={() => toast.success(tr("Routine added to your blocks."))}
     />
   );
 }
@@ -762,7 +762,7 @@ export function WorkspacePage({ onBack }: { onBack?: () => void }) {
         {area === "routines" && (
           <TemplateGallery
             dateKey={dateKey}
-            onDone={() => toast.success(tr("Added to Today."))}
+            onDone={() => toast.success(tr("Routine added to your blocks."))}
           />
         )}
         {area === "plans" && <PlanLibrary />}
