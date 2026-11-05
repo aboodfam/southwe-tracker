@@ -3,7 +3,7 @@ import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { pageValidator, planValidator, validatePlan, STARTERS, type Plan } from "./planFormat";
+import { pageValidator, planValidator, validatePlan, PAGES, STARTERS, type Plan } from "./planFormat";
 import { LIMITS, cleanText, enforceRateLimit, assertCurrentLocalDate } from "./security";
 import { starterTaskValidator, taskKey } from "./supportModel";
 import { EMPTY_DAY } from "./supportModel";
@@ -49,12 +49,23 @@ export const savePreferences = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx); if (!userId) throw new Error("Not authenticated");
     await enforceRateLimit(ctx, userId, "workspace:preferences", 30, 60000);
-    if (args.hiddenPages.length > 6 || args.hiddenPages.includes("today")) throw new Error("Today must remain available.");
+    if (args.hiddenPages.length > PAGES.length || new Set(args.hiddenPages).size >= PAGES.length) throw new Error("Keep at least one section visible.");
     if (args.hiddenPages.includes(args.startPage)) throw new Error("Your starting page must be visible.");
     const existing = await ctx.db.query("workspacePreferences").withIndex("by_user", q => q.eq("userId", userId)).first();
     const changes = { ...args, hiddenPages: [...new Set(args.hiddenPages)] };
     if (existing) await ctx.db.patch(existing._id, changes);
     else await ctx.db.insert("workspacePreferences", { userId, ...defaults, ...changes });
+  },
+});
+
+export const setQuietMode = mutation({
+  args: { quiet: v.boolean() },
+  handler: async (ctx, { quiet }) => {
+    const userId = await getAuthUserId(ctx); if (!userId) throw new Error("Not authenticated");
+    await enforceRateLimit(ctx, userId, "workspace:preferences", 30, 60000);
+    const existing = await ctx.db.query("workspacePreferences").withIndex("by_user", q => q.eq("userId", userId)).first();
+    if (existing) await ctx.db.patch(existing._id, { quiet });
+    else await ctx.db.insert("workspacePreferences", { ...defaults, userId, quiet });
   },
 });
 

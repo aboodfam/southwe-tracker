@@ -893,5 +893,12 @@
   "earned · Lifetime progress": "已获得 · 累计进度",
   "Prayer session": "礼拜时段",
   "Previous Isha": "上次宵礼",
-  "Each prayer has its own counters. Progress resumes within the same prayer.": "每次礼拜有独立计数，同一次礼拜可继续上次进度。"
+  "Each prayer has its own counters. Progress resumes within the same prayer.": "每次礼拜有独立计数，同一次礼拜可继续上次进度。",
+  "Back to app": "返回应用",
+  "No particles, motion, or sounds. Applies immediately.": "关闭粒子、动画和声音，立即生效。",
+  "Saving quiet mode…": "正在保存安静模式…",
+  "Quiet mode could not be saved. Try again.": "无法保存安静模式，请重试。",
+  "Keep at least one section visible.": "请至少保留一个可见栏目。",
+  "Quiet mode is on. Turn it off to preview sounds.": "安静模式已开启，请关闭后试听声音。",
+  "Reconnecting… Saved data may be out of date.": "正在重新连接…已保存的数据可能不是最新的。"
 }

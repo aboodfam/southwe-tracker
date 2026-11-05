@@ -893,5 +893,12 @@
   "earned · Lifetime progress": "إنجازات · تقدمك منذ البداية",
   "Prayer session": "جلسة الصلاة",
   "Previous Isha": "العشاء السابق",
-  "Each prayer has its own counters. Progress resumes within the same prayer.": "لكل صلاة عدّاداتها الخاصة. يُحفظ تقدمك عند العودة إلى الصلاة نفسها."
+  "Each prayer has its own counters. Progress resumes within the same prayer.": "لكل صلاة عدّاداتها الخاصة. يُحفظ تقدمك عند العودة إلى الصلاة نفسها.",
+  "Back to app": "العودة إلى التطبيق",
+  "No particles, motion, or sounds. Applies immediately.": "بلا جسيمات أو حركة أو أصوات. يُطبّق فورًا.",
+  "Saving quiet mode…": "جارٍ حفظ الوضع الهادئ…",
+  "Quiet mode could not be saved. Try again.": "تعذّر حفظ الوضع الهادئ. حاول مجددًا.",
+  "Keep at least one section visible.": "أبقِ قسمًا واحدًا على الأقل ظاهرًا.",
+  "Quiet mode is on. Turn it off to preview sounds.": "الوضع الهادئ مفعّل. أوقفه لتجربة الأصوات.",
+  "Reconnecting… Saved data may be out of date.": "جارٍ إعادة الاتصال… قد لا تكون البيانات المحفوظة محدّثة."
 }

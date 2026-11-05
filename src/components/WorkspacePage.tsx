@@ -1,3 +1,4 @@
+import { useQuietMode } from "../contexts/QuietModeContext";
 import { t as tr, useLocale, getIntlLocale } from "../i18n";
 import { useEffect, useId, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
@@ -61,7 +62,7 @@ export function PlanLibrary() {
       toast.success(tr("Plan export prepared. It contains templates, not your personal progress history."));
     } catch (error) { action.setError(error instanceof Error ? error.message : tr("Could not export.")); }
   };
-  return <section className={card} data-no-swipe>
+  return <section className={card}>
     <h2 className="text-lg font-semibold">{tr("Saved plans")}</h2>
     <p className="mt-1 text-sm leading-6 text-white/55">{tr("Reuse a plan or move it between accounts.")}</p>
     <div className="my-4 flex flex-wrap gap-2">
@@ -114,7 +115,7 @@ function DeletedItems() {
   const purge = useMutation(api.recovery.removePermanently);
   const [confirm, setConfirm] = useState<Id<"recycleBin"> | null>(null);
   const action = useSaveAction();
-  return <section className={card} data-no-swipe>
+  return <section className={card}>
     <h2 className="text-lg font-semibold">{tr("Recently deleted")}</h2><p className="mt-1 text-sm leading-6 text-white/55">{tr("Restore something you deleted, or remove it permanently.")}</p>
     {deleted === undefined ? <p role="status" className="mt-4 text-sm text-white/60">{tr("Loading deleted items…")}</p> : !deleted.length ? <div className="mt-4 rounded-xl border border-dashed border-white/15 p-5 text-center text-sm text-white/55">{tr("Nothing in recently deleted.")}</div> : <ul className="mt-4 space-y-2">{deleted.map(item => <li key={item._id} className="rounded-xl border border-white/10 p-3"><p className="break-words text-sm font-semibold">{item.title}</p><p className="mt-1 text-xs text-white/45">{new Date(item.deletedAt).toLocaleDateString(getIntlLocale())}</p><div className="mt-3 flex flex-wrap gap-2"><button disabled={action.busy} onClick={() => void action.run(async () => { await restore({ id: item._id }); toast.success(tr("Restored.")); })} className={button}>{tr("Restore")}</button><button disabled={action.busy} onClick={() => setConfirm(item._id)} className={button}>{tr("Remove forever")}</button></div>{confirm === item._id && <div className="mt-3 rounded-xl border border-red-400/20 p-3 text-sm"><p>{tr("This cannot be undone. Any separately deleted children need their parent to be restorable.")}</p><div className="mt-3 flex flex-wrap gap-2"><button disabled={action.busy} className={button} onClick={() => void action.run(async () => { await purge({ id: item._id, confirm: "DELETE" }); setConfirm(null); toast.success(tr("Permanently removed.")); })}>{tr("Confirm permanent removal")}</button><button className={button} onClick={() => setConfirm(null)}>{tr("Cancel")}</button></div></div>}</li>)}</ul>}
     <details className="mt-4 border-t border-white/10 pt-3 text-xs leading-6 text-white/50"><summary className="cursor-pointer py-1">{tr("How restore works")}</summary><p className="mt-2">{tr("Restore routines, tasks, habits, workout days and exercises deleted after this update. Up to 100 items are kept until you restore or permanently remove them. Restore a parent routine or day before its individual items. Restored routine checkmarks start unchecked; saved history stays intact.")}</p></details>
@@ -136,16 +137,17 @@ export function WorkspacePage({ onBack }: { onBack?: () => void }) {
   const tabs = useRef<HTMLDivElement>(null);
   const prefs = useQuery(api.workspace.getPreferences);
   const save = useMutation(api.workspace.savePreferences);
-  const [hidden, setHidden] = useState<Page[]>([]);
-  const [start, setStart] = useState<Page>("today");
-  const [quiet, setQuiet] = useState(false);
+  const [hidden, setHidden] = useState<Page[]>(() => prefs?.hiddenPages ?? []);
+  const [start, setStart] = useState<Page>(() => prefs?.startPage ?? "today");
+  const { quiet, setQuiet, saving: quietSaving, error: quietError } = useQuietMode();
   const action = useSaveAction();
-  useEffect(() => { if (prefs) { setHidden(prefs.hiddenPages); setStart(prefs.startPage); setQuiet(prefs.quiet); } }, [prefs]);
+  const navigationKey = prefs ? `${prefs.userId}:${prefs.startPage}:${prefs.hiddenPages.join("|")}` : "";
+  useEffect(() => { if (prefs) { setHidden(prefs.hiddenPages); setStart(prefs.startPage); } }, [navigationKey]);
   if (!prefs) return <p role="status" className="p-10 text-center text-white/60">{tr("Loading your workspace…")}</p>;
-  const dirty = start !== prefs.startPage || quiet !== prefs.quiet || [...hidden].sort().join() !== [...prefs.hiddenPages].sort().join();
-  return <div className="mx-auto max-w-3xl space-y-4" data-no-swipe>
+  const dirty = start !== prefs.startPage || [...hidden].sort().join() !== [...prefs.hiddenPages].sort().join();
+  return <div className="mx-auto max-w-3xl space-y-4">
     <header className="py-1">
-      {onBack && <button onClick={onBack} className="mb-1 inline-flex min-h-11 items-center gap-2 text-sm text-white/55 hover:text-white"><Icon name="chevronLeft" className="h-4 w-4" />{tr("Back to Today")}</button>}
+      {onBack && <button onClick={onBack} className="mb-1 inline-flex min-h-11 items-center gap-2 text-sm text-white/55 hover:text-white"><Icon name="chevronLeft" className="h-4 w-4" />{tr("Back to app")}</button>}
       <h1 className="text-2xl font-bold tracking-tight text-[rgb(var(--sw-accent-rgb))] sm:text-3xl">{tr("My workspace")}</h1>
       <p className="mt-1 text-sm text-white/55">{tr("Make Ceventic yours.")}</p>
     </header>
@@ -165,12 +167,15 @@ export function WorkspacePage({ onBack }: { onBack?: () => void }) {
     <div id={`${tabId}-panel`} role="tabpanel" aria-labelledby={`${tabId}-${area}`} tabIndex={0} className="outline-none">
       {area === "customize" && <section className={card}>
         <h2 className="text-lg font-semibold">{tr("Show in navigation")}</h2><p className="mt-1 text-sm leading-6 text-white/55">{tr("Choose the sections you use. Hidden sections keep their data.")}</p>
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">{PAGES.filter(page => page.id !== "today").map(page => {
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">{PAGES.map(page => {
           const visible = !hidden.includes(page.id);
-          return <button key={page.id} role="switch" aria-checked={visible} disabled={action.busy} aria-label={tr(page.name)} onClick={() => { setHidden(previous => visible ? [...previous, page.id] : previous.filter(id => id !== page.id)); if (visible && start === page.id) setStart("today"); }} className={`flex min-h-12 min-w-0 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm transition disabled:opacity-40 ${visible ? "border-white/20 bg-white/[.06] text-white/90" : "border-white/10 text-white/40"}`}><span className="min-w-0 break-words text-start">{tr(page.name)}</span><span className={`grid h-4 w-4 shrink-0 place-items-center rounded border ${visible ? "border-transparent bg-[rgb(var(--sw-accent-rgb))] text-black" : "border-white/20"}`}>{visible && <Icon name="check" className="h-3 w-3" />}</span></button>;
+          return <button key={page.id} role="switch" aria-checked={visible} disabled={action.busy || (visible && hidden.length === PAGES.length - 1)} aria-label={tr(page.name)} onClick={() => { const next = visible ? [...hidden, page.id] : hidden.filter(id => id !== page.id); setHidden(next); if (next.includes(start)) setStart(PAGES.find(item => !next.includes(item.id))!.id); }} className={`flex min-h-12 min-w-0 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm transition disabled:opacity-40 ${visible ? "border-white/20 bg-white/[.06] text-white/90" : "border-white/10 text-white/40"}`}><span className="min-w-0 break-words text-start">{tr(page.name)}</span><span className={`grid h-4 w-4 shrink-0 place-items-center rounded border ${visible ? "border-transparent bg-[rgb(var(--sw-accent-rgb))] text-black" : "border-white/20"}`}>{visible && <Icon name="check" className="h-3 w-3" />}</span></button>;
         })}</div>
         <div className="mt-5 border-t border-white/10 pt-4"><p className="mb-2 text-sm font-medium text-white/80">{tr("Start page")}</p><ChoiceSelect label={tr("Start page")} value={start} disabled={action.busy} className="w-full" onChange={setStart} options={PAGES.filter(page => !hidden.includes(page.id)).map(page => ({value: page.id, label: tr(page.name)}))} /></div>
-        <button role="switch" aria-checked={quiet} aria-label={tr("Quiet mode")} disabled={action.busy} onClick={() => setQuiet(value => !value)} className="mt-4 flex min-h-14 w-full items-center justify-between gap-4 rounded-xl py-2 text-start disabled:opacity-40"><span><span className="block text-sm font-medium">{tr("Quiet mode")}</span><span className="mt-1 block text-xs text-white/50">{tr("Less animation. No reward sounds.")}</span></span><span aria-hidden="true" className={`flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition ${quiet ? "justify-end bg-[rgb(var(--sw-accent-rgb))]" : "justify-start bg-white/20"}`}><span className="h-5 w-5 rounded-full bg-white shadow" /></span></button>
+        <button role="switch" aria-checked={quiet} aria-label={tr("Quiet mode")} onClick={() => void setQuiet(!quiet)} className="mt-4 flex min-h-14 w-full items-center justify-between gap-4 rounded-xl py-2 text-start disabled:opacity-40"><span><span className="block text-sm font-medium">{tr("Quiet mode")}</span><span className="mt-1 block text-xs text-white/50">{tr("No particles, motion, or sounds. Applies immediately.")}</span></span><span aria-hidden="true" className={`flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition ${quiet ? "justify-end bg-[rgb(var(--sw-accent-rgb))]" : "justify-start bg-white/20"}`}><span className="h-5 w-5 rounded-full bg-white shadow" /></span></button>
+        {quietSaving && <p role="status" className="text-xs text-white/50">{tr("Saving quiet mode…")}</p>}
+        {quietError && <p role="alert" className="text-xs text-red-300">{tr("Quiet mode could not be saved. Try again.")}</p>}
+        <p className="mt-2 text-xs text-white/45">{tr("Keep at least one section visible.")}</p>
         <button disabled={action.busy || !dirty} className={`${primary} mt-4 w-full`} onClick={() => void action.run(async () => { await save({ hiddenPages: hidden, startPage: start, quiet }); toast.success(tr("Workspace preferences saved across your account.")); })}>{action.busy ? tr("Saving…") : dirty ? tr("Save changes") : tr("Saved")}</button>
         {errorText(action.error)}
       </section>}

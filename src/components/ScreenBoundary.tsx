@@ -5,7 +5,7 @@ import { useConvexConnectionState } from "convex/react";
 export function ConnectionNotice() {
   useLocale();
   const connection = useConvexConnectionState();
-  return connection.isWebSocketConnected ? null : <div role="status" className="border-b border-amber-300/20 bg-amber-300/10 px-4 py-3 text-center text-sm text-amber-100">{tr("Reconnecting. Saved information may be out of date; wait for the connection before editing.")}</div>;
+  return connection.isWebSocketConnected ? null : <div role="status" className="border-b border-amber-300/20 bg-amber-300/10 px-3 py-1.5 text-center text-xs text-amber-100">{tr("Reconnecting… Saved data may be out of date.")}</div>;
 }
 
 export class ScreenBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {

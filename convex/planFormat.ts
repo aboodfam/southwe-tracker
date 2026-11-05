@@ -17,6 +17,11 @@ export const PAGES: { id: Page; name: string }[] = [
   { id: "habits", name: "Habits" }, { id: "progress", name: "Progress" }, { id: "athkar", name: "Athkar" }, { id: "macros", name: "Macros" },
 ];
 
+/** Settings always remain accessible, even while a saved page is being hidden. */
+export function visibleStartPage(hiddenPages: readonly string[], preferred: Page): Page | null {
+  return !hiddenPages.includes(preferred) ? preferred : PAGES.find(page => !hiddenPages.includes(page.id))?.id ?? null;
+}
+
 // Used both before previewing a file and at the server boundary. Never trust file content.
 export function validatePlan(input: unknown): Plan {
   if (new TextEncoder().encode(JSON.stringify(input) ?? "").length > 500000) throw new Error("Plan is too large (maximum 500 KB). Export fewer items at a time.");

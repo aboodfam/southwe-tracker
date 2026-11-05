@@ -893,5 +893,12 @@
   "earned · Lifetime progress": "logrados · Progreso acumulado",
   "Prayer session": "Sesión de oración",
   "Previous Isha": "Isha anterior",
-  "Each prayer has its own counters. Progress resumes within the same prayer.": "Cada oración tiene sus propios contadores. Puedes retomar el progreso de la misma oración."
+  "Each prayer has its own counters. Progress resumes within the same prayer.": "Cada oración tiene sus propios contadores. Puedes retomar el progreso de la misma oración.",
+  "Back to app": "Volver a la app",
+  "No particles, motion, or sounds. Applies immediately.": "Sin partículas, movimiento ni sonidos. Se aplica al instante.",
+  "Saving quiet mode…": "Guardando el modo silencioso…",
+  "Quiet mode could not be saved. Try again.": "No se pudo guardar el modo silencioso. Inténtalo de nuevo.",
+  "Keep at least one section visible.": "Mantén al menos una sección visible.",
+  "Quiet mode is on. Turn it off to preview sounds.": "El modo silencioso está activado. Desactívalo para probar los sonidos.",
+  "Reconnecting… Saved data may be out of date.": "Reconectando… Los datos guardados pueden estar desactualizados."
 }

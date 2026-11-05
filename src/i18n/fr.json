@@ -893,5 +893,12 @@
   "earned · Lifetime progress": "atteintes · Progression cumulée",
   "Prayer session": "Session de prière",
   "Previous Isha": "Icha précédent",
-  "Each prayer has its own counters. Progress resumes within the same prayer.": "Chaque prière a ses propres compteurs. La progression reprend pour la même prière."
+  "Each prayer has its own counters. Progress resumes within the same prayer.": "Chaque prière a ses propres compteurs. La progression reprend pour la même prière.",
+  "Back to app": "Retour à l’application",
+  "No particles, motion, or sounds. Applies immediately.": "Sans particules, animations ni sons. Effet immédiat.",
+  "Saving quiet mode…": "Enregistrement du mode calme…",
+  "Quiet mode could not be saved. Try again.": "Le mode calme n’a pas pu être enregistré. Réessayez.",
+  "Keep at least one section visible.": "Gardez au moins une section visible.",
+  "Quiet mode is on. Turn it off to preview sounds.": "Le mode calme est activé. Désactivez-le pour écouter les sons.",
+  "Reconnecting… Saved data may be out of date.": "Reconnexion… Les données enregistrées peuvent ne pas être à jour."
 }

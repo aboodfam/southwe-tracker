@@ -414,3 +414,21 @@ test("account deletion includes all new support records", async () => {
   );
   expect(remaining).toEqual([0, 0, 0]);
 });
+
+test("Today can be hidden, with a visible starting page and at least one section left", async () => {
+  const { user } = await setup();
+  await user.mutation(api.workspace.savePreferences, {hiddenPages: ["today"], startPage: "workout", quiet: false});
+  expect(await user.query(api.workspace.getPreferences)).toMatchObject({hiddenPages: ["today"], startPage: "workout"});
+  await expect(user.mutation(api.workspace.savePreferences, {hiddenPages: ["today"], startPage: "today", quiet: false})).rejects.toThrow(/starting page/);
+  await expect(user.mutation(api.workspace.savePreferences, {hiddenPages: ["today", "routines", "workout", "habits", "progress", "athkar", "macros"], startPage: "workout", quiet: false})).rejects.toThrow(/one section/);
+  expect(await user.query(api.workspace.getPreferences)).toMatchObject({hiddenPages: ["today"], startPage: "workout"});
+});
+
+test("immediate quiet-mode saves change only sound and motion preferences, within the signed-in account", async () => {
+  const { t, user, other } = await setup();
+  await user.mutation(api.workspace.savePreferences, {hiddenPages: ["today"], startPage: "workout", quiet: false});
+  await user.mutation(api.workspace.setQuietMode, {quiet: true});
+  expect(await user.query(api.workspace.getPreferences)).toMatchObject({hiddenPages: ["today"], startPage: "workout", quiet: true});
+  expect(await other.query(api.workspace.getPreferences)).toMatchObject({hiddenPages: [], startPage: "today", quiet: false});
+  await expect(t.mutation(api.workspace.setQuietMode, {quiet: true})).rejects.toThrow(/authenticated/);
+});

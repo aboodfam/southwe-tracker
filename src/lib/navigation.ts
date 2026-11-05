@@ -14,3 +14,9 @@ export function swipeNavigation(deltaX: number) {
 export function athkarSwipeNavigation(deltaX: number) {
   return { ...swipeNavigation(deltaX), next: deltaX > 0 };
 }
+
+/** Let vertical scrolling win early; require a deliberate horizontal swipe to navigate. */
+export function pageSwipe(deltaX: number, deltaY: number) {
+  return Math.abs(deltaX) >= 70 && Math.abs(deltaX) > Math.abs(deltaY) * 1.4
+    ? swipeNavigation(deltaX) : null;
+}

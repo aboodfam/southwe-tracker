@@ -1,3 +1,4 @@
+import { useQuietMode } from "../contexts/QuietModeContext";
 import { LanguageSelector } from "./LanguageSelector";
 import { t as tr, useLocale } from "../i18n";
 import { useEffect, useRef, useState } from "react";
@@ -234,6 +235,7 @@ function ThemePreview({ option, selected }: { option: ThemeOption; selected: boo
 }
 
 export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void }) {
+  const { quiet } = useQuietMode();
   useLocale();
   const { theme, setTheme, getThemeColors, useCustomAccent, setUseCustomAccent, customAccent, setCustomAccent } = useTheme();
   const {
@@ -319,10 +321,10 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
     isOpen && typeof document !== "undefined"
       ? createPortal(
           <>
-          <button className="fixed inset-x-0 bottom-0 top-16 z-[1000] cursor-default bg-black/55 sm:top-20" onClick={() => setIsOpen(false)} aria-label={tr("Close settings")} />
+          <button className="fixed inset-x-0 bottom-0 top-14 z-[1000] cursor-default bg-black/55 sm:top-16" onClick={() => setIsOpen(false)} aria-label={tr("Close settings")} />
           <div
             role="dialog" aria-modal="true" aria-label={tr("Preferences")}
-            className={`fixed inset-x-3 top-[4.5rem] mx-auto max-w-sm max-h-[calc(100dvh-5.25rem)] z-[1010] flex min-h-0 flex-col overflow-hidden rounded-3xl border ${colors.border} shadow-2xl sm:inset-x-auto sm:bottom-auto sm:end-4 sm:top-[5.5rem] sm:mx-0 sm:w-[400px] sm:max-h-[calc(100dvh-6.5rem)]`}
+            className={`fixed inset-x-3 top-[3.75rem] mx-auto max-w-sm max-h-[calc(100dvh-4.5rem)] z-[1010] flex min-h-0 flex-col overflow-hidden rounded-3xl border ${colors.border} shadow-2xl sm:inset-x-auto sm:bottom-auto sm:end-4 sm:top-[4.5rem] sm:mx-0 sm:w-[400px] sm:max-h-[calc(100dvh-5.5rem)]`}
             style={{
               background: "#07090d",
               boxShadow: "0 28px 90px rgba(0,0,0,.62), 0 0 0 1px rgba(255,255,255,.025) inset",
@@ -460,6 +462,7 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                 </div>
               ) : activeTab === "sounds" ? (
                 <div className="space-y-3">
+                  {quiet && <p role="status" className="rounded-xl border border-white/10 p-3 text-xs text-white/60">{tr("Quiet mode is on. Turn it off to preview sounds.")}</p>}
                   <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4">
                     <div>
                       <h3 className={`text-sm font-semibold ${colors.text}`}>{tr("Reward sounds")}</h3>

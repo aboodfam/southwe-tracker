@@ -17,28 +17,28 @@ export function PageHeader({
   }, [colors.primary]);
 
   return (
-    <div className="text-center pt-2 sm:pt-4 animate-float-in">
+    <div className="text-center pt-1 sm:pt-4 animate-float-in">
       <div className="relative inline-block">
         <h1
-          className="text-4xl sm:text-5xl font-extrabold tracking-tight"
+          className="text-3xl sm:text-5xl font-extrabold tracking-tight"
           style={{ color: colors.primary }}
         >
           {title}
         </h1>
 
         <div
-          className="absolute -inset-6 blur-2xl opacity-60 pointer-events-none"
+          className="absolute -inset-4 sm:-inset-6 blur-2xl opacity-60 pointer-events-none"
           style={{ background: glow }}
         />
       </div>
 
-      <p className="mt-3 text-sm sm:text-base" style={{ color: "rgba(255,255,255,0.65)" }}>
+      <p className="mt-2 text-sm sm:mt-3 sm:text-base" style={{ color: "rgba(255,255,255,0.65)" }}>
         {subtitle}
       </p>
 
-      <div className="mt-4 flex justify-center">
+      <div className="mt-3 flex justify-center sm:mt-4">
         <div
-          className="h-[3px] w-28 rounded-full"
+          className="h-[3px] w-20 sm:w-28 rounded-full"
           style={{
             background: `linear-gradient(90deg, transparent, ${colors.primary}, transparent)`,
             boxShadow: `0 0 18px ${colors.primary}25`,

@@ -1,3 +1,4 @@
+import { useQuietMode } from "./QuietModeContext";
 import { t as tr } from "../i18n";
 import React, {
   createContext,
@@ -104,6 +105,9 @@ function hasKey<T extends Record<string, any>>(obj: T, key: string): key is Extr
 }
 
 export function SoundProvider({ children }: { children: React.ReactNode }) {
+  const { quiet } = useQuietMode();
+  const quietRef = useRef(quiet);
+  quietRef.current = quiet;
   const [enabled, setEnabledState] = useState<boolean>(() => {
     const raw = localStorage.getItem(LS_ENABLED);
     if (raw === null) return true;
@@ -150,6 +154,13 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const masterGainRef = useRef<GainNode | null>(null);
 
+  useEffect(() => {
+    if (masterGainRef.current && audioCtxRef.current) {
+      masterGainRef.current.gain.cancelScheduledValues(0);
+      masterGainRef.current.gain.value = quiet ? 0 : 1;
+    }
+  }, [quiet]);
+
   const ensureAudio = useCallback(async () => {
     if (typeof window === "undefined") return null;
 
@@ -157,7 +168,7 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
       const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext;
       audioCtxRef.current = new Ctx();
       masterGainRef.current = audioCtxRef.current.createGain();
-      masterGainRef.current.gain.value = 1;
+      masterGainRef.current.gain.value = quietRef.current ? 0 : 1;
       masterGainRef.current.connect(audioCtxRef.current.destination);
     }
 
@@ -499,8 +510,9 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
 
   const playPack = useCallback(
     async (pack: SoundPack, sfx: SfxName, gain: number) => {
+      if (quietRef.current) return;
       const ctx = await ensureAudio();
-      if (!ctx) return;
+      if (!ctx || quietRef.current) return;
 
       const g = clamp(gain, 0, 2);
 
@@ -512,6 +524,7 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
           const res = await fetch(custom.dataUrl);
           const arr = await res.arrayBuffer();
           const buf = await ctx.decodeAudioData(arr.slice(0));
+          if (quietRef.current) return;
 
           const src = ctx.createBufferSource();
           src.buffer = buf;
@@ -559,7 +572,7 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
 
   const play = useCallback(
     (sfx: SfxName, gainBoost: number = 1) => {
-      if (!enabled || document.documentElement.dataset.ceventicQuiet === "true") return;
+      if (!enabled || quietRef.current) return;
       const g = clamp(volume * gainBoost, 0, 2);
       playPack(soundPack, sfx, g);
     },

@@ -1,4 +1,6 @@
-import { pageMotion, swipeNavigation, type PageMotion } from "./lib/navigation";
+import { visibleStartPage } from "../convex/planFormat";
+import { QuietModeProvider, useQuietMode } from "./contexts/QuietModeContext";
+import { pageMotion, pageSwipe, type PageMotion } from "./lib/navigation";
 
 import { t as tr, useLocale } from "./i18n";
 import { Authenticated, Unauthenticated, useConvexAuth, useQuery, useMutation } from "convex/react";
@@ -463,14 +465,17 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <SoundProvider>
-        <AppContent />
-      </SoundProvider>
+      <QuietModeProvider>
+        <SoundProvider>
+          <AppContent />
+        </SoundProvider>
+      </QuietModeProvider>
     </ThemeProvider>
   );
 }
 
 function AppContent() {
+  const { quiet } = useQuietMode();
   const [currentPage, setCurrentPage] = useState<Page>("today");
   const [swapKey, setSwapKey] = useState(0);
   const [swapDir, setSwapDir] = useState<"left" | "right">("left");
@@ -480,36 +485,35 @@ function AppContent() {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const preferences = useQuery(api.workspace.getPreferences, isAuthenticated ? {} : "skip");
   const initialAccount = useRef<string | null>(null);
+  const landingPage: Page = preferences ? visibleStartPage(preferences.hiddenPages, preferences.startPage) ?? "workspace" : "today";
+  const activePage = preferences && (initialAccount.current !== preferences.userId || (currentPage !== "workspace" && preferences.hiddenPages.includes(currentPage))) ? landingPage : currentPage;
   useEffect(() => {
     if (!isAuthenticated) { initialAccount.current = null; return; }
     if (!preferences) return;
     if (initialAccount.current !== preferences.userId) {
       initialAccount.current = preferences.userId;
-      setCurrentPage(preferences.startPage);
-    } else if (currentPage !== "workspace" && preferences.hiddenPages.includes(currentPage)) setCurrentPage("today");
+      setCurrentPage(visibleStartPage(preferences.hiddenPages, preferences.startPage) ?? "workspace");
+    } else if (currentPage !== "workspace" && preferences.hiddenPages.includes(currentPage)) setCurrentPage(visibleStartPage(preferences.hiddenPages, preferences.startPage) ?? "workspace");
   }, [isAuthenticated, preferences, currentPage]);
-  useEffect(() => {
-    document.documentElement.dataset.ceventicQuiet = String(preferences?.quiet ?? false);
-    return () => { delete document.documentElement.dataset.ceventicQuiet; };
-  }, [preferences?.quiet]);
+
 
   // Only touch authenticated daily data after auth has resolved.
   useDailyReset(isAuthenticated);
 
   useEffect(() => {
-    if (currentPage !== "athkar") setAthkarFocus(false);
-  }, [currentPage]);
+    if (activePage !== "athkar") setAthkarFocus(false);
+  }, [activePage]);
 
   const PAGE_ORDER: Page[] = (["today", "routines", "workout", "habits", "progress", "athkar", "macros"] as const).filter(page => !preferences?.hiddenPages.includes(page));
 
   const navigateToPage = (page: Page, direction?: "left" | "right") => {
     if (page !== "workspace" && preferences?.hiddenPages.includes(page)) return;
-    if (page === currentPage) {
+    if (page === activePage) {
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
       return;
     }
 
-    const fromIndex = PAGE_ORDER.indexOf(currentPage);
+    const fromIndex = PAGE_ORDER.indexOf(activePage);
     const toIndex = PAGE_ORDER.indexOf(page);
     setSwapDir(direction ?? pageMotion(fromIndex, toIndex));
     setCurrentPage(page);
@@ -525,70 +529,59 @@ function AppContent() {
   };
 
   const goPrev = (motion?: PageMotion) => {
-    const idx = PAGE_ORDER.indexOf(currentPage);
-    const next = PAGE_ORDER[(idx - 1 + PAGE_ORDER.length) % PAGE_ORDER.length];
-    navigateToPage(next, motion ?? "right");
+    const idx = PAGE_ORDER.indexOf(activePage);
+    const next = PAGE_ORDER[idx < 0 ? PAGE_ORDER.length - 1 : (idx - 1 + PAGE_ORDER.length) % PAGE_ORDER.length];
+    if (next) navigateToPage(next, motion ?? "right");
   };
 
   const goNext = (motion?: PageMotion) => {
-    const idx = PAGE_ORDER.indexOf(currentPage);
+    const idx = PAGE_ORDER.indexOf(activePage);
     const next = PAGE_ORDER[(idx + 1) % PAGE_ORDER.length];
-    navigateToPage(next, motion ?? "left");
+    if (next) navigateToPage(next, motion ?? "left");
   };
 
-  const swipeRef = useRef({ x: 0, y: 0, active: false, locked: false });
-
-  const shouldIgnoreSwipe = (target: EventTarget | null) => {
-    if (!(target instanceof Element)) return false;
-    // Avoid swiping when interacting with controls or horizontally scrollable areas
-    return !!target.closest(
-      "button, a, input, textarea, select, [role='button'], [role='listbox'], [role='option'], [data-no-swipe], [contenteditable='true']"
-    );
-  };
-
-  const onTouchStart = (e: any) => {
+  const swipeRef = useRef({ x: 0, y: 0, dx: 0, dy: 0, active: false, horizontal: false });
+  const suppressClick = useRef(0);
+  const onTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    suppressClick.current = 0;
     swipeRef.current.active = false;
-    if (e.touches.length !== 1 || !isAuthenticated || athkarFocus || shouldIgnoreSwipe(e.target)) return;
-    const t = e.touches[0];
-    if (!t) return;
-    swipeRef.current = { x: t.clientX, y: t.clientY, active: true, locked: false };
+    const target = event.target;
+    if (event.touches.length !== 1 || !isAuthenticated || athkarFocus || !(target instanceof Element)) return;
+    // Button cards can be swiped. Editing, dialogs, and controls with their own gestures cannot.
+    if (target.closest("input, textarea, select, [role='slider'], [role='spinbutton'], [role='listbox'], [role='option'], [role='dialog'], [data-no-swipe], [data-page-chrome], [contenteditable='true']")) return;
+    const point = event.touches[0];
+    swipeRef.current = { x: point.clientX, y: point.clientY, dx: 0, dy: 0, active: true, horizontal: false };
   };
-
-  const onTouchMove = (e: any) => {
-    if (!swipeRef.current.active || swipeRef.current.locked || e.touches.length !== 1) return;
-    const t = e.touches[0];
-    const dx = t.clientX - swipeRef.current.x;
-    const dy = t.clientY - swipeRef.current.y;
-
-    // If the user is scrolling vertically, don't hijack.
-    if (Math.abs(dy) > Math.abs(dx) * 1.2) {
-      swipeRef.current.active = false;
-      return;
-    }
-
-    // Trigger swipe when horizontal intent is clear
-    const THRESH = 70;
-    if (Math.abs(dx) > THRESH && Math.abs(dx) > Math.abs(dy) * 1.4) {
-      swipeRef.current.locked = true;
-      const swipe = swipeNavigation(dx);
-      if (swipe.next) goNext(swipe.motion);
-      else goPrev(swipe.motion);
-      // small delay to avoid multiple triggers
-      window.setTimeout(() => {
-        swipeRef.current.active = false;
-        swipeRef.current.locked = false;
-      }, 220);
-    }
+  const onTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    const swipe = swipeRef.current;
+    if (!swipe.active) return;
+    if (event.touches.length !== 1) { swipe.active = false; return; }
+    const point = event.touches[0];
+    swipe.dx = point.clientX - swipe.x;
+    swipe.dy = point.clientY - swipe.y;
+    if (Math.abs(swipe.dy) > 10 && Math.abs(swipe.dy) > Math.abs(swipe.dx) * 1.2) { swipe.active = false; return; }
+    if (Math.abs(swipe.dx) > 12 && Math.abs(swipe.dx) > Math.abs(swipe.dy) * 1.4) swipe.horizontal = true;
   };
-
-  const onTouchEnd = () => {
-    swipeRef.current.active = false;
-    swipeRef.current.locked = false;
+  const onTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    const swipe = swipeRef.current;
+    const active = swipe.active;
+    swipe.active = false;
+    if (!active || !swipe.horizontal) { swipe.horizontal = false; return; }
+    event.preventDefault();
+    suppressClick.current = Date.now() + 400;
+    const point = event.changedTouches[0];
+    const result = point ? pageSwipe(point.clientX - swipe.x, point.clientY - swipe.y) : null;
+    swipe.horizontal = false;
+    if (result) { if (result.next) goNext(result.motion); else goPrev(result.motion); }
   };
+  const onTouchCancel = () => { swipeRef.current.active = false; swipeRef.current.horizontal = false; };
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${colors.background} relative overflow-x-clip`}>
-      {!authLoading && isAuthenticated && (
+    <div className={`min-h-screen bg-gradient-to-br ${colors.background} relative overflow-x-clip`}
+      onTouchStartCapture={onTouchStart} onTouchMoveCapture={onTouchMove} onTouchEndCapture={onTouchEnd} onTouchCancelCapture={onTouchCancel}
+      onPointerDownCapture={event => { if (event.pointerType !== "touch") suppressClick.current = 0; }}
+      onClickCapture={event => { if (event.detail !== 0 && Date.now() < suppressClick.current) { event.preventDefault(); event.stopPropagation(); suppressClick.current = 0; } }}>
+      {!authLoading && isAuthenticated && preferences !== undefined && !quiet && (
         <div className={athkarFocus ? "hidden sm:block" : undefined}>
           <StarfieldBackground key={theme} />
         </div>
@@ -600,8 +593,8 @@ function AppContent() {
         </div>
       ) : isAuthenticated ? (
         <TrustedDeviceGate>
-          <header className={`relative z-50 border-b bg-surface ${colors.border} ${athkarFocus ? "hidden sm:block" : ""}`}>
-            <div className="container mx-auto flex h-16 items-center justify-end px-3 sm:h-20 sm:px-4">
+          <header data-page-chrome className={`relative z-50 border-b bg-surface ${colors.border} ${athkarFocus ? "hidden sm:block" : ""}`}>
+            <div className="container mx-auto flex h-14 items-center justify-end px-3 sm:h-16 sm:px-4">
               <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
                 <ThemeSelector onOpenWorkspace={() => navigateToPage("workspace")} />
                 <DesktopFullscreenButton />
@@ -611,25 +604,21 @@ function AppContent() {
           </header>
 
           <div className={`sticky top-0 z-40 bg-surface shadow-2xl ${athkarFocus ? "hidden sm:block" : ""}`}>
-            <Navigation currentPage={currentPage} onPageChange={navigateToPage} hiddenPages={preferences?.hiddenPages ?? []} />
+            <Navigation currentPage={activePage} onPageChange={navigateToPage} hiddenPages={preferences?.hiddenPages ?? []} />
             <ConnectionNotice />
           </div>
 
           <main
             className={`relative z-10 container mx-auto pb-safe ${athkarFocus ? "px-0 py-0 sm:px-4 sm:py-8" : "px-3 py-4 sm:px-4 sm:py-8"}`}
-            onTouchStart={onTouchStart}
-            onTouchMove={onTouchMove}
-            onTouchEnd={onTouchEnd}
-            onTouchCancel={onTouchEnd}
           >
             <div key={swapKey} className={swapDir === "left" ? "sw-page-swap-left" : "sw-page-swap-right"}>
-              <ScreenBoundary key={currentPage}><Content currentPage={currentPage} onNavigate={navigateToPage} onAthkarFocusChange={setAthkarFocus} /></ScreenBoundary>
+              <ScreenBoundary key={activePage}><Content currentPage={activePage} onNavigate={navigateToPage} onAthkarFocusChange={setAthkarFocus} onWorkspaceBack={() => navigateToPage(preferences ? visibleStartPage(preferences.hiddenPages, preferences.startPage) ?? "workspace" : "today")} /></ScreenBoundary>
             </div>
           </main>
         </TrustedDeviceGate>
       ) : (
         <main className="relative z-10 min-h-screen">
-          <Content currentPage={currentPage} onNavigate={navigateToPage} onAthkarFocusChange={setAthkarFocus} />
+          <Content currentPage={activePage} onNavigate={navigateToPage} onAthkarFocusChange={setAthkarFocus} onWorkspaceBack={() => navigateToPage(preferences ? visibleStartPage(preferences.hiddenPages, preferences.startPage) ?? "workspace" : "today")} />
         </main>
       )}
 
@@ -638,7 +627,7 @@ function AppContent() {
   );
 }
 
-function Content({ currentPage, onNavigate, onAthkarFocusChange }: { currentPage: Page; onNavigate: (page: Page) => void; onAthkarFocusChange: (focused: boolean) => void }) {
+function Content({ currentPage, onNavigate, onAthkarFocusChange, onWorkspaceBack }: { currentPage: Page; onNavigate: (page: Page) => void; onAthkarFocusChange: (focused: boolean) => void; onWorkspaceBack: () => void }) {
   useLocale();
   const loggedInUser = useQuery(api.auth.loggedInUser);
   const userProfile = useQuery(api.auth.getProfile);
@@ -703,7 +692,7 @@ function Content({ currentPage, onNavigate, onAthkarFocusChange }: { currentPage
           <NameSetupModal onSaved={(savedName) => setConfirmedNameThisSession(savedName)} />
         )}
         {currentPage === "today" && <TodayPage displayName={needsRealName ? "" : displayName} onNavigate={onNavigate} />}
-        {currentPage === "workspace" && <WorkspacePage onBack={() => onNavigate("today")} />}
+        {currentPage === "workspace" && <WorkspacePage onBack={onWorkspaceBack} />}
         {currentPage === "routines" && (
           <RoutinesContent
             loggedInUser={loggedInUser}
