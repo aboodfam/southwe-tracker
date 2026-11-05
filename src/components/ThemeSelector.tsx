@@ -1,4 +1,3 @@
-import { useQuietMode } from "../contexts/QuietModeContext";
 import { LanguageSelector } from "./LanguageSelector";
 import { t as tr, useLocale } from "../i18n";
 import { useEffect, useRef, useState } from "react";
@@ -235,7 +234,6 @@ function ThemePreview({ option, selected }: { option: ThemeOption; selected: boo
 }
 
 export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void }) {
-  const { quiet } = useQuietMode();
   useLocale();
   const { theme, setTheme, getThemeColors, useCustomAccent, setUseCustomAccent, customAccent, setCustomAccent } = useTheme();
   const {
@@ -462,7 +460,6 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                 </div>
               ) : activeTab === "sounds" ? (
                 <div className="space-y-3">
-                  {quiet && <p role="status" className="rounded-xl border border-white/10 p-3 text-xs text-white/60">{tr("Quiet mode is on. Turn it off to preview sounds.")}</p>}
                   <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4">
                     <div>
                       <h3 className={`text-sm font-semibold ${colors.text}`}>{tr("Reward sounds")}</h3>

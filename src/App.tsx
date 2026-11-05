@@ -1,5 +1,4 @@
 import { visibleStartPage } from "../convex/planFormat";
-import { QuietModeProvider, useQuietMode } from "./contexts/QuietModeContext";
 import { pageMotion, pageSwipe, type PageMotion } from "./lib/navigation";
 
 import { t as tr, useLocale } from "./i18n";
@@ -465,17 +464,14 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <QuietModeProvider>
-        <SoundProvider>
-          <AppContent />
-        </SoundProvider>
-      </QuietModeProvider>
+      <SoundProvider>
+        <AppContent />
+      </SoundProvider>
     </ThemeProvider>
   );
 }
 
 function AppContent() {
-  const { quiet } = useQuietMode();
   const [currentPage, setCurrentPage] = useState<Page>("today");
   const [swapKey, setSwapKey] = useState(0);
   const [swapDir, setSwapDir] = useState<"left" | "right">("left");
@@ -581,7 +577,7 @@ function AppContent() {
       onTouchStartCapture={onTouchStart} onTouchMoveCapture={onTouchMove} onTouchEndCapture={onTouchEnd} onTouchCancelCapture={onTouchCancel}
       onPointerDownCapture={event => { if (event.pointerType !== "touch") suppressClick.current = 0; }}
       onClickCapture={event => { if (event.detail !== 0 && Date.now() < suppressClick.current) { event.preventDefault(); event.stopPropagation(); suppressClick.current = 0; } }}>
-      {!authLoading && isAuthenticated && preferences !== undefined && !quiet && (
+      {!authLoading && isAuthenticated && preferences !== undefined && (
         <div className={athkarFocus ? "hidden sm:block" : undefined}>
           <StarfieldBackground key={theme} />
         </div>

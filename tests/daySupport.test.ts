@@ -424,11 +424,12 @@ test("Today can be hidden, with a visible starting page and at least one section
   expect(await user.query(api.workspace.getPreferences)).toMatchObject({hiddenPages: ["today"], startPage: "workout"});
 });
 
-test("immediate quiet-mode saves change only sound and motion preferences, within the signed-in account", async () => {
-  const { t, user, other } = await setup();
-  await user.mutation(api.workspace.savePreferences, {hiddenPages: ["today"], startPage: "workout", quiet: false});
-  await user.mutation(api.workspace.setQuietMode, {quiet: true});
-  expect(await user.query(api.workspace.getPreferences)).toMatchObject({hiddenPages: ["today"], startPage: "workout", quiet: true});
-  expect(await other.query(api.workspace.getPreferences)).toMatchObject({hiddenPages: [], startPage: "today", quiet: false});
-  await expect(t.mutation(api.workspace.setQuietMode, {quiet: true})).rejects.toThrow(/authenticated/);
+test("retired quiet-mode flags no longer reach the app or survive a preference save", async () => {
+  const { t, user, userId } = await setup();
+  const id = await t.run(ctx => ctx.db.insert("workspacePreferences", {userId, hiddenPages: ["today"], startPage: "workout", setupDone: true, quiet: true}));
+  expect(await user.query(api.workspace.getPreferences)).not.toHaveProperty("quiet");
+  // An older browser can still save navigation; its obsolete flag is ignored.
+  await user.mutation(api.workspace.savePreferences, {hiddenPages: ["today"], startPage: "workout", quiet: true});
+  expect(await t.run(ctx => ctx.db.get(id))).not.toHaveProperty("quiet");
+  expect(await user.query(api.workspace.getPreferences)).toMatchObject({hiddenPages: ["today"], startPage: "workout"});
 });

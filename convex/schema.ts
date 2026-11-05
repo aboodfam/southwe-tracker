@@ -229,7 +229,8 @@ const applicationTables = {
 
   workspacePreferences: defineTable({
     userId: v.id("users"), hiddenPages: v.array(pageValidator), startPage: pageValidator,
-    setupDone: v.boolean(), focus: v.optional(v.string()), quiet: v.boolean(),
+    setupDone: v.boolean(), focus: v.optional(v.string()),
+    quiet: v.optional(v.boolean()), // retired; ignored and removed on preference saves
   }).index("by_user", ["userId"]),
   planTemplates: defineTable({ userId: v.id("users"), name: v.string(), plan: planValidator }).index("by_user", ["userId"]),
   supportDays: defineTable({ userId: v.id("users"), date: v.string(), version: v.number(), state: dayStateValidator })
@@ -237,7 +238,7 @@ const applicationTables = {
   supportVisits: defineTable({ userId: v.id("users"), lastDate: v.string(), returnDate: v.optional(v.string()), dismissed: v.boolean() }).index("by_user", ["userId"]),
   weeklyReviews: defineTable({ userId: v.id("users"), date: v.string(), experiment: v.string(), reflection: v.string(), routineId: v.optional(v.id("routines")), timeSlot: v.optional(v.string()) })
     .index("by_user", ["userId"]).index("by_user_date", ["userId", "date"]),
-  planApplications: defineTable({ userId: v.id("users"), requestId: v.string(), routines: v.number(), workouts: v.number() }).index("by_user", ["userId"]).index("by_user_request", ["userId", "requestId"]),
+  planApplications: defineTable({ userId: v.id("users"), requestId: v.string(), routines: v.number(), workouts: v.number(), athkar: v.optional(v.number()) }).index("by_user", ["userId"]).index("by_user_request", ["userId", "requestId"]),
   todayPlans: defineTable({ userId: v.id("users"), date: v.string(), dayId: v.optional(v.id("workoutDays")), rest: v.boolean() }).index("by_user_date", ["userId", "date"]).index("by_user", ["userId"]),
   recycleBin: defineTable({
     userId: v.id("users"), kind: v.union(v.literal("routine"), v.literal("habit"), v.literal("workoutDay"), v.literal("task"), v.literal("exercise")),

@@ -3,12 +3,12 @@ import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { pageValidator, planValidator, validatePlan, PAGES, STARTERS, type Plan } from "./planFormat";
+import { pageValidator, planValidator, validatePlan, PAGES, STARTERS, isFlexibleRoutine, planItemCount, type Plan } from "./planFormat";
 import { LIMITS, cleanText, enforceRateLimit, assertCurrentLocalDate } from "./security";
 import { starterTaskValidator, taskKey } from "./supportModel";
 import { EMPTY_DAY } from "./supportModel";
 
-const defaults = { hiddenPages: [], startPage: "today" as const, setupDone: false, quiet: false };
+const defaults = { hiddenPages: [], startPage: "today" as const, setupDone: false };
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 export const applyStarter = mutation({
   args: { name: v.string(), timeSlot: v.string(), tasks: v.array(starterTaskValidator), requestId: v.string(), dateKey: v.string() },
@@ -41,50 +41,62 @@ export const applyStarter = mutation({
 export const getPreferences = query({ args: {}, handler: async ctx => {
   const userId = await getAuthUserId(ctx);
   if (!userId) return null;
-  return { ...defaults, ...await ctx.db.query("workspacePreferences").withIndex("by_user", q => q.eq("userId", userId)).first(), userId };
+  const saved = await ctx.db.query("workspacePreferences").withIndex("by_user", q => q.eq("userId", userId)).first();
+  const { quiet: _retired, ...preferences } = saved ?? {};
+  return { ...defaults, ...preferences, userId };
 } });
 
 export const savePreferences = mutation({
-  args: { hiddenPages: v.array(pageValidator), startPage: pageValidator, quiet: v.boolean() },
+  // Accept, but ignore, the retired flag from older browser versions.
+  args: { hiddenPages: v.array(pageValidator), startPage: pageValidator, quiet: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx); if (!userId) throw new Error("Not authenticated");
     await enforceRateLimit(ctx, userId, "workspace:preferences", 30, 60000);
     if (args.hiddenPages.length > PAGES.length || new Set(args.hiddenPages).size >= PAGES.length) throw new Error("Keep at least one section visible.");
     if (args.hiddenPages.includes(args.startPage)) throw new Error("Your starting page must be visible.");
     const existing = await ctx.db.query("workspacePreferences").withIndex("by_user", q => q.eq("userId", userId)).first();
-    const changes = { ...args, hiddenPages: [...new Set(args.hiddenPages)] };
-    if (existing) await ctx.db.patch(existing._id, changes);
+    const changes = { startPage: args.startPage, hiddenPages: [...new Set(args.hiddenPages)] };
+    if (existing) await ctx.db.patch(existing._id, { ...changes, quiet: undefined });
     else await ctx.db.insert("workspacePreferences", { userId, ...defaults, ...changes });
-  },
-});
-
-export const setQuietMode = mutation({
-  args: { quiet: v.boolean() },
-  handler: async (ctx, { quiet }) => {
-    const userId = await getAuthUserId(ctx); if (!userId) throw new Error("Not authenticated");
-    await enforceRateLimit(ctx, userId, "workspace:preferences", 30, 60000);
-    const existing = await ctx.db.query("workspacePreferences").withIndex("by_user", q => q.eq("userId", userId)).first();
-    if (existing) await ctx.db.patch(existing._id, { quiet });
-    else await ctx.db.insert("workspacePreferences", { ...defaults, userId, quiet });
   },
 });
 
 async function appendPlan(ctx: MutationCtx, userId: Id<"users">, input: Plan) {
   const plan = validatePlan(input);
-  if (!plan.routines.length && !plan.workouts.length) throw new Error("Choose at least one routine or workout day.");
-  const [routines, days] = await Promise.all([
+  if (!planItemCount(plan)) throw new Error("Choose something to add.");
+  const [routines, days, athkar] = await Promise.all([
     ctx.db.query("routines").withIndex("by_user_active", q => q.eq("userId", userId).eq("isActive", true)).take(LIMITS.routines),
     ctx.db.query("workoutDays").withIndex("by_user_active", q => q.eq("userId", userId).eq("isActive", true)).take(LIMITS.workoutDays),
+    ctx.db.query("athkar").withIndex("by_user", q => q.eq("userId", userId)).take(LIMITS.athkarTotal),
   ]);
-  if (routines.length + plan.routines.length > LIMITS.routines || days.length + plan.workouts.length > LIMITS.workoutDays) throw new Error("Not enough space. Maximum: 24 routine blocks and 14 workout days. Nothing was imported.");
-  for (const routine of plan.routines) await ctx.db.insert("routines", { userId, isActive: true, name: routine.name, timeSlot: routine.timeSlot,
-    tasks: routine.tasks.map((name, order) => ({ ...routine.taskDetails?.[order], id: uid(), name, order, completed: false })),
-  });
+  const newRoutines = plan.routines.filter(row => !isFlexibleRoutine(row) || !routines.some(saved => isFlexibleRoutine(saved) && saved.name === row.name));
+  if (routines.length + newRoutines.length > LIMITS.routines || days.length + plan.workouts.length > LIMITS.workoutDays) throw new Error("Not enough space. Maximum: 24 routine blocks and 14 workout days. Nothing was imported.");
+  if (athkar.length + (plan.athkar?.length ?? 0) > LIMITS.athkarTotal) throw new Error("Not enough space for custom Athkar. Nothing was imported.");
+  let addedRoutines = 0;
+  // Flexible sections are unique in the app. Append unchecked tasks to the
+  // existing section instead of creating a duplicate the user cannot reach.
+  for (const routine of plan.routines) {
+    const existing = isFlexibleRoutine(routine) ? routines.find(row => row.name === routine.name && isFlexibleRoutine(row)) : undefined;
+    const count = existing?.tasks.length ?? 0;
+    const offset = Math.max(-1, ...(existing?.tasks.map(task => task.order) ?? [])) + 1;
+    if (count + routine.tasks.length > LIMITS.tasksPerRoutine) throw new Error("This flexible section would have too many tasks. Nothing was imported.");
+    const tasks = routine.tasks.map((name, order) => ({ ...routine.taskDetails?.[order], id: uid(), name, order: offset + order, completed: false }));
+    if (existing) {
+      existing.tasks = [...existing.tasks, ...tasks];
+      await ctx.db.patch(existing._id, {tasks: existing.tasks});
+    } else {
+      const id = await ctx.db.insert("routines", { userId, isActive: true, name: routine.name, timeSlot: routine.timeSlot, tasks });
+      const added = await ctx.db.get(id);
+      if (added) routines.push(added);
+      addedRoutines++;
+    }
+  }
   const lastOrder = Math.max(0, ...days.map(day => day.order));
   for (const [index, day] of plan.workouts.entries()) await ctx.db.insert("workoutDays", { ...day, userId, isActive: true, order: lastOrder + index + 1,
     exercises: day.exercises.map((exercise, order) => ({ ...exercise, id: uid(), order, completed: false })),
   });
-  return { routines: plan.routines.length, workouts: plan.workouts.length };
+  for (const item of plan.athkar ?? []) await ctx.db.insert("athkar", {userId, ...item, category: "custom", currentCount: 0, isCompleted: false});
+  return { routines: addedRoutines, workouts: plan.workouts.length, ...(plan.athkar?.length ? {athkar: plan.athkar.length} : {}) };
 }
 
 export const finishSetup = mutation({
@@ -103,8 +115,10 @@ export const finishSetup = mutation({
 export const getCurrentPlan = query({ args: {}, handler: async ctx => {
   const userId = await getAuthUserId(ctx); if (!userId) return null;
   const routines = await ctx.db.query("routines").withIndex("by_user_active", q => q.eq("userId", userId).eq("isActive", true)).take(LIMITS.routines);
+  const customAthkar = await ctx.db.query("athkar").withIndex("by_user_category", q => q.eq("userId", userId).eq("category", "custom")).take(LIMITS.athkarTotal);
   const workouts = await ctx.db.query("workoutDays").withIndex("by_user_active", q => q.eq("userId", userId).eq("isActive", true)).take(LIMITS.workoutDays);
   return { version: 1 as const,
+    athkar: customAthkar.map(({text, translation, targetCount}) => ({text, translation, targetCount})),
     routines: routines.map(row => { const tasks = [...row.tasks].sort((a, b) => a.order - b.order); return { name: row.name, timeSlot: row.timeSlot, tasks: tasks.map(task => task.name), taskDetails: tasks.map(({ minutes, fallbackName, fallbackMinutes }) => ({ minutes, fallbackName, fallbackMinutes })) }; }),
     workouts: workouts.sort((a, b) => a.order - b.order).map(row => ({ name: row.name, warmupNotes: row.warmupNotes,
       exercises: [...row.exercises].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(({ name, sets, reps, muscles, notes, isWarmup, weight, duration }) => ({ name, sets, reps: String(reps), muscles, notes, isWarmup, weight, duration })),
@@ -122,7 +136,7 @@ export const saveTemplate = mutation({ args: { name: v.string(), plan: planValid
   const existing = await ctx.db.query("planTemplates").withIndex("by_user", q => q.eq("userId", userId)).take(30);
   if (existing.length >= 30) throw new Error("Template library is full (30). Remove a template first.");
   const plan = validatePlan(args.plan);
-  if (!plan.routines.length && !plan.workouts.length) throw new Error("Select something to save.");
+  if (!planItemCount(plan)) throw new Error("Select something to save.");
   return ctx.db.insert("planTemplates", { userId, name: cleanText(args.name, "Template name", 80), plan });
 } });
 export const deleteTemplate = mutation({ args: { id: v.id("planTemplates") }, handler: async (ctx, args) => {
@@ -134,7 +148,7 @@ export const importPlan = mutation({ args: { plan: planValidator, requestId: v.s
   const userId = await getAuthUserId(ctx); if (!userId) throw new Error("Not authenticated");
   const requestId = cleanText(args.requestId, "Import request", 100);
   const prior = await ctx.db.query("planApplications").withIndex("by_user_request", q => q.eq("userId", userId).eq("requestId", requestId)).first();
-  if (prior) return { routines: prior.routines, workouts: prior.workouts };
+  if (prior) return { routines: prior.routines, workouts: prior.workouts, ...(prior.athkar ? {athkar: prior.athkar} : {}) };
   await enforceRateLimit(ctx, userId, "workspace:import", 10, 60000);
   const count = await appendPlan(ctx, userId, args.plan);
   await ctx.db.insert("planApplications", { userId, requestId, ...count });

@@ -817,15 +817,6 @@ body,
   }
 }
 
-/* Account-level quiet mode keeps feedback readable without decorative motion. */
-html[data-ceventic-quiet="true"] *,
-html[data-ceventic-quiet="true"] *::before,
-html[data-ceventic-quiet="true"] *::after {
-  animation: none !important;
-  transition: none !important;
-  scroll-behavior: auto !important;
-}
-
 button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
   outline: 2px solid rgb(var(--sw-accent-rgb));
   outline-offset: 3px;
