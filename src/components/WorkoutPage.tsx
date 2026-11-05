@@ -1,3 +1,4 @@
+import { WORKOUT_SPLITS, resolveWorkoutSplit, type WorkoutSplit } from "../lib/workoutSplits";
 import { muscleLabel } from "../i18n/fitness";
 import { t as tr, useLocale } from "../i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -51,19 +52,19 @@ const MUSCLE_CATEGORIES = [
 const SPLITS = {
   days: {
     get label() { return tr("Days Split (Day 1 → Day 7)"); },
-    names: ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7"],
+    names: WORKOUT_SPLITS.days,
   },
   ppl: {
     get label() { return tr("Push / Pull / Legs"); },
-    names: ["Push", "Pull", "Legs", "Push", "Pull", "Legs", "Rest"],
+    names: WORKOUT_SPLITS.ppl,
   },
   bro: {
     get label() { return tr("Bro Split"); },
-    names: ["Chest", "Back", "Shoulders", "Arms", "Legs", "Abs", "Rest"],
+    names: WORKOUT_SPLITS.bro,
   },
   arnold: {
     get label() { return tr("Arnold Split"); },
-    names: ["Chest & Back", "Shoulders & Arms", "Legs", "Chest & Back", "Shoulders & Arms", "Legs", "Rest"],
+    names: WORKOUT_SPLITS.arnold,
   },
 } as const;
 
@@ -192,52 +193,23 @@ export function WorkoutPage() {
   const rate = total > 0 ? (done / total) * 100 : 0;
 
   // ---- Split switcher ----
-  const [splitKey, setSplitKey] = useState<keyof typeof SPLITS>("days");
+  const [splitChoice, setSplitChoice] = useState<WorkoutSplit | null>(null);
+  const splitKey = resolveWorkoutSplit(rawDays, splitChoice);
+  const templateKey = splitKey === "current" || splitKey === "loading" ? null : splitKey;
   const [showSplitConfirm, setShowSplitConfirm] = useState(false);
   const [applyingSplit, setApplyingSplit] = useState(false);
   const splitLock = useRef(false);
   const [splitPreviewNames, setSplitPreviewNames] = useState<string[] | null>(null);
 
-  // light inference (no risk if wrong)
-  useEffect(() => {
-    if (daysLoading) return;
-    if (days.length < 3) return;
-
-    const a = days[0]?.name?.toLowerCase?.() ?? "";
-    const b = days[1]?.name?.toLowerCase?.() ?? "";
-    const c = days[2]?.name?.toLowerCase?.() ?? "";
-
-    if (a.includes("push") && b.includes("pull") && c.includes("leg")) {
-      setSplitKey("ppl");
-      return;
-    }
-    if (
-      (a.includes("chest") && a.includes("back")) ||
-      (b.includes("shoulder") && b.includes("arm"))
-    ) {
-      setSplitKey("arnold");
-      return;
-    }
-    if (
-      ["chest", "back", "shoulder", "arms", "legs", "abs"].some((k) =>
-        a.includes(k)
-      )
-    ) {
-      setSplitKey("bro");
-      return;
-    }
-    setSplitKey("days");
-  }, [daysLoading, days]);
-
   const applySplitTemplate = () => {
-    if (daysLoading || applyingSplit) return;
+    if (daysLoading || applyingSplit || !templateKey) return;
     setShowSplitConfirm(true);
   };
 
   const confirmApplySplit = async () => {
-    if (splitLock.current) return;
+    if (splitLock.current || !templateKey || daysLoading) return;
     splitLock.current = true;
-    const template = [...SPLITS[splitKey].names];
+    const template = [...SPLITS[templateKey].names];
     setShowSplitConfirm(false);
     setApplyingSplit(true);
     try {
@@ -503,10 +475,13 @@ play("notification", 0.9);
           <div className="flex gap-2">
             <select
               value={splitKey}
-              onChange={(e) => setSplitKey(e.target.value as any)}
+              aria-label={tr("Split Template")}
+              onChange={(e) => setSplitChoice(e.target.value as WorkoutSplit)}
               disabled={applyingSplit || daysLoading}
               className="rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-white/20 min-w-0 flex-1 sm:flex-none disabled:cursor-wait disabled:opacity-50"
             >
+              {splitKey === "loading" && <option value="loading" disabled>{tr("Loading workout…")}</option>}
+              {splitKey === "current" && <option value="current" disabled>{tr("Current split")}</option>}
               {Object.entries(SPLITS).map(([k, v]) => (
                 <option key={k} value={k}>
                   {v.label}
@@ -516,7 +491,7 @@ play("notification", 0.9);
 
             <button
               onClick={applySplitTemplate}
-              disabled={applyingSplit || daysLoading}
+              disabled={applyingSplit || daysLoading || !templateKey}
               className="px-3 sm:px-4 py-2 rounded-xl font-semibold text-black text-sm whitespace-nowrap disabled:cursor-wait disabled:opacity-60"
               style={{
                 background: `linear-gradient(90deg, ${rgbaFromRgb(accent, 1)}, ${rgbaFromRgb(accent, 0.75)})`,
@@ -903,10 +878,10 @@ play("notification", 0.9);
       )}
 
       {/* Split confirmation modal */}
-      {showSplitConfirm && (
+      {showSplitConfirm && templateKey && (
         <Modal onClose={() => setShowSplitConfirm(false)} accent={accent} title={tr("Apply Split?")}>
           <div className="text-white/70 text-sm mb-4">
-            {days.length ? tr("Rename the first seven days using the ") : tr("Create seven days using the ")}<strong className="text-white">{SPLITS[splitKey].label}</strong> {tr("template? Existing exercises, notes, extra days and history will be kept.")} </div>
+            {days.length ? tr("Rename the first seven days using the ") : tr("Create seven days using the ")}<strong className="text-white">{SPLITS[templateKey].label}</strong> {tr("template? Existing exercises, notes, extra days and history will be kept.")} </div>
           <div className="flex gap-2">
             <button onClick={confirmApplySplit} className="flex-1 rounded-xl py-2 font-semibold text-black" style={{ background: `linear-gradient(90deg, ${rgbaFromRgb(accent, 1)}, ${rgbaFromRgb(accent, 0.75)})` }}>{tr("Apply")}</button>
             <button onClick={() => setShowSplitConfirm(false)} className="flex-1 rounded-xl py-2 font-semibold bg-white/10 text-white hover:bg-white/15 transition">{tr("Cancel")}</button>
