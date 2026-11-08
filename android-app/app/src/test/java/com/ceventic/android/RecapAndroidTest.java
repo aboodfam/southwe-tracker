@@ -254,9 +254,9 @@ public class RecapAndroidTest {
           () -> {});
       View root = ReflectionHelpers.getField(overlay, "root"),
           holder = ReflectionHelpers.getField(overlay, "holder");
-      assertEquals(.94f, holder.getScaleX(), .001f);
+      assertEquals(.985f, holder.getScaleX(), .001f);
       assertEquals(0, holder.getAlpha(), .001f);
-      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(600));
+      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(900));
       assertEquals(1, holder.getScaleX(), .001f);
       assertEquals(1, holder.getAlpha(), .001f);
       overlay.present(
@@ -268,7 +268,7 @@ public class RecapAndroidTest {
       assertEquals("sync updates do not replay the popup", 1, holder.getScaleX(), .001f);
       findText(root, "Continue").performClick();
       assertTrue(overlay.showing());
-      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(300));
+      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(400));
       assertFalse(overlay.showing());
       overlay.present(
           new JSONArray(),
@@ -278,7 +278,7 @@ public class RecapAndroidTest {
           () -> {});
       overlay.hide();
       assertFalse(overlay.showing());
-      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(600));
+      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(900));
       assertFalse(overlay.showing());
     } finally {
       overlay.hide();
@@ -299,6 +299,68 @@ public class RecapAndroidTest {
       assertEquals(1, holder.getAlpha(), .001f);
     } finally {
       overlay.hide();
+    }
+  }
+
+  @Test
+  public void recapBackgroundExtendsBehindBarsWhileOnlyContentIsInset() throws Exception {
+    RecapOverlay overlay = new RecapOverlay(app, store);
+    try {
+      overlay.present(
+          new JSONArray(),
+          false,
+          true,
+          "Connect your account to see your progress here.",
+          () -> {});
+      View root = ReflectionHelpers.getField(overlay, "root"),
+          holder = ReflectionHelpers.getField(overlay, "holder");
+      WindowManager.LayoutParams params = (WindowManager.LayoutParams) root.getLayoutParams();
+      assertEquals(0, params.getFitInsetsTypes());
+      assertTrue((params.flags & WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN) != 0);
+      assertEquals(
+          WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS,
+          params.layoutInDisplayCutoutMode);
+      root.dispatchApplyWindowInsets(
+          new WindowInsets.Builder()
+              .setInsets(WindowInsets.Type.statusBars(), Insets.of(0, 26, 0, 0))
+              .setInsets(WindowInsets.Type.navigationBars(), Insets.of(0, 0, 0, 22))
+              .build());
+      assertEquals(26, holder.getPaddingTop());
+      assertEquals(22, holder.getPaddingBottom());
+      assertEquals("background is not pushed below the status bar", 0, root.getPaddingTop());
+      assertEquals("bar backdrop never fades into wallpaper", 1f, root.getAlpha(), .001f);
+      assertEquals(255, root.getBackground().getAlpha());
+    } finally {
+      overlay.hide();
+    }
+  }
+
+  @Test
+  public void activityBarsUseTheHeaderSurfaceAndPreserveKeyboardInsets() {
+    org.robolectric.android.controller.ActivityController<Activity> controller =
+        Robolectric.buildActivity(Activity.class).setup();
+    try {
+      Activity activity = controller.get();
+      FrameLayout root = new FrameLayout(activity);
+      NativeUi.inset(activity, root);
+      activity.setContentView(root);
+      assertEquals(Color.TRANSPARENT, activity.getWindow().getStatusBarColor());
+      assertEquals(Color.TRANSPARENT, activity.getWindow().getNavigationBarColor());
+      assertFalse(activity.getWindow().isStatusBarContrastEnforced());
+      assertFalse(activity.getWindow().isNavigationBarContrastEnforced());
+      assertEquals(
+          NativeUi.SURFACE,
+          ((android.graphics.drawable.ColorDrawable) root.getBackground()).getColor());
+      root.dispatchApplyWindowInsets(
+          new WindowInsets.Builder()
+              .setInsets(WindowInsets.Type.statusBars(), Insets.of(0, 26, 0, 0))
+              .setInsets(WindowInsets.Type.navigationBars(), Insets.of(0, 0, 0, 22))
+              .setInsets(WindowInsets.Type.ime(), Insets.of(0, 0, 0, 200))
+              .build());
+      assertEquals(26, root.getPaddingTop());
+      assertEquals(200, root.getPaddingBottom());
+    } finally {
+      controller.pause().stop().destroy();
     }
   }
 

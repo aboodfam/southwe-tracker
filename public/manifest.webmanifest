@@ -3,9 +3,11 @@
   "short_name": "Ceventic",
   "start_url": "/",
   "display": "standalone",
-  "display_override": ["standalone"],
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "display_override": [
+    "standalone"
+  ],
+  "background_color": "#090D12",
+  "theme_color": "#090D12",
   "icons": [
     {
       "src": "/favicon.svg",

@@ -8,6 +8,32 @@ import android.view.View;
 import android.widget.*;
 
 final class NativeUi {
+  // Matches --sw-surface-rgb and bg-surface in the existing web design system.
+  static final int SURFACE = 0xff090d12;
+  static final int RECAP_BASE = 0xff0c1118;
+
+  static int mix(int from, int to, float amount) {
+    return Color.rgb(
+        Math.round(Color.red(from) * (1 - amount) + Color.red(to) * amount),
+        Math.round(Color.green(from) * (1 - amount) + Color.green(to) * amount),
+        Math.round(Color.blue(from) * (1 - amount) + Color.blue(to) * amount));
+  }
+
+  static android.graphics.drawable.Drawable recapBackground(RecapStore store) {
+    return new GradientDrawable(
+        GradientDrawable.Orientation.TOP_BOTTOM,
+        new int[] {mix(RECAP_BASE, accent(store), .035f), 0xff0b1017, 0xff0a0f15});
+  }
+
+  static void lightSystemIcons(View root) {
+    android.view.WindowInsetsController controller = root.getWindowInsetsController();
+    if (controller != null)
+      controller.setSystemBarsAppearance(
+          0,
+          android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+              | android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
+  }
+
   static int dp(Context c, float n) {
     return Math.round(n * c.getResources().getDisplayMetrics().density);
   }
@@ -71,16 +97,21 @@ final class NativeUi {
   static void inset(android.app.Activity activity, View root) {
     activity.getWindow().setDecorFitsSystemWindows(false);
     root.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-    activity.getWindow().setStatusBarColor(Color.BLACK);
-    activity.getWindow().setNavigationBarColor(Color.BLACK);
-    root.setBackgroundColor(Color.BLACK);
+    activity.getWindow().setStatusBarColor(Color.TRANSPARENT);
+    activity.getWindow().setStatusBarContrastEnforced(false);
+    activity.getWindow().setNavigationBarContrastEnforced(false);
+    activity.getWindow().setNavigationBarDividerColor(Color.TRANSPARENT);
+    activity.getWindow().setNavigationBarColor(Color.TRANSPARENT);
+    root.setBackgroundColor(SURFACE);
     root.setOnApplyWindowInsetsListener(
         (v, i) -> {
           android.graphics.Insets bars =
               i.getInsets(
                   android.view.WindowInsets.Type.systemBars()
+                      | android.view.WindowInsets.Type.displayCutout()
                       | android.view.WindowInsets.Type.ime());
           v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+          lightSystemIcons(v);
           return android.view.WindowInsets.CONSUMED;
         });
   }

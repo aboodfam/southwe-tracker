@@ -43,7 +43,7 @@ public final class MainActivity extends Activity {
     settings.setMediaPlaybackRequiresUserGesture(true);
     CookieManager.getInstance().setAcceptCookie(true);
     CookieManager.getInstance().setAcceptThirdPartyCookies(web, false);
-    web.setBackgroundColor(Color.BLACK);
+    web.setBackgroundColor(NativeUi.SURFACE);
     WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);
     if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
       WebViewCompat.addWebMessageListener(

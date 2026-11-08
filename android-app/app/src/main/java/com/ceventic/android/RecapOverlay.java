@@ -103,10 +103,19 @@ final class RecapOverlay {
     manager = context.getSystemService(WindowManager.class);
     FrameLayout backdrop = new FrameLayout(context);
     backdrop.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-    backdrop.setBackgroundColor(0xb0080b10);
+    // The fixed, opaque backdrop covers the bar areas even while content animates.
+    backdrop.setBackground(NativeUi.recapBackground(store));
     holder = new FrameLayout(context);
     holder.addView(screen, new FrameLayout.LayoutParams(-1, -1));
     backdrop.addView(holder, new FrameLayout.LayoutParams(-1, -1));
+    backdrop.setOnApplyWindowInsetsListener(
+        (v, insets) -> {
+          android.graphics.Insets safe =
+              insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+          if (holder != null) holder.setPadding(safe.left, safe.top, safe.right, safe.bottom);
+          NativeUi.lightSystemIcons(v);
+          return WindowInsets.CONSUMED;
+        });
     backdrop.setFocusableInTouchMode(true);
     backdrop.setOnKeyListener(
         (v, key, event) -> {
@@ -121,15 +130,19 @@ final class RecapOverlay {
             -1,
             -1,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+                | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             android.graphics.PixelFormat.TRANSLUCENT);
-    params.setFitInsetsTypes(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+    params.setFitInsetsTypes(0);
+    params.layoutInDisplayCutoutMode =
+        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
     params.gravity = Gravity.CENTER;
     params.setTitle("Ceventic recap");
     root = backdrop;
     try {
       manager.addView(root, params);
       root.requestFocus();
+      root.requestApplyInsets();
       animateEntry();
     } catch (Exception e) {
       root = null;
@@ -161,11 +174,7 @@ final class RecapOverlay {
         };
     surface.setTag("recap_screen");
     surface.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-    GradientDrawable wash =
-        new GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            new int[] {blend(0xff090d12, NativeUi.accent(store), .075f), 0xff090d12, 0xff070a0f});
-    surface.setBackground(wash);
+    surface.setBackground(NativeUi.recapBackground(store));
     // The background fills the viewport; reading width is bounded on tablets and landscape.
     LinearLayout page = NativeUi.column(context);
     FrameLayout.LayoutParams pageBox = new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER);
@@ -278,7 +287,9 @@ final class RecapOverlay {
     GradientDrawable gradient =
         new GradientDrawable(
             GradientDrawable.Orientation.LEFT_RIGHT,
-            new int[] {NativeUi.lightAccent(store), NativeUi.accent(store)});
+            new int[] {
+              NativeUi.mix(NativeUi.accent(store), Color.WHITE, .16f), NativeUi.accent(store)
+            });
     gradient.setCornerRadius(dp(16));
     done.setBackground(gradient);
     footer.addView(done, new LinearLayout.LayoutParams(-1, dp(52)));
@@ -307,7 +318,7 @@ final class RecapOverlay {
   private LinearLayout card() {
     LinearLayout box = NativeUi.column(context);
     box.setPadding(dp(16), dp(15), dp(16), dp(15));
-    box.setBackground(NativeUi.panel(0xff11161e, 0x0cffffff, 22, context));
+    box.setBackground(NativeUi.panel(0xd9151c25, 0x14ffffff, 22, context));
     return box;
   }
 
@@ -357,8 +368,8 @@ final class RecapOverlay {
         new GradientDrawable(
             GradientDrawable.Orientation.TL_BR,
             new int[] {
-              blend(0xff11161e, NativeUi.accent(store), .14f),
-              blend(0xff11161e, NativeUi.accent(store), .035f)
+              blend(0xff151c25, NativeUi.accent(store), .09f),
+              blend(0xff151c25, NativeUi.accent(store), .025f)
             });
     glow.setCornerRadius(dp(22));
     summary.setBackground(glow);
@@ -461,24 +472,19 @@ final class RecapOverlay {
 
   private void animateEntry() {
     if (!android.animation.ValueAnimator.areAnimatorsEnabled() || holder == null) return;
-    root.setAlpha(0);
-    root.animate()
-        .alpha(1)
-        .setDuration(180)
-        .setInterpolator(new android.view.animation.DecelerateInterpolator())
-        .start();
     holder.setAlpha(0);
-    holder.setScaleX(.94f);
-    holder.setScaleY(.94f);
-    holder.setTranslationY(dp(22));
+    holder.setScaleX(.985f);
+    holder.setScaleY(.985f);
+    holder.setTranslationY(dp(18));
     holder
         .animate()
         .alpha(1)
         .scaleX(1)
         .scaleY(1)
         .translationY(0)
-        .setDuration(360)
-        .setInterpolator(new android.view.animation.OvershootInterpolator(.65f))
+        .setDuration(680)
+        .setInterpolator(new android.view.animation.PathInterpolator(.2f, .05f, .15f, 1f))
+        .withLayer()
         .start();
   }
 
@@ -497,14 +503,15 @@ final class RecapOverlay {
       holder
           .animate()
           .alpha(0)
-          .scaleX(.98f)
-          .scaleY(.98f)
-          .translationY(dp(10))
-          .setDuration(130)
+          .scaleX(.99f)
+          .scaleY(.99f)
+          .translationY(dp(8))
+          .setDuration(260)
+          .setInterpolator(new android.view.animation.PathInterpolator(.4f, 0f, 1f, 1f))
           .start();
     root.animate()
         .alpha(0)
-        .setDuration(140)
+        .setDuration(280)
         .withEndAction(
             () -> {
               if (root == closing) {

@@ -9,17 +9,31 @@ rememberAndroidPairing();
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
-const forceBlackMobileChrome = () => {
-  document.documentElement.style.backgroundColor = "#000000";
-  document.body.style.backgroundColor = "#000000";
-  document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((meta) => {
-    meta.content = "#000000";
-  });
+const syncMobileChrome = () => {
+  const surface = getComputedStyle(document.documentElement)
+    .getPropertyValue("--sw-surface-rgb")
+    .trim()
+    .split(/\s+/)
+    .map(Number);
+  const color =
+    surface.length === 3 &&
+    surface.every(
+      (value) => Number.isInteger(value) && value >= 0 && value <= 255,
+    )
+      ? `rgb(${surface.join(", ")})`
+      : "rgb(9, 13, 18)";
+  document.documentElement.style.backgroundColor = color;
+  document.body.style.backgroundColor = color;
+  document
+    .querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')
+    .forEach((meta) => {
+      meta.content = color;
+    });
 };
 
-forceBlackMobileChrome();
+syncMobileChrome();
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) forceBlackMobileChrome();
+  if (!document.hidden) syncMobileChrome();
 });
 
 createRoot(document.getElementById("root")!).render(

@@ -6,8 +6,8 @@ android {
         applicationId 'com.ceventic.android.preview'
         minSdk 30
         targetSdk 36
-        versionCode 4
-        versionName '0.4-test'
+        versionCode 5
+        versionName '0.5-test'
         buildConfigField 'String', 'APP_ORIGIN', '"https://ceventic.vercel.app"'
         buildConfigField 'String', 'RECAP_ENDPOINT', '"https://resolute-mallard-430.convex.site/android/recaps"'
     }
