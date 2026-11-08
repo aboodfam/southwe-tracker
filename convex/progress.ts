@@ -1,4 +1,5 @@
-import { query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { query, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { getUtcDateKeyDaysAgo, getUtcMonthStartKey, getUtcYearStartKey, parseUtcDateKey } from "./date";
@@ -18,6 +19,13 @@ export const getProgressData = query({
     const start = args.timeFrame === "daily" ? getUtcDateKeyDaysAgo(6, base)
       : args.timeFrame === "weekly" ? getUtcDateKeyDaysAgo(27, base)
       : args.timeFrame === "monthly" ? getUtcMonthStartKey(5, base) : getUtcYearStartKey(2, base);
+    return readProgress(ctx, userId, start, today);
+  },
+});
+
+// Native recap reads can attribute still-pending live checkmarks to the last
+// reset date without resetting, mutating, or misdating the user's routine.
+export async function readProgress(ctx: QueryCtx, userId: Id<"users">, start: string, today: string, liveDate: string | null = today) {
     const [routineLogs, workoutLogs, habits, routines] = await Promise.all([
       ctx.db.query("dailyProgress").withIndex("by_user_date", q => q.eq("userId", userId).gte("date", start).lte("date", today)).collect(),
       ctx.db.query("workoutProgress").withIndex("by_user_date", q => q.eq("userId", userId).gte("date", start).lte("date", today)).collect(),
@@ -44,7 +52,7 @@ export const getProgressData = query({
         day.tasksDone = snapshot.completedTasks;
         day.routines = percentage(snapshot.completedTasks, snapshot.totalTasks);
       }
-      if (date === today && !snapshot?.countedInStats) {
+      if (date === liveDate && !snapshot?.countedInStats) {
         day.tasksDone = routines.reduce((sum, routine) => sum + routine.tasks.filter(task => task.completed).length, 0);
         day.routines = percentage(day.tasksDone, routines.reduce((sum, routine) => sum + routine.tasks.length, 0));
       }
@@ -66,5 +74,5 @@ export const getProgressData = query({
         completionRate: meanRecorded([day.routines, day.workouts, day.habits]) ?? 0,
       };
     });
-  },
-});
+
+}

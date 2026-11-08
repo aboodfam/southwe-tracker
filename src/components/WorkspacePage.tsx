@@ -1,3 +1,4 @@
+import { androidRequest, hasAndroidBridge } from "../lib/androidBridge";
 import { t as tr, useLocale, getIntlLocale } from "../i18n";
 import { useEffect, useId, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
@@ -112,6 +113,7 @@ export function PlanLibrary() {
   };
   const download = () => {
     const plan = validatePlan(selection);
+    if (hasAndroidBridge()) { void androidRequest("saveFile", {content: JSON.stringify(plan, null, 2), filename: `ceventic-${category}.json`}).then(() => toast.success(tr("Choose where to save the plan."))).catch(() => toast.error(tr("Could not open the Android file picker."))); return; }
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(plan, null, 2)], { type: "application/json" }),
     );

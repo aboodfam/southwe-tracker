@@ -25,3 +25,10 @@ dist-ssr
 
 # Tauri / desktop build outputs
 src-tauri/target/
+
+# Android test/build output and local signing material
+android-app/.gradle/
+android-app/local.properties
+android-app/**/build/
+*.jks
+*.keystore

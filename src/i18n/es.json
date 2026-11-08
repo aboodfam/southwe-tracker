@@ -1007,5 +1007,17 @@
   "Continue workout": "Continuar entrenamiento",
   "Choose session": "Elegir sesión",
   "Change focus": "Cambiar prioridad",
-  "Preview your color before saving.": "Previsualiza el color antes de guardarlo."
+  "Preview your color before saving.": "Previsualiza el color antes de guardarlo.",
+  "Connect Android recaps": "Conectar resúmenes de Android",
+  "Connected. Return to Ceventic Preview and tap Check connection.": "Conectado. Vuelve a Ceventic Preview y toca Check connection.",
+  "Allow your Android app to read saved progress for day, week and month recaps. It cannot edit your tasks or account.": "Permite que tu app Android lea el progreso guardado para los resúmenes diarios, semanales y mensuales. No puede modificar tareas ni tu cuenta.",
+  "Only connect if this code matches the device code shown in your Android app.": "Conecta solo si este código coincide con el que aparece en tu app Android.",
+  "Connecting…": "Conectando…",
+  "Connect device": "Conectar dispositivo",
+  "Android unlock recaps": "Resúmenes al desbloquear Android",
+  "Choose where to save the plan.": "Elige dónde guardar el plan.",
+  "Could not open the Android file picker.": "No se pudo abrir el selector de archivos de Android.",
+  "Android recap devices": "Dispositivos de resúmenes Android",
+  "Remove a device to stop its background access. Your account data stays saved.": "Elimina un dispositivo para detener su acceso en segundo plano. Los datos de tu cuenta se conservan.",
+  "Remove device": "Eliminar dispositivo"
 }

@@ -6,6 +6,8 @@ import { pageValidator, planValidator } from "./planFormat";
 import { taskOptions, dayStateValidator } from "./supportModel";
 
 const applicationTables = {
+  nativeDevices: defineTable({ userId: v.id("users"), sessionId: v.id("authSessions"), tokenHash: v.string(), label: v.string(), accentHex: v.string(), locale: v.string(), expiresAt: v.number(), createdAt: v.number() }).index("by_user", ["userId"]).index("by_hash", ["tokenHash"]),
+  athkarCompletions: defineTable({userId: v.id("users"), date: v.string(), category: v.string(), sessionKey: v.string(), completedAt: v.number()}).index("by_user", ["userId"]).index("by_user_date", ["userId", "date"]).index("by_user_session", ["userId", "sessionKey"]),
   routines: defineTable({
     deletedAt: v.optional(v.number()),
     userId: v.id("users"),

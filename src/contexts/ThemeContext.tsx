@@ -227,6 +227,13 @@ const themeColors: Record<Theme, ThemeColors> = {
   },
 };
 
+/** Saved appearance only; temporary picker previews must not reach background devices. */
+export function savedThemeAccent(theme: Theme, custom: boolean, hex: string): string {
+  if (custom && isValidHex(normalizeHex(hex))) return normalizeHex(hex);
+  const rgb = parseRgbString(themeColors[theme].primary)!;
+  return "#" + [rgb.r, rgb.g, rgb.b].map(value => value.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

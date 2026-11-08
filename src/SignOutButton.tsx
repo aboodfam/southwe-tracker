@@ -1,4 +1,7 @@
 "use client";
+import { disconnectAndroid } from "./lib/androidBridge";
+import { useMutation } from "convex/react";
+import { api } from "../convex/_generated/api";
 import { t as tr, useLocale } from "./i18n";
 
 
@@ -10,6 +13,7 @@ export function SignOutButton() {
   useLocale();
   const { isAuthenticated } = useConvexAuth();
   const { signOut } = useAuthActions();
+  const revoke = useMutation(api.nativeRecaps.disconnectDevice);
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
 
@@ -17,7 +21,7 @@ export function SignOutButton() {
 
   return (
     <button
-      onClick={() => void signOut()}
+      onClick={() => void (async () => { await disconnectAndroid(revoke); await signOut(); })()}
       className={`grid h-[46px] w-[46px] shrink-0 place-items-center rounded-xl border ${colors.border} bg-black/45 text-white/65 shadow-lg backdrop-blur-xl transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white active:scale-[0.97]`}
       style={{ boxShadow: `0 0 18px rgb(var(--sw-accent-rgb) / .08)` }}
       title={tr("Sign out")}

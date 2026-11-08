@@ -1,3 +1,4 @@
+import { AndroidRecapIntegration } from "./components/AndroidRecapIntegration";
 import { PAGES, visibleStartPage } from "../convex/planFormat";
 import { pageMotion, pageSwipe, type PageMotion } from "./lib/navigation";
 
@@ -588,6 +589,7 @@ function AppContent() {
         </div>
       ) : isAuthenticated ? (
         <TrustedDeviceGate>
+          <AndroidRecapIntegration />
           <header data-page-chrome className={`relative z-50 border-b bg-surface ${colors.border} ${athkarFocus ? "hidden sm:block" : ""}`}>
             <div className="container mx-auto flex h-14 items-center justify-end px-3 sm:h-16 sm:px-4">
               <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">

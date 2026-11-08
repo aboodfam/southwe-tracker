@@ -17,6 +17,8 @@ import type * as daySupport from "../daySupport.js";
 import type * as deviceAuth from "../deviceAuth.js";
 import type * as habits from "../habits.js";
 import type * as http from "../http.js";
+import type * as nativeRecaps from "../nativeRecaps.js";
+import type * as nativeRecapModel from "../nativeRecapModel.js";
 import type * as migrations from "../migrations.js";
 import type * as planFormat from "../planFormat.js";
 import type * as progress from "../progress.js";
@@ -46,6 +48,8 @@ declare const fullApi: ApiFromModules<{
   deviceAuth: typeof deviceAuth;
   habits: typeof habits;
   http: typeof http;
+  nativeRecaps: typeof nativeRecaps;
+  nativeRecapModel: typeof nativeRecapModel;
   migrations: typeof migrations;
   planFormat: typeof planFormat;
   progress: typeof progress;

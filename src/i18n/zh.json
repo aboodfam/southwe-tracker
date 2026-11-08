@@ -1007,5 +1007,17 @@
   "Continue workout": "继续训练",
   "Choose session": "选择训练时段",
   "Change focus": "更改专注事项",
-  "Preview your color before saving.": "保存前先预览颜色。"
+  "Preview your color before saving.": "保存前先预览颜色。",
+  "Connect Android recaps": "连接安卓总结",
+  "Connected. Return to Ceventic Preview and tap Check connection.": "已连接。返回Ceventic Preview，点击Check connection。",
+  "Allow your Android app to read saved progress for day, week and month recaps. It cannot edit your tasks or account.": "允许安卓应用读取已保存的进度，用于每日、每周和每月总结。它无法修改任务或账户。",
+  "Only connect if this code matches the device code shown in your Android app.": "仅当此代码与安卓应用中的设备代码一致时才连接。",
+  "Connecting…": "正在连接…",
+  "Connect device": "连接设备",
+  "Android unlock recaps": "安卓解锁总结",
+  "Choose where to save the plan.": "选择计划的保存位置。",
+  "Could not open the Android file picker.": "无法打开安卓文件选择器。",
+  "Android recap devices": "安卓总结设备",
+  "Remove a device to stop its background access. Your account data stays saved.": "移除设备即可停止其后台访问。账户数据仍会保留。",
+  "Remove device": "移除设备"
 }

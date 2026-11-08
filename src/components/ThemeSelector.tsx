@@ -1,3 +1,5 @@
+import { AndroidDeviceList } from "./AndroidDeviceList";
+import { androidRequest, disconnectAndroid, hasAndroidBridge } from "../lib/androidBridge";
 import { ColorWheelSheet } from "./ColorWheelSheet";
 import { LanguageSelector } from "./LanguageSelector";
 import { t as tr, useLocale } from "../i18n";
@@ -55,6 +57,7 @@ function AccountSettingsPanel() {
     setDeleting(true);
     try {
       await deleteMyAccount({ confirmation });
+      await disconnectAndroid();
       clearLocalAccountData();
       try {
         await signOut();
@@ -72,6 +75,7 @@ function AccountSettingsPanel() {
 
   return (
     <div className="space-y-3">
+      <AndroidDeviceList />
       <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
         <div className="flex items-start gap-3">
           <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl border ${colors.border} bg-white/[0.04]`}>
@@ -354,6 +358,7 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
               >
                 {tr("My workspace")} <span aria-hidden="true">›</span>
               </button>
+              {hasAndroidBridge() && <button type="button" onClick={() => { setIsOpen(false); void androidRequest("settings"); }} className="mb-3 flex min-h-11 w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-start text-sm font-semibold text-white/85">{tr("Android unlock recaps")}<Icon name="chevronRight" className="h-4 w-4" /></button>}
               {activeTab === "themes" ? (
                 <div className="space-y-3">
                   <div>

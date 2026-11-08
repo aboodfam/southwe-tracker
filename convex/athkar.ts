@@ -1,3 +1,4 @@
+import { recordAthkarCompletion } from "./athkarCompletionHistory";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -782,6 +783,7 @@ export const markCategoryCompleted = mutation({
       updatedAt: Date.now(),
     };
     await ctx.db.patch(existing._id, patch);
+    await recordAthkarCompletion(ctx, userId, category, `${category}:${windowKey}`, windowKey);
     return { completed: true };
   },
 });
@@ -878,6 +880,7 @@ export const incrementPrayerSession = mutation({
       completedAt: completed ? (session.completedAt ?? Date.now()) : undefined,
       updatedAt: Date.now(),
     });
+    if (completed) { const date = /^prayer:(\d{4}-\d{2}-\d{2}):/.exec(sessionKey)?.[1]; if (date) await recordAthkarCompletion(ctx, userId, "prayer", sessionKey, date); }
     return { count: row.count, completed };
   },
 });

@@ -872,3 +872,5 @@ html[lang="ar"] :is(h1, h2, h3, h4, p) {
 .sw-color-range::-moz-range-track { height: 6px; border-radius: 999px; background: var(--sw-color-track); }
 .sw-color-range::-webkit-slider-thumb { width: 23px; height: 23px; margin-top: -8.5px; }
 .sw-color-range::-moz-range-thumb { width: 21px; height: 21px; }
+
+.android-pairing-dialog::backdrop { background: rgb(0 0 0 / .75); }

@@ -1007,5 +1007,17 @@
   "Continue workout": "متابعة التمرين",
   "Choose session": "اختيار الجلسة",
   "Change focus": "تغيير التركيز",
-  "Preview your color before saving.": "عاين اللون قبل حفظه."
+  "Preview your color before saving.": "عاين اللون قبل حفظه.",
+  "Connect Android recaps": "ربط ملخّصات أندرويد",
+  "Connected. Return to Ceventic Preview and tap Check connection.": "تم الربط. ارجع إلى Ceventic Preview واضغط التحقّق من الاتصال.",
+  "Allow your Android app to read saved progress for day, week and month recaps. It cannot edit your tasks or account.": "اسمح لتطبيق أندرويد بقراءة إنجازاتك المحفوظة لملخّصات اليوم والأسبوع والشهر. لا يمكنه تعديل مهامك أو حسابك.",
+  "Only connect if this code matches the device code shown in your Android app.": "لا تربط الجهاز إلا إذا كان هذا الرمز يطابق الرمز الظاهر في تطبيق أندرويد لديك.",
+  "Connecting…": "جارٍ الربط…",
+  "Connect device": "ربط الجهاز",
+  "Android unlock recaps": "ملخّصات أندرويد عند فتح الهاتف",
+  "Choose where to save the plan.": "اختر مكان حفظ الخطة.",
+  "Could not open the Android file picker.": "تعذّر فتح نافذة اختيار الملفات في أندرويد.",
+  "Android recap devices": "أجهزة ملخّصات أندرويد",
+  "Remove a device to stop its background access. Your account data stays saved.": "احذف الجهاز لإيقاف وصوله في الخلفية. تبقى بيانات حسابك محفوظة.",
+  "Remove device": "إزالة الجهاز"
 }
