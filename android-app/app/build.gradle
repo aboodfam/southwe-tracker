@@ -6,17 +6,18 @@ android {
         applicationId 'com.ceventic.android.preview'
         minSdk 30
         targetSdk 36
-        versionCode 1
-        versionName '0.1-test'
+        versionCode 2
+        versionName '0.2-test'
         buildConfigField 'String', 'APP_ORIGIN', '"https://ceventic.vercel.app"'
         buildConfigField 'String', 'RECAP_ENDPOINT', '"https://resolute-mallard-430.convex.site/android/recaps"'
     }
     buildFeatures { buildConfig true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     buildTypes { debug { debuggable true }; release { minifyEnabled false } }
-    testOptions { unitTests.returnDefaultValues = true }
+    testOptions { unitTests { returnDefaultValues = true; includeAndroidResources = true } }
 }
 dependencies {
     implementation 'androidx.webkit:webkit:1.14.0'
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.16.1'
 }

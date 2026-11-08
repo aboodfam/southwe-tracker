@@ -25,6 +25,14 @@ final class RecapStore {
     prefs = context.getSharedPreferences("native_recaps", Context.MODE_PRIVATE);
   }
 
+  void listen(SharedPreferences.OnSharedPreferenceChangeListener listener) {
+    prefs.registerOnSharedPreferenceChangeListener(listener);
+  }
+
+  void unlisten(SharedPreferences.OnSharedPreferenceChangeListener listener) {
+    prefs.unregisterOnSharedPreferenceChangeListener(listener);
+  }
+
   private SecretKey key() throws Exception {
     KeyStore store = KeyStore.getInstance("AndroidKeyStore");
     store.load(null);
@@ -98,6 +106,39 @@ final class RecapStore {
 
   void enabled(boolean value) {
     prefs.edit().putBoolean("enabled", value).commit();
+  }
+
+  // This preview build defaults to the explicitly requested every-unlock behavior.
+  boolean everyUnlock() {
+    return prefs.getBoolean("every_unlock", true);
+  }
+
+  void everyUnlock(boolean value) {
+    prefs.edit().putBoolean("every_unlock", value).commit();
+  }
+
+  void detectedUnlock() {
+    prefs
+        .edit()
+        .putLong("last_unlock", System.currentTimeMillis())
+        .putInt("unlock_count", unlockCount() + 1)
+        .apply();
+  }
+
+  int unlockCount() {
+    return prefs.getInt("unlock_count", 0);
+  }
+
+  long lastUnlock() {
+    return prefs.getLong("last_unlock", 0);
+  }
+
+  void screenShown() {
+    prefs.edit().putLong("last_shown", System.currentTimeMillis()).apply();
+  }
+
+  long lastShown() {
+    return prefs.getLong("last_shown", 0);
   }
 
   boolean selected(String kind) {

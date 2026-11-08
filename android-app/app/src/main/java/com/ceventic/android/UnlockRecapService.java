@@ -18,15 +18,44 @@ public final class UnlockRecapService extends Service {
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private boolean fetching = false, destroyed = false;
   private long retryAfter = 0;
+  private final UnlockCycle cycle = new UnlockCycle();
   private final BroadcastReceiver receiver =
       new BroadcastReceiver() {
         @Override
         public void onReceive(Context c, Intent intent) {
           if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
             overlay.hide();
+            cycle.screenOff();
+            unlockChecks = 0;
+            handler.removeCallbacks(screenOnCheck);
             return;
           }
-          if (Intent.ACTION_USER_PRESENT.equals(intent.getAction())) onUnlock();
+          if (Intent.ACTION_SCREEN_ON.equals(intent.getAction())) {
+            handler.removeCallbacks(screenOnCheck);
+            unlockChecks = 0;
+            handler.postDelayed(screenOnCheck, 350);
+          }
+          if (Intent.ACTION_USER_PRESENT.equals(intent.getAction())) {
+            handler.removeCallbacks(screenOnCheck);
+            unlockChecks = 0;
+            // Some phones deliver the broadcast just before keyguard state settles.
+            handler.postDelayed(screenOnCheck, 200);
+          }
+        }
+      };
+
+  private int unlockChecks;
+  private final Runnable screenOnCheck =
+      new Runnable() {
+        @Override
+        public void run() {
+          if (destroyed || !store.enabled()) return;
+          if (unlocked()) {
+            unlockChecks = 0;
+            onUnlock();
+          } else if (++unlockChecks < 8 && getSystemService(PowerManager.class).isInteractive())
+            handler.postDelayed(this, 400);
+          else unlockChecks = 0;
         }
       };
 
@@ -46,8 +75,9 @@ public final class UnlockRecapService extends Service {
     notifications.createNotificationChannel(channel);
     IntentFilter filter = new IntentFilter();
     filter.addAction(Intent.ACTION_USER_PRESENT);
+    filter.addAction(Intent.ACTION_SCREEN_ON);
     filter.addAction(Intent.ACTION_SCREEN_OFF);
-    // Both are protected system broadcasts. No application-defined actions are accepted.
+    // These are protected system broadcasts. No app-defined actions are accepted.
     if (Build.VERSION.SDK_INT >= 33)
       registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
     else registerReceiver(receiver, filter);
@@ -61,9 +91,9 @@ public final class UnlockRecapService extends Service {
       return START_NOT_STICKY;
     }
     if (!store.enabled()
-        || store.user().isEmpty()
+        || (!store.everyUnlock()
+            && (store.user().isEmpty() || store.expires() <= System.currentTimeMillis()))
         || !Settings.canDrawOverlays(this)
-        || store.expires() <= System.currentTimeMillis()
         || (Build.VERSION.SDK_INT >= 33
             && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
                 != android.content.pm.PackageManager.PERMISSION_GRANTED)) {
@@ -122,11 +152,17 @@ public final class UnlockRecapService extends Service {
     if (destroyed
         || !unlocked()
         || overlay.showing()
-        || fetching
-        || !Settings.canDrawOverlays(this)) return;
+        || !Settings.canDrawOverlays(this)
+        || !cycle.claim()) return;
+    store.detectedUnlock();
     JSONObject cache = store.cache();
+    if (store.everyUnlock()) {
+      showEvery(cache);
+      if (store.user().isEmpty() || store.expires() <= System.currentTimeMillis()) return;
+    }
+    if (fetching) return;
     if (LocalDate.now().toString().equals(cache.optString("localDate"))) {
-      showDue(cache);
+      if (!store.everyUnlock()) showDue(cache);
       return;
     }
     if (System.currentTimeMillis() < retryAfter) return;
@@ -148,14 +184,51 @@ public final class UnlockRecapService extends Service {
                 if (destroyed) return;
                 if (result != null) {
                   retryAfter = 0;
-                  showDue(result);
+                  if (store.everyUnlock()) {
+                    // Update an open card in place. Never reopen after the user dismisses it.
+                    if (overlay.showing()) showEvery(result);
+                  } else showDue(result);
                 } else {
                   store.error(error);
                   retryAfter = System.currentTimeMillis() + 15 * 60 * 1000;
                   if (!store.enabled() || store.user().isEmpty()) stopSelf();
+                  else if (store.everyUnlock() && overlay.showing()) showEvery(store.cache());
                 }
               });
         });
+  }
+
+  private void showEvery(JSONObject data) {
+    if (!store.enabled() || !unlocked() || !Settings.canDrawOverlays(this)) return;
+    JSONArray periods = new JSONArray();
+    boolean linked = !store.user().isEmpty() && store.expires() > System.currentTimeMillis();
+    if (linked && store.user().equals(data.optString("userId"))) {
+      JSONArray all = data.optJSONArray("periods");
+      if (all != null)
+        for (int i = 0; i < all.length(); i++) {
+          JSONObject p = all.optJSONObject(i);
+          if (p != null
+              && store.selected(p.optString("kind"))
+              && PeriodRules.closedEnd(p.optString("kind"), LocalDate.now())
+                  .equals(p.optString("end"))) periods.put(p);
+        }
+    }
+    String message =
+        !linked
+            ? "Connect your account to see your progress here."
+            : !LocalDate.now().toString().equals(data.optString("localDate"))
+                ? (store.error().isEmpty()
+                    ? "Syncing your saved progress…"
+                    : "Progress is offline. Check connection in Recap settings.")
+                : periods.length() == 0
+                    ? "No completed recap with recorded activity yet."
+                    : "Shown on every unlock";
+    try {
+      overlay.present(periods, false, true, message, () -> {});
+      store.screenShown();
+    } catch (Exception error) {
+      store.error("Android could not display the recap. Check display-over-apps permission.");
+    }
   }
 
   private void showDue(JSONObject data) {
@@ -178,6 +251,7 @@ public final class UnlockRecapService extends Service {
     if (due.length() == 0) return;
     try {
       overlay.show(due, false, () -> {});
+      store.screenShown();
       for (int i = 0; i < due.length(); i++) {
         JSONObject p = due.getJSONObject(i);
         store.acknowledge(p.getString("kind"), p.getString("end"));

@@ -283,7 +283,7 @@ public final class MainActivity extends Activity {
     super.onResume();
     if (store != null
         && store.enabled()
-        && !store.user().isEmpty()
+        && (store.everyUnlock() || !store.user().isEmpty())
         && android.provider.Settings.canDrawOverlays(this)) {
       try {
         startForegroundService(new Intent(this, UnlockRecapService.class));

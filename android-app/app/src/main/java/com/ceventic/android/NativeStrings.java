@@ -5,6 +5,62 @@ import java.util.Map;
 final class NativeStrings {
   private static final Map<String, String[]> TEXT =
       Map.ofEntries(
+          Map.entry(
+              "Progress is offline. Check connection in Recap settings.",
+              new String[] {
+                "التقدم غير متاح الآن. افحص الاتصال من إعدادات الملخص.",
+                "Progreso sin conexión. Comprueba la conexión en ajustes.",
+                "Progression hors ligne. Vérifiez la connexion dans les réglages.",
+                "进度暂时离线。请在总结设置中检查连接。"
+              }),
+          Map.entry(
+              "Unlock detected",
+              new String[] {
+                "تم رصد فتح الهاتف", "Desbloqueo detectado", "Déverrouillage détecté", "已检测到解锁"
+              }),
+          Map.entry(
+              "Your unlock screen is working",
+              new String[] {
+                "شاشة فتح الهاتف تعمل",
+                "La pantalla de desbloqueo funciona",
+                "Votre écran de déverrouillage fonctionne",
+                "解锁屏幕正常工作"
+              }),
+          Map.entry(
+              "Connect your account to see your progress here.",
+              new String[] {
+                "اربط حسابك لعرض تقدمك هنا.",
+                "Conecta tu cuenta para ver tu progreso.",
+                "Connectez votre compte pour voir vos progrès.",
+                "连接账户以查看进度。"
+              }),
+          Map.entry(
+              "Syncing your saved progress…",
+              new String[] {
+                "جارٍ مزامنة تقدمك المحفوظ…",
+                "Sincronizando tu progreso…",
+                "Synchronisation de vos progrès…",
+                "正在同步已保存的进度…"
+              }),
+          Map.entry(
+              "No completed recap with recorded activity yet.",
+              new String[] {
+                "لا يوجد ملخص مكتمل بنشاط مسجل بعد.",
+                "Todavía no hay un resumen con actividad registrada.",
+                "Aucun bilan terminé avec une activité enregistrée.",
+                "暂无包含已记录活动的完整总结。"
+              }),
+          Map.entry(
+              "Shown on every unlock",
+              new String[] {
+                "يظهر عند كل فتح للهاتف",
+                "Se muestra en cada desbloqueo",
+                "Affiché à chaque déverrouillage",
+                "每次解锁时显示"
+              }),
+          Map.entry(
+              "Athkar sessions",
+              new String[] {"جلسات الأذكار", "Sesiones de Athkar", "Séances d’Athkar", "祈念时段"}),
           Map.entry("Your day", new String[] {"ملخّص يومك", "Tu día", "Votre journée", "你的一天"}),
           Map.entry(
               "Your week", new String[] {"ملخّص أسبوعك", "Tu semana", "Votre semaine", "你的一周"}),
