@@ -161,7 +161,8 @@ public final class UnlockRecapService extends Service {
       if (store.user().isEmpty() || store.expires() <= System.currentTimeMillis()) return;
     }
     if (fetching) return;
-    if (LocalDate.now().toString().equals(cache.optString("localDate"))) {
+    if (LocalDate.now().toString().equals(cache.optString("localDate"))
+        && cache.optInt("comparisonVersion") >= 1) {
       if (!store.everyUnlock()) showDue(cache);
       return;
     }

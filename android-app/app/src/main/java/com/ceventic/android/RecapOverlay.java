@@ -2,7 +2,6 @@ package com.ceventic.android;
 
 import android.content.Context;
 import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
 import android.view.*;
 import android.widget.*;
 import java.time.LocalDate;
@@ -20,6 +19,7 @@ final class RecapOverlay {
   private WindowManager manager;
   private String selectedKind;
   private boolean dismissing;
+  private java.util.function.Consumer<Boolean> blurListener;
 
   RecapOverlay(Context context, RecapStore store) {
     this.context = context;
@@ -63,10 +63,6 @@ final class RecapOverlay {
     p.addView(new View(context), new LinearLayout.LayoutParams(1, dp(n)));
   }
 
-  private void flexibleGap(LinearLayout p, int min, float weight) {
-    p.addView(new View(context), new LinearLayout.LayoutParams(1, dp(min), weight));
-  }
-
   private int blend(int base, int color, float fraction) {
     return Color.rgb(
         Math.round(Color.red(base) * (1 - fraction) + Color.red(color) * fraction),
@@ -91,6 +87,7 @@ final class RecapOverlay {
             () -> {
               dismissAnimated(dismissed);
             });
+    screen.setBackgroundColor(Color.TRANSPARENT);
     if (showing()) {
       ScrollView previous = holder.findViewWithTag("recap_scroll");
       int previousY = previous == null ? 0 : previous.getScrollY();
@@ -103,7 +100,7 @@ final class RecapOverlay {
     manager = context.getSystemService(WindowManager.class);
     FrameLayout backdrop = new FrameLayout(context);
     backdrop.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-    // The fixed, opaque backdrop covers the bar areas even while content animates.
+    // One continuous, stationary backdrop covers the bars while content animates.
     backdrop.setBackground(NativeUi.recapBackground(store));
     holder = new FrameLayout(context);
     holder.addView(screen, new FrameLayout.LayoutParams(-1, -1));
@@ -141,10 +138,16 @@ final class RecapOverlay {
     root = backdrop;
     try {
       manager.addView(root, params);
+      if (android.os.Build.VERSION.SDK_INT >= 31) {
+        blurListener = enabled -> updateBlur(enabled);
+        manager.addCrossWindowBlurEnabledListener(context.getMainExecutor(), blurListener);
+        updateBlur(manager.isCrossWindowBlurEnabled());
+      }
       root.requestFocus();
       root.requestApplyInsets();
       animateEntry();
     } catch (Exception e) {
+      hide();
       root = null;
       holder = null;
       throw e;
@@ -183,7 +186,7 @@ final class RecapOverlay {
     header.setGravity(Gravity.CENTER_VERTICAL);
     header.setPadding(dp(20), dp(10), dp(16), dp(8));
     LinearLayout heading = NativeUi.column(context);
-    TextView title = text(t("Your overview"), 25, Color.WHITE, true);
+    TextView title = text(t("Your overview"), 24, Color.WHITE, true);
     TextView date = text("", 11, 0xff929ba7, false);
     heading.addView(title);
     gap(heading, 5);
@@ -283,15 +286,43 @@ final class RecapOverlay {
     Button done = NativeUi.button(context, t("Continue"), dismiss);
     done.setTag("recap_continue");
     done.setTextSize(15);
-    done.setTextColor(Color.luminance(NativeUi.accent(store)) > .179 ? Color.BLACK : Color.WHITE);
-    GradientDrawable gradient =
-        new GradientDrawable(
-            GradientDrawable.Orientation.LEFT_RIGHT,
-            new int[] {
-              NativeUi.mix(NativeUi.accent(store), Color.WHITE, .16f), NativeUi.accent(store)
-            });
-    gradient.setCornerRadius(dp(16));
-    done.setBackground(gradient);
+    done.setTextColor(Color.WHITE);
+    done.setBackground(
+        new android.graphics.drawable.RippleDrawable(
+            android.content.res.ColorStateList.valueOf(tint(28)),
+            NativeUi.panel(
+                blend(NativeUi.RECAP_BASE, NativeUi.accent(store), .045f), tint(85), 16, context),
+            null));
+    done.setPadding(dp(20), 0, dp(20), 0);
+    android.graphics.drawable.Drawable arrow =
+        new android.graphics.drawable.Drawable() {
+          final android.graphics.Paint paint =
+              new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+
+          @Override
+          public void draw(android.graphics.Canvas c) {
+            paint.setColor(Color.WHITE);
+            paint.setStrokeWidth(dp(1.5f));
+            paint.setStyle(android.graphics.Paint.Style.STROKE);
+            float x = getBounds().centerX(), y = getBounds().centerY();
+            c.drawLine(x - dp(7), y, x + dp(7), y, paint);
+            c.drawLine(x + dp(2), y - dp(5), x + dp(7), y, paint);
+            c.drawLine(x + dp(2), y + dp(5), x + dp(7), y, paint);
+          }
+
+          @Override
+          public void setAlpha(int a) {}
+
+          @Override
+          public void setColorFilter(android.graphics.ColorFilter f) {}
+
+          @Override
+          public int getOpacity() {
+            return android.graphics.PixelFormat.TRANSLUCENT;
+          }
+        };
+    arrow.setBounds(0, 0, dp(18), dp(18));
+    done.setCompoundDrawables(null, null, arrow, null);
     footer.addView(done, new LinearLayout.LayoutParams(-1, dp(52)));
     page.addView(footer);
     return surface;
@@ -318,7 +349,7 @@ final class RecapOverlay {
   private LinearLayout card() {
     LinearLayout box = NativeUi.column(context);
     box.setPadding(dp(16), dp(15), dp(16), dp(15));
-    box.setBackground(NativeUi.panel(0xd9151c25, 0x14ffffff, 22, context));
+    box.setBackground(NativeUi.glassPanel(context, store));
     return box;
   }
 
@@ -363,16 +394,7 @@ final class RecapOverlay {
     } catch (Exception ignored) {
     }
     date.setText(start.equals(end) ? end : start + " – " + end);
-    LinearLayout summary = card();
-    GradientDrawable glow =
-        new GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            new int[] {
-              blend(0xff151c25, NativeUi.accent(store), .09f),
-              blend(0xff151c25, NativeUi.accent(store), .025f)
-            });
-    glow.setCornerRadius(dp(22));
-    summary.setBackground(glow);
+    RecapInsight insight = RecapInsight.from(period);
     TextView eyebrow =
         text(
             t(
@@ -382,92 +404,204 @@ final class RecapOverlay {
             10,
             accent(),
             true);
-    eyebrow.setLetterSpacing(.05f);
-    summary.addView(eyebrow);
+    eyebrow.setLetterSpacing(.09f);
+    details.addView(eyebrow);
+    gap(details, 7);
+    TextView personal = text(t(insight.headline), 23, Color.WHITE, true);
+    personal.setTag("recap_insight");
+    details.addView(personal);
+    gap(details, 5);
+    TextView description = text(t(insight.description), 12, 0xffb9b3b6, false);
+    description.setLineSpacing(dp(2), 1);
+    details.addView(description);
+    gap(details, 14);
+
+    if (!insight.field.isEmpty()) {
+      LinearLayout hero = card();
+      cardHeading(hero, RecapInsight.label(insight.field), iconFor(insight.field));
+      gap(hero, 12);
+      LinearLayout row = new LinearLayout(context);
+      row.setGravity(Gravity.CENTER_VERTICAL);
+      LinearLayout values = NativeUi.column(context);
+      values.addView(text(number(insight.current), 38, Color.WHITE, true));
+      gap(values, 7);
+      if (insight.comparable) {
+        int delta = insight.current - insight.previous;
+        String deltaText = (delta > 0 ? "+" : delta < 0 ? "−" : "") + number(Math.abs(delta));
+        TextView change = text(deltaText + " · " + t("vs previous period"), 11, accent(), true);
+        change.setPadding(dp(9), dp(6), dp(9), dp(6));
+        change.setBackground(NativeUi.panel(tint(18), tint(32), 12, context));
+        values.addView(change);
+        gap(values, 6);
+        values.addView(
+            text(t("Previously") + " " + number(insight.previous), 11, 0xffa49da1, false));
+      }
+      row.addView(values, new LinearLayout.LayoutParams(0, -2, 1));
+      if (insight.comparable)
+        row.addView(comparison(insight), new LinearLayout.LayoutParams(dp(116), dp(90)));
+      else
+        row.addView(chart(period, insight.field), new LinearLayout.LayoutParams(dp(106), dp(58)));
+      hero.addView(row);
+      if (insight.comparable) {
+        gap(hero, 10);
+        // Different month lengths and sparse logs are made explicit, never normalized into a score.
+        String before =
+            number(insight.previousCoverage)
+                + "/"
+                + number(period.optJSONObject("previous").optInt("totalDays"));
+        String now = number(insight.currentCoverage) + "/" + number(period.optInt("totalDays"));
+        TextView coverage =
+            text(t("Recorded days") + ": " + before + " → " + now, 10, 0xff9f989c, false);
+        hero.addView(coverage);
+      }
+      details.addView(hero);
+      gap(details, 12);
+    }
+
+    LinearLayout summary = card();
+    TextView rhythmTitle = text(t("Your rhythm"), 12, 0xffb9b3b6, false);
+    summary.addView(rhythmTitle);
     gap(summary, 9);
-    summary.addView(text(t("Your rhythm"), 19, Color.WHITE, true));
-    gap(summary, 12);
     LinearLayout rhythm = new LinearLayout(context);
     rhythm.setGravity(Gravity.CENTER_VERTICAL);
     LinearLayout stats = NativeUi.column(context);
     LinearLayout values = new LinearLayout(context);
     values.setGravity(Gravity.BOTTOM);
-    values.addView(text(number(Math.max(0, period.optInt("activeDays"))), 34, Color.WHITE, true));
+    values.addView(text(number(Math.max(0, period.optInt("activeDays"))), 31, Color.WHITE, true));
     int total = period.optInt("totalDays");
-    if (total > 0) values.addView(text(" / " + number(total), 15, 0xffa6adb7, false));
+    if (total > 0) values.addView(text(" / " + number(total), 14, 0xffa6a0a3, false));
     stats.addView(values);
-    gap(stats, 3);
-    stats.addView(text(t("Activity days"), 11, 0xffa6adb7, false));
-    rhythm.addView(stats, new LinearLayout.LayoutParams(0, -2, 1));
-    rhythm.addView(chart(period, "activity"), new LinearLayout.LayoutParams(dp(110), dp(52)));
-    summary.addView(rhythm);
-    details.addView(summary);
-    flexibleGap(details, 12, 1);
+    gap(stats, 4);
+    stats.addView(text(t("Activity days"), 11, 0xffb9b3b6, false));
     if (!hidden(period, "workout")) {
-      LinearLayout training = card();
-      cardHeading(training, "Training", "workout");
-      gap(training, 12);
-      LinearLayout row = new LinearLayout(context);
-      row.setGravity(Gravity.CENTER_VERTICAL);
-      LinearLayout statsTraining = NativeUi.column(context);
-      statsTraining.addView(text(number(period.optInt("exercises")), 30, Color.WHITE, true));
-      gap(statsTraining, 3);
-      statsTraining.addView(text(t("Exercises checked"), 11, 0xffa6adb7, false));
-      row.addView(statsTraining, new LinearLayout.LayoutParams(0, -2, 1));
-      row.addView(chart(period, "exercises"), new LinearLayout.LayoutParams(dp(128), dp(56)));
-      training.addView(row);
-      gap(training, 10);
-      TextView saved =
+      gap(stats, 8);
+      stats.addView(
           text(
               number(period.optInt("workouts")) + " · " + t("Workouts saved"),
-              11,
-              0xff929ba7,
-              false);
-      training.addView(saved);
-      details.addView(training);
-      flexibleGap(details, 12, 1);
+              10,
+              0xffa49da1,
+              false));
     }
-    LinearLayout small = new LinearLayout(context);
+    rhythm.addView(stats, new LinearLayout.LayoutParams(0, -2, 1));
+    RecapCalendar calendar =
+        new RecapCalendar(context, NativeUi.accent(store), period.optJSONArray("days"));
+    rhythm.addView(calendar, new LinearLayout.LayoutParams(dp(116), dp(total > 7 ? 78 : 36)));
+    summary.addView(rhythm);
+    details.addView(summary);
+    gap(details, 12);
     ArrayList<LinearLayout> tiles = new ArrayList<>();
-    if (!hidden(period, "routines"))
+    if (!hidden(period, "routines") && !insight.field.equals("tasks"))
       tiles.add(metricCard(period, "tasks", "Tasks done", "routines"));
-    if (!hidden(period, "habits"))
+    if (!hidden(period, "habits") && !insight.field.equals("habits"))
       tiles.add(metricCard(period, "habits", "Habit check-ins", "habits"));
-    for (int i = 0; i < tiles.size(); i++) {
-      LinearLayout.LayoutParams cell = new LinearLayout.LayoutParams(0, -1, 1);
-      if (i + 1 < tiles.size()) cell.setMarginEnd(dp(10));
-      small.addView(tiles.get(i), cell);
+    if (!hidden(period, "workout")
+        && !insight.field.equals("exercises")
+        && !insight.field.equals("workouts"))
+      tiles.add(metricCard(period, "exercises", "Exercises checked", "workout"));
+    // Keep a phone-friendly two-column grid even when the highlighted metric changes.
+    for (int i = 0; i < tiles.size(); i += 2) {
+      LinearLayout pair = new LinearLayout(context);
+      for (int j = i; j < Math.min(i + 2, tiles.size()); j++) {
+        LinearLayout.LayoutParams cell = new LinearLayout.LayoutParams(0, -1, 1);
+        if (j == i && i + 1 < tiles.size()) cell.setMarginEnd(dp(10));
+        pair.addView(tiles.get(j), cell);
+      }
+      details.addView(pair);
+      gap(details, 12);
     }
-    if (!tiles.isEmpty()) {
-      details.addView(small);
-      flexibleGap(details, 12, 1);
-    }
-    if (!hidden(period, "athkar")) {
+    if (!hidden(period, "athkar") && !insight.field.equals("athkar")) {
       LinearLayout athkar = card();
-      cardHeading(athkar, "Athkar sessions", "athkar");
-      gap(athkar, 10);
       LinearLayout row = new LinearLayout(context);
       row.setGravity(Gravity.CENTER_VERTICAL);
-      LinearLayout statsAthkar = NativeUi.column(context);
-      statsAthkar.addView(text(number(period.optInt("athkar")), 28, Color.WHITE, true));
-      gap(statsAthkar, 3);
-      statsAthkar.addView(text(t("Completed sessions"), 11, 0xff929ba7, false));
-      row.addView(statsAthkar, new LinearLayout.LayoutParams(0, -2, 1));
-      row.addView(chart(period, "athkar"), new LinearLayout.LayoutParams(dp(128), dp(42)));
+      row.addView(iconTile("athkar"), new LinearLayout.LayoutParams(dp(38), dp(38)));
+      LinearLayout label = NativeUi.column(context);
+      label.addView(text(t("Athkar sessions"), 13, Color.WHITE, true));
+      gap(label, 3);
+      label.addView(text(t("Completed sessions"), 10, 0xffa49da1, false));
+      LinearLayout.LayoutParams labelBox = new LinearLayout.LayoutParams(0, -2, 1);
+      labelBox.setMarginStart(dp(12));
+      row.addView(label, labelBox);
+      row.addView(text(number(period.optInt("athkar")), 28, Color.WHITE, true));
       athkar.addView(row);
       details.addView(athkar);
     }
+    gap(details, 12);
+    TextView encouragement = text(t("Keep building at your own pace."), 11, 0xffb9b3b6, false);
+    encouragement.setGravity(Gravity.CENTER);
+    details.addView(encouragement);
+  }
+
+  private String iconFor(String field) {
+    return field.equals("tasks")
+        ? "routines"
+        : field.equals("habits") ? "habits" : field.equals("athkar") ? "athkar" : "workout";
+  }
+
+  private FrameLayout iconTile(String icon) {
+    FrameLayout tile = new FrameLayout(context);
+    tile.setBackground(NativeUi.panel(tint(18), tint(26), 12, context));
+    tile.addView(
+        new RecapIcon(context, icon, accent()),
+        new FrameLayout.LayoutParams(dp(21), dp(21), Gravity.CENTER));
+    return tile;
+  }
+
+  private View comparison(RecapInsight insight) {
+    LinearLayout group = new LinearLayout(context);
+    group.setGravity(Gravity.BOTTOM);
+    int max = Math.max(1, Math.max(insight.previous, insight.current));
+    int[] values = {insight.previous, insight.current};
+    for (int i = 0; i < 2; i++) {
+      LinearLayout column = NativeUi.column(context);
+      column.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+      column.addView(text(number(values[i]), 11, Color.WHITE, true));
+      gap(column, 4);
+      FrameLayout track = new FrameLayout(context);
+      View bar = new View(context);
+      bar.setBackground(NativeUi.panel(i == 0 ? tint(70) : NativeUi.accent(store), 0, 4, context));
+      track.addView(
+          bar,
+          new FrameLayout.LayoutParams(
+              dp(23),
+              values[i] == 0 ? dp(2) : Math.max(dp(4), dp(44) * values[i] / max),
+              Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
+      column.addView(track, new LinearLayout.LayoutParams(-1, dp(44)));
+      gap(column, 5);
+      column.addView(text(t(i == 0 ? "Previous" : "This period"), 9, 0xffa49da1, false));
+      group.addView(column, new LinearLayout.LayoutParams(0, -1, 1));
+    }
+    group.setContentDescription(
+        t("Previously")
+            + " "
+            + number(insight.previous)
+            + "; "
+            + t("This period")
+            + " "
+            + number(insight.current));
+    return group;
   }
 
   private LinearLayout metricCard(JSONObject period, String field, String label, String icon) {
     LinearLayout tile = card();
-    cardHeading(tile, label, icon);
-    gap(tile, 13);
-    tile.addView(text(number(period.optInt(field)), 28, Color.WHITE, true));
+    tile.addView(iconTile(icon), new LinearLayout.LayoutParams(dp(32), dp(32)));
     gap(tile, 9);
-    RecapChart strip = chart(period, field);
-    tile.addView(strip, new LinearLayout.LayoutParams(-1, dp(17)));
+    tile.addView(text(number(period.optInt(field)), 26, Color.WHITE, true));
+    gap(tile, 4);
+    tile.addView(text(t(label), 11, 0xffb9b3b6, false));
     return tile;
+  }
+
+  private void updateBlur(boolean enabled) {
+    if (root == null || android.os.Build.VERSION.SDK_INT < 31) return;
+    WindowManager.LayoutParams params = (WindowManager.LayoutParams) root.getLayoutParams();
+    if (enabled) params.flags |= WindowManager.LayoutParams.FLAG_BLUR_BEHIND;
+    else params.flags &= ~WindowManager.LayoutParams.FLAG_BLUR_BEHIND;
+    params.setBlurBehindRadius(enabled ? dp(32) : 0);
+    root.setBackground(new RecapGlass(NativeUi.accent(store), false, enabled ? 230 : 255));
+    try {
+      manager.updateViewLayout(root, params);
+    } catch (IllegalArgumentException ignored) {
+    }
   }
 
   private void animateEntry() {
@@ -524,6 +658,10 @@ final class RecapOverlay {
 
   void hide() {
     if (root != null) {
+      if (blurListener != null && android.os.Build.VERSION.SDK_INT >= 31) {
+        manager.removeCrossWindowBlurEnabledListener(blurListener);
+        blurListener = null;
+      }
       root.animate().cancel();
       if (holder != null) holder.animate().cancel();
       dismissing = false;

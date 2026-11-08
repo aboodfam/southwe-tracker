@@ -1,5 +1,90 @@
 import { parseUtcDateKey, shiftUtcDateKey } from "./date";
+import { dateRange, type ProgressDay } from "./progressMath";
 export type RecapKind = "day" | "week" | "month";
+export type RecapPeriod = { kind: RecapKind; start: string; end: string };
+
+export function previousRecapPeriod(period: RecapPeriod): RecapPeriod {
+  const end = shiftUtcDateKey(period.start, -1);
+  const start =
+    period.kind === "month"
+      ? `${end.slice(0, 7)}-01`
+      : period.kind === "week"
+        ? shiftUtcDateKey(end, -6)
+        : end;
+  return { kind: period.kind, start, end };
+}
+
+// Only explicit records support comparisons. An absent log is never a failed day.
+export function recapTotals(
+  period: RecapPeriod,
+  history: ProgressDay[],
+  athkarDates: string[],
+  hidden: string[],
+) {
+  const days = history
+    .filter((day) => day.date >= period.start && day.date <= period.end)
+    .map((day) => ({
+      date: day.date,
+      tasks: hidden.includes("routines") ? 0 : day.tasksDone,
+      habits: hidden.includes("habits") ? 0 : day.habitsDone,
+      exercises: hidden.includes("workout") ? 0 : day.exercisesDone,
+      workouts: hidden.includes("workout") ? 0 : day.workoutsCompleted,
+      athkar: hidden.includes("athkar")
+        ? 0
+        : athkarDates.filter((date) => date === day.date).length,
+      recorded: {
+        tasks: !hidden.includes("routines") && day.routines !== null,
+        habits: !hidden.includes("habits") && day.habits !== null,
+        exercises: !hidden.includes("workout") && day.workouts !== null,
+        workouts: !hidden.includes("workout") && day.workouts !== null,
+        athkar: !hidden.includes("athkar") && athkarDates.includes(day.date),
+      },
+    }));
+  const fields = [
+    "tasks",
+    "habits",
+    "exercises",
+    "workouts",
+    "athkar",
+  ] as const;
+  const counts = Object.fromEntries(
+    fields.map((field) => [
+      field,
+      days.reduce((sum, day) => sum + day[field], 0),
+    ]),
+  ) as Record<(typeof fields)[number], number>;
+  const recordedDays = Object.fromEntries(
+    fields.map((field) => [
+      field,
+      days.filter((day) => day.recorded[field]).length,
+    ]),
+  ) as Record<(typeof fields)[number], number>;
+  const trackedRates = history
+    .filter((day) => day.date >= period.start && day.date <= period.end)
+    .map((day) =>
+      [
+        hidden.includes("routines") ? null : day.routines,
+        hidden.includes("habits") ? null : day.habits,
+        hidden.includes("workout") ? null : day.workouts,
+      ].filter((rate): rate is number => rate !== null),
+    );
+  const totalDays = dateRange(period.start, period.end).length;
+  return {
+    ...period,
+    ...counts,
+    totalDays,
+    activeDays: days.filter((day) => fields.some((field) => day[field] > 0))
+      .length,
+    recordedDays,
+    // This explicitly refers only to recorded goals with known denominators.
+    recordedGoalsComplete:
+      trackedRates.length === totalDays &&
+      trackedRates.every(
+        (rates) => rates.length > 0 && rates.every((rate) => rate === 100),
+      ),
+    days,
+  };
+}
 export function closedRecapPeriods(today: string) {
   const date = parseUtcDateKey(today);
   const monday = shiftUtcDateKey(today, -((date.getUTCDay() + 6) % 7));

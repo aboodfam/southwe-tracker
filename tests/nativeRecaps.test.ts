@@ -276,3 +276,127 @@ test("scheduled and prayer Athkar completion history is idempotent", async () =>
     await t.run((ctx) => ctx.db.query("athkarCompletions").collect()),
   ).toHaveLength(2);
 });
+
+test("comparisons use the preceding calendar period, including leap months and year boundaries", async () => {
+  const { previousRecapPeriod } = await import("../convex/nativeRecapModel");
+  expect(
+    previousRecapPeriod({
+      kind: "month",
+      start: "2024-03-01",
+      end: "2024-03-31",
+    }),
+  ).toEqual({ kind: "month", start: "2024-02-01", end: "2024-02-29" });
+  expect(
+    previousRecapPeriod({
+      kind: "week",
+      start: "2026-01-05",
+      end: "2026-01-11",
+    }),
+  ).toEqual({ kind: "week", start: "2025-12-29", end: "2026-01-04" });
+  expect(
+    previousRecapPeriod({
+      kind: "day",
+      start: "2026-01-01",
+      end: "2026-01-01",
+    }),
+  ).toEqual({ kind: "day", start: "2025-12-31", end: "2025-12-31" });
+});
+
+test("recap coverage distinguishes missing records, completed targets and hidden sections", async () => {
+  const { recapTotals } = await import("../convex/nativeRecapModel");
+  const period = {
+    kind: "day" as const,
+    start: "2026-10-01",
+    end: "2026-10-01",
+  };
+  const day = {
+    date: period.start,
+    routines: 100,
+    habits: null,
+    workouts: null,
+    tasksDone: 2,
+    habitsDone: 0,
+    exercisesDone: 0,
+    workoutsCompleted: 0,
+  };
+  expect(recapTotals(period, [day], [], [])).toMatchObject({
+    activeDays: 1,
+    recordedGoalsComplete: true,
+    recordedDays: { tasks: 1, habits: 0, exercises: 0 },
+  });
+  expect(
+    recapTotals(period, [{ ...day, habits: 0 }], [], []).recordedGoalsComplete,
+  ).toBe(false);
+  expect(
+    recapTotals({ ...period, end: "2026-10-02" }, [day], [], [])
+      .recordedGoalsComplete,
+  ).toBe(false);
+  expect(recapTotals(period, [day], [], ["routines"])).toMatchObject({
+    tasks: 0,
+    activeDays: 0,
+    recordedGoalsComplete: false,
+    recordedDays: { tasks: 0 },
+  });
+  expect(
+    recapTotals(
+      period,
+      [{ ...day, routines: null, tasksDone: 0, workoutsCompleted: 1 }],
+      [],
+      [],
+    ).activeDays,
+  ).toBe(1);
+  expect(
+    recapTotals(
+      period,
+      [{ ...day, routines: null, tasksDone: 0 }],
+      [period.start],
+      [],
+    ),
+  ).toMatchObject({ athkar: 1, activeDays: 1, recordedGoalsComplete: false });
+});
+
+test("device endpoint includes real prior-period aggregates and applies visibility to both periods", async () => {
+  const { t, user, userId, hash } = await setup();
+  await connect(user, hash);
+  await t.run(async (ctx) => {
+    for (const [offset, count] of [
+      [1, 6],
+      [2, 4],
+    ] as const)
+      await ctx.db.insert("dailyProgress", {
+        userId,
+        date: shiftUtcDateKey(today, -offset),
+        completedRoutines: [],
+        completionRate: 100,
+        totalTasks: count,
+        completedTasks: count,
+        countedInStats: true,
+      });
+  });
+  const read = () =>
+    t.query(internal.nativeRecaps.readDeviceRecaps, {
+      tokenHash: hash,
+      dateKey: today,
+    });
+  const data = await read();
+  const day = data!.periods.find((p) => p.kind === "day")!;
+  expect(day).toMatchObject({
+    tasks: 6,
+    recordedDays: { tasks: 1 },
+    previous: {
+      tasks: 4,
+      start: shiftUtcDateKey(today, -2),
+      recordedDays: { tasks: 1 },
+    },
+  });
+  await t.run((ctx) =>
+    ctx.db.insert("workspacePreferences", {
+      userId,
+      hiddenPages: ["routines"],
+      startPage: "workout",
+      setupDone: true,
+    }),
+  );
+  const hidden = await read();
+  expect(hidden!.periods).toEqual([]);
+});

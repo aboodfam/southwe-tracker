@@ -356,6 +356,22 @@ public final class RecapSettingsActivity extends Activity {
                       .put("exercises", 8)
                       .put("workouts", 1)
                       .put("athkar", 2)));
+      JSONObject recorded = new JSONObject();
+      for (String field : RecapInsight.FIELDS) recorded.put(field, 1);
+      demo.put("recordedDays", recorded);
+      demo.put(
+          "previous",
+          new JSONObject()
+              .put("kind", "day")
+              .put("start", LocalDate.now().minusDays(2).toString())
+              .put("end", LocalDate.now().minusDays(2).toString())
+              .put("totalDays", 1)
+              .put("tasks", 3)
+              .put("habits", 2)
+              .put("exercises", 4)
+              .put("workouts", 1)
+              .put("athkar", 1)
+              .put("recordedDays", recorded));
       preview.show(new JSONArray().put(demo), true, () -> {});
     } catch (Exception e) {
       store.error("Could not display the preview.");

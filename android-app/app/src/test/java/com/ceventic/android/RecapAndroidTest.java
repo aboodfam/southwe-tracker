@@ -129,7 +129,7 @@ public class RecapAndroidTest {
       assertNull(findText(screen, "Shown on every unlock"));
       assertNull("no recap logo or wordmark", findText(screen, "Ceventic"));
       assertEquals(0, countImages(screen));
-      assertNotNull(findText(screen, "Training"));
+      assertNotNull(findText(screen, "Exercises checked"));
       assertNotNull(findText(screen, "6"));
     }
     app.getResources().getConfiguration().fontScale = 1.3f;
@@ -375,6 +375,118 @@ public class RecapAndroidTest {
     assertEquals(3, values[2]);
     assertEquals(3, values[25]);
     assertEquals(0, new RecapChart(app, Color.RED, null, "exercises").valuesForTesting().length);
+  }
+
+  @Test
+  public void launcherUsesTheSuppliedWhiteCAndHiddenSectionsStayHidden() throws Exception {
+    ImageView icon = new ImageView(app);
+    icon.setImageResource(R.mipmap.ic_launcher);
+    icon.setBackgroundColor(Color.BLACK);
+    render(icon, 108, 108, "launcher-white-c");
+    assertTrue(icon.getDrawable() instanceof android.graphics.drawable.AdaptiveIconDrawable);
+    JSONObject period =
+        comparedPeriod(6, 4)
+            .put("tasks", 3)
+            .put("hiddenPages", new JSONArray().put("workout").put("athkar"));
+    View screen =
+        new RecapOverlay(app, store)
+            .buildCard(new JSONArray().put(period), false, true, "", () -> {});
+    render(screen, 390, 800, "hidden-workout-athkar");
+    assertNull(findText(screen, "Exercises checked"));
+    assertNull(findText(screen, "Athkar sessions"));
+    assertNotNull(findText(screen, "Tasks done"));
+  }
+
+  private JSONObject comparedPeriod(int current, int previous) throws Exception {
+    JSONObject coverage = new JSONObject().put("exercises", 1);
+    return new JSONObject()
+        .put("kind", "month")
+        .put("start", "2026-10-01")
+        .put("end", "2026-10-31")
+        .put("exercises", current)
+        .put("activeDays", 2)
+        .put("totalDays", 31)
+        .put("days", monthDays())
+        .put("recordedDays", coverage)
+        .put(
+            "previous",
+            new JSONObject()
+                .put("exercises", previous)
+                .put("totalDays", 30)
+                .put("recordedDays", coverage));
+  }
+
+  @Test
+  public void insightsUseRealComparisonsAndNeverTreatMissingHistoryAsZero() throws Exception {
+    JSONObject period = comparedPeriod(6, 4);
+    assertEquals("More exercises checked.", RecapInsight.from(period).headline);
+    assertEquals(4, RecapInsight.from(period).previous);
+    period.put("exercises", 4);
+    assertEquals("You kept your rhythm.", RecapInsight.from(period).headline);
+    period.put("exercises", 2);
+    assertEquals("Room to build again.", RecapInsight.from(period).headline);
+    period.getJSONObject("previous").remove("recordedDays");
+    assertFalse(RecapInsight.from(period).comparable);
+    assertEquals("Your progress starts here.", RecapInsight.from(period).headline);
+    period.put("recordedGoalsComplete", true);
+    assertEquals("Recorded goals complete.", RecapInsight.from(period).headline);
+    period.put("hiddenPages", new JSONArray().put("workout"));
+    assertEquals("", RecapInsight.from(period).field);
+  }
+
+  @Test
+  public void comparisonCalendarAndTranslationsFitAndSavedAccentSurvivesReopen() throws Exception {
+    for (String locale : new String[] {"en", "ar", "es", "fr", "zh"}) {
+      app.getSharedPreferences("native_recaps", Context.MODE_PRIVATE)
+          .edit()
+          .putString("locale", locale)
+          .putString("accent", "#F43F5E")
+          .commit();
+      JSONObject period = comparedPeriod(6, 4);
+      for (int[] size : new int[][] {{320, 640}, {390, 800}, {412, 880}, {720, 360}}) {
+        View view =
+            new RecapOverlay(app, new RecapStore(app))
+                .buildCard(new JSONArray().put(period), false, true, "", () -> {});
+        render(view, size[0], size[1], "comparison-" + locale + "-" + size[0]);
+        assertFooter(view, size[1]);
+        assertNotNull(findText(view, NativeStrings.text(store, "More exercises checked.")));
+        assertEquals(View.LAYOUT_DIRECTION_LTR, view.getLayoutDirection());
+        assertEquals(Color.parseColor("#F43F5E"), NativeUi.accent(new RecapStore(app)));
+        ScrollView scroll = view.findViewWithTag("recap_scroll");
+        scroll.scrollTo(0, 10000);
+        assertFooter(view, size[1]);
+      }
+    }
+    RecapCalendar calendar = new RecapCalendar(app, Color.RED, monthDays());
+    int active = 0;
+    for (boolean value : calendar.activityForTesting()) if (value) active++;
+    assertEquals(2, active);
+  }
+
+  @Test
+  public void disabledBlurRestoresOpaqueBackdropAndEnabledBlurUsesSubtleTransparency()
+      throws Exception {
+    RecapOverlay overlay = new RecapOverlay(app, store);
+    try {
+      overlay.present(new JSONArray(), false, true, "", () -> {});
+      View root = ReflectionHelpers.getField(overlay, "root");
+      ReflectionHelpers.callInstanceMethod(
+          overlay, "updateBlur", ReflectionHelpers.ClassParameter.from(boolean.class, true));
+      assertEquals(230, root.getBackground().getAlpha());
+      assertTrue(
+          (((WindowManager.LayoutParams) root.getLayoutParams()).flags
+                  & WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+              != 0);
+      ReflectionHelpers.callInstanceMethod(
+          overlay, "updateBlur", ReflectionHelpers.ClassParameter.from(boolean.class, false));
+      assertEquals(255, root.getBackground().getAlpha());
+      assertEquals(
+          0,
+          ((WindowManager.LayoutParams) root.getLayoutParams()).flags
+              & WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
+    } finally {
+      overlay.hide();
+    }
   }
 
   private JSONArray monthDays() throws Exception {

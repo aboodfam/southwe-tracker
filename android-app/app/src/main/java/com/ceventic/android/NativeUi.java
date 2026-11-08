@@ -10,7 +10,7 @@ import android.widget.*;
 final class NativeUi {
   // Matches --sw-surface-rgb and bg-surface in the existing web design system.
   static final int SURFACE = 0xff090d12;
-  static final int RECAP_BASE = 0xff0c1118;
+  static final int RECAP_BASE = 0xff050405;
 
   static int mix(int from, int to, float amount) {
     return Color.rgb(
@@ -20,9 +20,11 @@ final class NativeUi {
   }
 
   static android.graphics.drawable.Drawable recapBackground(RecapStore store) {
-    return new GradientDrawable(
-        GradientDrawable.Orientation.TOP_BOTTOM,
-        new int[] {mix(RECAP_BASE, accent(store), .035f), 0xff0b1017, 0xff0a0f15});
+    return new RecapGlass(accent(store), false, 255);
+  }
+
+  static android.graphics.drawable.Drawable glassPanel(Context c, RecapStore store) {
+    return new RecapGlass(accent(store), true, 255, dp(c, 22));
   }
 
   static void lightSystemIcons(View root) {

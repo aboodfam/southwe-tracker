@@ -17,6 +17,8 @@ import {
   closedRecapPeriods,
   validDeviceHash,
   hashDeviceToken,
+  previousRecapPeriod,
+  recapTotals,
 } from "./nativeRecapModel";
 
 export const connectDevice = mutation({
@@ -153,7 +155,9 @@ export const readDeviceRecaps = internalQuery({
       return null;
     const today = assertCurrentLocalDate(args.dateKey);
     const periods = closedRecapPeriods(today);
-    const start = periods.map((period) => period.start).sort()[0];
+    const start = periods
+      .map((period) => previousRecapPeriod(period).start)
+      .sort()[0];
     const hidden = prefs?.hiddenPages ?? [];
     const [history, athkar] = await Promise.all([
       readProgress(
@@ -172,6 +176,7 @@ export const readDeviceRecaps = internalQuery({
     ]);
     return {
       version: 1,
+      comparisonVersion: 1,
       userId: device.userId,
       expiresAt: device.expiresAt,
       localDate: today,
@@ -179,37 +184,21 @@ export const readDeviceRecaps = internalQuery({
       accentHex: device.accentHex,
       locale: device.locale,
       periods: periods
-        .map((period) => {
-          const days = history
-            .filter((day) => day.date >= period.start && day.date <= period.end)
-            .map((day) => ({
-              date: day.date,
-              tasks: hidden.includes("routines") ? 0 : day.tasksDone,
-              habits: hidden.includes("habits") ? 0 : day.habitsDone,
-              exercises: hidden.includes("workout") ? 0 : day.exercisesDone,
-              workouts: hidden.includes("workout") ? 0 : day.workoutsCompleted,
-              athkar: hidden.includes("athkar")
-                ? 0
-                : athkar.filter((row) => row.date === day.date).length,
-            }));
-          const total = (
-            key: "tasks" | "habits" | "exercises" | "workouts" | "athkar",
-          ) => days.reduce((sum, day) => sum + day[key], 0);
-          return {
-            ...period,
-            hiddenPages: hidden,
-            totalDays: days.length,
-            activeDays: days.filter(
-              (day) => day.tasks + day.habits + day.exercises + day.athkar > 0,
-            ).length,
-            tasks: total("tasks"),
-            habits: total("habits"),
-            exercises: total("exercises"),
-            workouts: total("workouts"),
-            athkar: total("athkar"),
-            days,
-          };
-        })
+        .map((period) => ({
+          ...recapTotals(
+            period,
+            history,
+            athkar.map((row) => row.date),
+            hidden,
+          ),
+          hiddenPages: hidden,
+          previous: recapTotals(
+            previousRecapPeriod(period),
+            history,
+            athkar.map((row) => row.date),
+            hidden,
+          ),
+        }))
         .filter((period) => period.activeDays > 0),
     };
   },
