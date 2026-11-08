@@ -1,3 +1,4 @@
+import { homeSectionValidator } from "./homeLayout";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
@@ -229,6 +230,7 @@ const applicationTables = {
 
   workspacePreferences: defineTable({
     userId: v.id("users"), hiddenPages: v.array(pageValidator), startPage: pageValidator,
+    homeOrder: v.optional(v.array(homeSectionValidator)), homeHidden: v.optional(v.array(homeSectionValidator)),
     setupDone: v.boolean(), focus: v.optional(v.string()),
     quiet: v.optional(v.boolean()), // retired; ignored and removed on preference saves
   }).index("by_user", ["userId"]),

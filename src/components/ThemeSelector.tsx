@@ -1,3 +1,4 @@
+import { ColorWheelSheet } from "./ColorWheelSheet";
 import { LanguageSelector } from "./LanguageSelector";
 import { t as tr, useLocale } from "../i18n";
 import { useEffect, useRef, useState } from "react";
@@ -253,16 +254,12 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"themes" | "sounds" | "account">("themes");
   const [uploadingSfx, setUploadingSfx] = useState<SfxName | null>(null);
-  const [accentDraft, setAccentDraft] = useState(customAccent);
+  const [colorOpen, setColorOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingSfxRef = useRef<SfxName | null>(null);
   const colors = getThemeColors();
   const currentTheme = themes.find((item) => item.id === theme) ?? themes[0];
   const activeAccent = useCustomAccent ? customAccent : currentTheme.accent;
-
-  useEffect(() => {
-    setAccentDraft(customAccent);
-  }, [customAccent]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -281,17 +278,6 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
       if (lockBody) document.body.style.overflow = previousOverflow;
     };
   }, [isOpen]);
-
-  const commitAccentDraft = () => {
-    const normalized = accentDraft.startsWith("#") ? accentDraft : `#${accentDraft}`;
-    if (/^#[0-9a-fA-F]{6}$/.test(normalized)) {
-      const exact = normalized.toUpperCase();
-      setCustomAccent(exact);
-      setAccentDraft(exact);
-    } else {
-      setAccentDraft(customAccent);
-    }
-  };
 
   const handleFileUpload = async (sfxName: SfxName, file: File) => {
     if (!file.type.startsWith("audio/")) {
@@ -416,41 +402,14 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
                       />
                     </div>
 
-                    <div className={`mt-4 grid gap-3 transition-opacity ${useCustomAccent ? "opacity-100" : "opacity-45"}`}>
-                      <div className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_56px] items-center gap-2 overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] p-2.5 sm:gap-3">
-                        <input
-                          type="color"
-                          value={customAccent}
-                          onChange={(e) => { const exact = e.target.value.toUpperCase(); setCustomAccent(exact); setAccentDraft(exact); }}
-                          disabled={!useCustomAccent}
-                          className="h-9 w-11 min-w-0 max-w-[44px] cursor-pointer rounded-lg border-0 bg-transparent p-0"
-                          style={{ width: 44, minWidth: 44, maxWidth: 44 }}
-                          aria-label={tr("Pick exact custom color")}
-                        />
-                        <input
-                          type="text"
-                          value={accentDraft}
-                          onChange={(e) => {
-                            const next = e.target.value.toUpperCase();
-                            setAccentDraft(next);
-                            const normalized = next.startsWith("#") ? next : `#${next}`;
-                            if (/^#[0-9A-F]{6}$/.test(normalized)) setCustomAccent(normalized);
-                          }}
-                          onBlur={commitAccentDraft}
-                          onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur(); }}
-                          disabled={!useCustomAccent}
-                          className="w-full min-w-0 bg-transparent font-mono text-sm uppercase text-white outline-none"
-                          spellCheck={false}
-                          maxLength={7}
-                        />
-                        <div
-                          className="h-7 w-14 max-w-full shrink-0 rounded-lg border border-white/10"
-                          style={{ background: customAccent, boxShadow: `0 0 12px ${customAccent}40` }}
-                          title={tr("Exact color {0}", {0: customAccent})}
-                        />
-                      </div>
+                    <div className="mt-4 grid gap-3">
+                      <button type="button" onClick={() => setColorOpen(true)} className="flex min-h-12 min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-start">
+                        <span className="h-8 w-8 shrink-0 rounded-full border border-white/20" style={{ background: activeAccent }} />
+                        <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-white/85">{tr("Choose accent color")}</span><span className="mt-1 block font-mono text-xs uppercase text-white/50">{activeAccent}</span></span>
+                        <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-white/50" />
+                      </button>
                       <button
-                        onClick={() => { const next = randomNeonHex().toUpperCase(); setCustomAccent(next); setAccentDraft(next); setUseCustomAccent(true); play("notification"); }}
+                        onClick={() => { const next = randomNeonHex().toUpperCase(); setCustomAccent(next); setUseCustomAccent(true); play("notification"); }}
                         className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm font-medium text-white/80 transition hover:border-white/20 hover:bg-white/[0.07] hover:text-white"
                       >
                         <Icon name="shuffle" className="h-4 w-4" />
@@ -568,6 +527,7 @@ export function ThemeSelector({ onOpenWorkspace }: { onOpenWorkspace: () => void
 
       </div>
       {settingsLayer}
+      {isOpen && colorOpen && <ColorWheelSheet initialHex={activeAccent} presets={themes.map(option => ({ label: option.name, hex: option.accent }))} onCancel={() => setColorOpen(false)} onSet={hex => { setCustomAccent(hex); setUseCustomAccent(true); setColorOpen(false); }} />}
     </>
   );
 }

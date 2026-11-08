@@ -97,8 +97,10 @@ describe("localized interface", () => {
 it("also covers labels imported from the shared starter plans and progress filters", async () => {
   const { READY_TEMPLATES } = await import("../convex/supportModel");
   const { PAGES, STARTERS } = await import("../convex/planFormat");
+  const { HOME_SECTIONS } = await import("../convex/homeLayout");
   const messages = ["Routines", "Workouts", "Habits", "7 days", "28 days", "6 months", "Tasks done", "Habit check-ins", "Workouts saved", "Appearance", "Sounds", "Account"];
   for (const page of PAGES) messages.push(page.name);
+  for (const section of HOME_SECTIONS) messages.push(section.label);
   for (const template of READY_TEMPLATES) {
     messages.push(template.name, template.description, template.timeSlot);
     for (const task of template.tasks) {

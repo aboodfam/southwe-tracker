@@ -14,7 +14,7 @@ import { RoutineCard } from "./components/RoutineCard";
 import { StatsPanel } from "./components/StatsPanel";
 import { CompleteButton } from "./components/CompleteButton";
 import { WorkoutPage } from "./components/WorkoutPage";
-import { TodayPage } from "./components/TodayPage";
+import { HomePage } from "./components/HomePage";
 import { WorkspacePage } from "./components/WorkspacePage";
 import { ConnectionNotice, ScreenBoundary } from "./components/ScreenBoundary";
 import { HabitsPage } from "./components/HabitsPage";
@@ -687,7 +687,7 @@ function Content({ currentPage, onNavigate, onAthkarFocusChange, onWorkspaceBack
         {loggedInUser && needsRealName && !applyingPendingName && (
           <NameSetupModal onSaved={(savedName) => setConfirmedNameThisSession(savedName)} />
         )}
-        {currentPage === "today" && <TodayPage displayName={needsRealName ? "" : displayName} onNavigate={onNavigate} />}
+        {currentPage === "today" && <HomePage displayName={needsRealName ? "" : displayName} onNavigate={onNavigate} />}
         {currentPage === "workspace" && <WorkspacePage onBack={onWorkspaceBack} />}
         {currentPage === "routines" && (
           <RoutinesContent

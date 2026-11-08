@@ -51,7 +51,8 @@ export const planValidator = v.object({
 export type Plan = Infer<typeof planValidator>;
 export type Page = Infer<typeof pageValidator>;
 export const PAGES: { id: Page; name: string }[] = [
-  { id: "today", name: "Today" },
+  // Keep the stored route key so existing start-page and hidden-page preferences carry over.
+  { id: "today", name: "Home" },
   { id: "routines", name: "Routines" },
   { id: "workout", name: "Workout" },
   { id: "habits", name: "Habits" },

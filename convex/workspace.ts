@@ -1,3 +1,4 @@
+import { homeSectionValidator, normalizeHomeLayout, validateHomeLayout } from "./homeLayout";
 import { query, mutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
@@ -43,7 +44,8 @@ export const getPreferences = query({ args: {}, handler: async ctx => {
   if (!userId) return null;
   const saved = await ctx.db.query("workspacePreferences").withIndex("by_user", q => q.eq("userId", userId)).first();
   const { quiet: _retired, ...preferences } = saved ?? {};
-  return { ...defaults, ...preferences, userId };
+  const home = normalizeHomeLayout(saved?.homeOrder, saved?.homeHidden);
+  return { ...defaults, ...preferences, homeOrder: home.order, homeHidden: home.hidden, userId };
 } });
 
 export const savePreferences = mutation({
@@ -58,6 +60,19 @@ export const savePreferences = mutation({
     const changes = { startPage: args.startPage, hiddenPages: [...new Set(args.hiddenPages)] };
     if (existing) await ctx.db.patch(existing._id, { ...changes, quiet: undefined });
     else await ctx.db.insert("workspacePreferences", { userId, ...defaults, ...changes });
+  },
+});
+
+export const saveHomeLayout = mutation({
+  args: { order: v.array(homeSectionValidator), hidden: v.array(homeSectionValidator) },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx); if (!userId) throw new Error("Not authenticated");
+    const layout = validateHomeLayout(args.order, args.hidden);
+    await enforceRateLimit(ctx, userId, "workspace:home", 30, 60000);
+    const existing = await ctx.db.query("workspacePreferences").withIndex("by_user", q => q.eq("userId", userId)).first();
+    const changes = { homeOrder: layout.order, homeHidden: layout.hidden };
+    if (existing) await ctx.db.patch(existing._id, changes);
+    else await ctx.db.insert("workspacePreferences", { ...defaults, userId, ...changes });
   },
 });
 

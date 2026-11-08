@@ -865,3 +865,10 @@ html[lang="ar"] :is(h1, h2, h3, h4, p) {
 }
 
 .sw-nav-button { -webkit-tap-highlight-color: transparent; }
+
+/* Color controls keep a full touch target around the existing slim range track. */
+.sw-range.sw-color-range { height: 44px; background: transparent; }
+.sw-color-range::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: var(--sw-color-track); }
+.sw-color-range::-moz-range-track { height: 6px; border-radius: 999px; background: var(--sw-color-track); }
+.sw-color-range::-webkit-slider-thumb { width: 23px; height: 23px; margin-top: -8.5px; }
+.sw-color-range::-moz-range-thumb { width: 21px; height: 21px; }

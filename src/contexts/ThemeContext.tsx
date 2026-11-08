@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 
 export type Theme = "cyan" | "white" | "black" | "red" | "purple" | "green";
 
@@ -9,6 +9,7 @@ interface ThemeContextType {
   useCustomAccent: boolean;
   setUseCustomAccent: (value: boolean) => void;
   customAccent: string;
+  previewAccent: (hex: string | null) => void;
   setCustomAccent: (hex: string) => void;
 }
 
@@ -253,6 +254,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return "#22D3EE";
   });
 
+  // A transient preview never writes to storage. Cancel simply removes it.
+  const [preview, setPreview] = useState<string | null>(null);
+  const previewAccent = useCallback((hex: string | null) => {
+    setPreview(hex && isValidHex(normalizeHex(hex)) ? normalizeHex(hex) : null);
+  }, []);
+
   const handleSetTheme = (newTheme: Theme) => {
     // Presets and Custom are separate modes. Selecting a preset always shows
     // that preset exactly instead of silently keeping a previous custom color.
@@ -281,13 +288,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   };
 
   const getThemeColors = (): ThemeColors => {
-    if (!useCustomAccent) return themeColors[theme];
+    if (!useCustomAccent && !preview) return themeColors[theme];
 
     // Custom mode intentionally uses neutral graphite surfaces. This prevents
     // a hidden preset (for example Amethyst) from changing the background while
     // a custom orange/blue/etc. accent is active.
     const neutral = themeColors.black;
-    const primary = hexToRgb(customAccent) ?? { r: 34, g: 211, b: 238 };
+    const primary = hexToRgb(preview ?? customAccent) ?? { r: 34, g: 211, b: 238 };
     const accent = buildExactAccent(primary);
 
     return {
@@ -301,7 +308,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const colors = getThemeColors();
-    document.documentElement.setAttribute("data-theme", useCustomAccent ? "custom" : theme);
+    document.documentElement.setAttribute("data-theme", useCustomAccent || preview ? "custom" : theme);
 
     const primary = parseRgbString(colors.primary) ?? { r: 34, g: 211, b: 238 };
     const hover = parseRgbString(colors.primaryHover);
@@ -317,7 +324,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       accent.hover,
       accent.light,
     );
-  }, [theme, useCustomAccent, customAccent]);
+  }, [theme, useCustomAccent, customAccent, preview]);
 
   return (
     <ThemeContext.Provider
@@ -328,6 +335,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         useCustomAccent,
         setUseCustomAccent: handleSetUseCustomAccent,
         customAccent,
+        previewAccent,
         setCustomAccent: handleSetCustomAccent,
       }}
     >

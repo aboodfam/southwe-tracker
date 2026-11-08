@@ -1,13 +1,15 @@
 import type { ReactNode, SVGProps } from "react";
 
 export type IconName =
-  | "settings" | "chevronDown" | "chevronLeft" | "chevronRight" | "edit" | "x" | "palette" | "volume" | "shuffle" | "check" | "play" | "trash" | "upload"
+  | "home" | "chevronUp" | "settings" | "chevronDown" | "chevronLeft" | "chevronRight" | "edit" | "x" | "palette" | "volume" | "shuffle" | "check" | "play" | "trash" | "upload"
   | "routines" | "workout" | "habits" | "progress" | "athkar" | "macros"
   | "trophy" | "flame" | "bolt" | "checkCircle" | "chart" | "clock" | "sparkles" | "refresh"
   | "save" | "info" | "sun" | "moon" | "bed" | "hands" | "sunrise" | "plus" | "soundWave"
   | "shield" | "calendar" | "layers" | "diamond" | "headphones" | "gamepad" | "film";
 
 const paths: Record<IconName, ReactNode> = {
+  home: <><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V10Z"/></>,
+  chevronUp: <path d="m6 15 6-6 6 6"/>,
   settings: <><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 8.94 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.57 15a1.7 1.7 0 0 0-1.57-1H3v-4h.08A1.7 1.7 0 0 0 4.6 8.94a1.7 1.7 0 0 0-.34-1.88L4.2 7l2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.57 1.7 1.7 0 0 0 10 3.08V3h4v.08a1.7 1.7 0 0 0 1.06 1.52 1.7 1.7 0 0 0 1.88-.34L17 4.2 19.83 7l-.06.06a1.7 1.7 0 0 0-.34 1.88A1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"/></>,
   chevronDown: <path d="m6 9 6 6 6-6"/>,
   chevronLeft: <path d="m15 18-6-6 6-6"/>,
