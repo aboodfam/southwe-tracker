@@ -6,6 +6,22 @@ final class NativeStrings {
   private static final Map<String, String[]> TEXT =
       Map.ofEntries(
           Map.entry(
+              "Daily recap",
+              new String[] {"ملخّص يومي", "Resumen diario", "Bilan quotidien", "每日总结"}),
+          Map.entry(
+              "Weekly recap",
+              new String[] {"ملخّص أسبوعي", "Resumen semanal", "Bilan hebdomadaire", "每周总结"}),
+          Map.entry(
+              "Monthly recap",
+              new String[] {"ملخّص شهري", "Resumen mensual", "Bilan mensuel", "每月总结"}),
+          Map.entry(
+              "Recorded activity",
+              new String[] {
+                "النشاط المسجّل", "Actividad registrada", "Activité enregistrée", "已记录活动"
+              }),
+          Map.entry(
+              "Your activity", new String[] {"نشاطك", "Tu actividad", "Votre activité", "你的活动"}),
+          Map.entry(
               "Progress is offline. Check connection in Recap settings.",
               new String[] {
                 "التقدم غير متاح الآن. افحص الاتصال من إعدادات الملخص.",

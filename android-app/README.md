@@ -1,6 +1,6 @@
 # Ceventic Android Preview
 
-A personal Android test build of Ceventic, with an optional recap after phone unlock. This is a separate app (`com.ceventic.android.preview`), so it installs alongside the older WebIntoApp app. Android 11 or later is required.
+A personal Android test build of Ceventic, with an optional recap after phone unlock. Version 0.3 presents the recap as an opaque full-height screen with safe system-bar insets, a fixed Continue button, scrollable content, a saved-accent activity ring and calmer metric rows. The ring explicitly represents active days out of calendar days; daily views use an actual recorded metric without inventing a completion percentage. This is a separate app (`com.ceventic.android.preview`), so it installs alongside the older WebIntoApp app. Android 11 or later is required.
 
 ## Try it on your phone
 
@@ -11,7 +11,7 @@ A personal Android test build of Ceventic, with an optional recap after phone un
 5. **Preview the new card** shows clearly labeled sample numbers without counting a real unlock or consuming recap history.
 6. To see real progress, sign in inside the app, or choose **Connect account in browser**. Compare the eight-character device code, choose **Connect device**, return to Preview and tap **Check connection / sync**. Browser pairing connects recap access, not the WebView's browser login session.
 
-Version **0.2-test** updates the first Preview app in place when signed with the same debug certificate. It preserves the connected account and permissions. The every-unlock switch defaults to on for this test, including upgrades. Each real wake shows one card; duplicate screen-on/unlock broadcasts do not repeatedly reopen it. When there is no linked account or completed recap data, the screen explicitly confirms unlock detection instead of inventing progress. Opening Ceventic itself does not trigger it.
+Version **0.3-test** updates the first Preview app in place when signed with the same debug certificate. It preserves the connected account and permissions. The every-unlock switch defaults to on for this test, including upgrades. Each real wake shows one card; duplicate screen-on/unlock broadcasts do not repeatedly reopen it. When there is no linked account or completed recap data, the screen explicitly confirms unlock detection instead of inventing progress. Opening Ceventic itself does not trigger it.
 
 Turn **Show on every unlock** off to return to once-per-completed-period behavior. Daily/weekly/monthly visibility switches are in **Recap options & help**. The daily recap covers yesterday; weeks run Monday–Sunday; monthly recaps cover the previous calendar month. Dates use the phone's local timezone. Overlapping periods share one compact card with selected tabs. Every-unlock testing does not mark periods acknowledged; the regular mode still marks a period shown only after its overlay opens successfully. Empty periods are skipped only in regular mode. The settings screen can manually reopen the last synced recap. There is no in-app Home tab, widget, AI feature, or progress notification.
 

@@ -2,6 +2,7 @@ package com.ceventic.android;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.view.*;
 import android.widget.*;
 import java.time.LocalDate;
@@ -10,13 +11,14 @@ import java.time.format.FormatStyle;
 import java.util.ArrayList;
 import org.json.*;
 
-/** Compact native card; all accents come from the existing saved Ceventic theme. */
+/** Full-height native recap. The saved Ceventic accent is its only theme color. */
 final class RecapOverlay {
   private final Context context;
   private final RecapStore store;
   private View root;
   private FrameLayout holder;
   private WindowManager manager;
+  private String selectedKind;
 
   RecapOverlay(Context context, RecapStore store) {
     this.context = context;
@@ -39,6 +41,16 @@ final class RecapOverlay {
     return NativeUi.lightAccent(store);
   }
 
+  private int tint(int alpha) {
+    return (NativeUi.accent(store) & 0xffffff) | (alpha << 24);
+  }
+
+  private String number(int n) {
+    return java.text.NumberFormat.getIntegerInstance(
+            java.util.Locale.forLanguageTag(store.locale()))
+        .format(n);
+  }
+
   private TextView text(String value, int size, int color, boolean bold) {
     TextView v = NativeUi.text(context, value, size, color, bold);
     v.setPadding(0, 0, 0, 0);
@@ -46,8 +58,19 @@ final class RecapOverlay {
     return v;
   }
 
-  private void gap(LinearLayout parent, int size) {
-    parent.addView(new View(context), new LinearLayout.LayoutParams(1, dp(size)));
+  private void gap(LinearLayout p, int n) {
+    p.addView(new View(context), new LinearLayout.LayoutParams(1, dp(n)));
+  }
+
+  private void flexibleGap(LinearLayout p, int min, float weight) {
+    p.addView(new View(context), new LinearLayout.LayoutParams(1, dp(min), weight));
+  }
+
+  private int blend(int base, int color, float fraction) {
+    return Color.rgb(
+        Math.round(Color.red(base) * (1 - fraction) + Color.red(color) * fraction),
+        Math.round(Color.green(base) * (1 - fraction) + Color.green(color) * fraction),
+        Math.round(Color.blue(base) * (1 - fraction) + Color.blue(color) * fraction));
   }
 
   void show(JSONArray periods, boolean sample, Runnable dismissed) throws Exception {
@@ -57,7 +80,7 @@ final class RecapOverlay {
   void present(
       JSONArray periods, boolean sample, boolean unlock, String message, Runnable dismissed)
       throws Exception {
-    View card =
+    View screen =
         buildCard(
             periods,
             sample,
@@ -69,43 +92,16 @@ final class RecapOverlay {
             });
     if (showing()) {
       holder.removeAllViews();
-      holder.addView(card);
+      holder.addView(screen, new FrameLayout.LayoutParams(-1, -1));
       return;
     }
     manager = context.getSystemService(WindowManager.class);
     FrameLayout backdrop = new FrameLayout(context);
     backdrop.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-    backdrop.setBackgroundColor(0x72000000);
-    backdrop.setPadding(dp(18), dp(28), dp(18), dp(28));
+    backdrop.setBackgroundColor(0xff06090d);
     holder = new FrameLayout(context);
-    holder.addView(card);
-    ScrollView scroll = new ScrollView(context);
-    scroll.setClipToPadding(false);
-    scroll.setVerticalScrollBarEnabled(false);
-    scroll.addView(holder);
-    FrameLayout.LayoutParams box =
-        new FrameLayout.LayoutParams(
-            Math.min(context.getResources().getDisplayMetrics().widthPixels - dp(36), dp(360)),
-            -2,
-            Gravity.CENTER);
-    backdrop.addView(scroll, box);
-    int maxHeight = (int) (context.getResources().getDisplayMetrics().heightPixels * .80);
-    scroll
-        .getViewTreeObserver()
-        .addOnGlobalLayoutListener(
-            () -> {
-              int wanted = Math.min(holder.getMeasuredHeight(), maxHeight);
-              if (wanted > 0 && scroll.getLayoutParams().height != wanted) {
-                ViewGroup.LayoutParams lp = scroll.getLayoutParams();
-                lp.height = wanted;
-                scroll.setLayoutParams(lp);
-              }
-            });
-    backdrop.setOnClickListener(
-        v -> {
-          hide();
-          dismissed.run();
-        });
+    holder.addView(screen, new FrameLayout.LayoutParams(-1, -1));
+    backdrop.addView(holder, new FrameLayout.LayoutParams(-1, -1));
     backdrop.setFocusableInTouchMode(true);
     backdrop.setOnKeyListener(
         (v, key, event) -> {
@@ -121,9 +117,9 @@ final class RecapOverlay {
             -1,
             -1,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_DIM_BEHIND,
-            android.graphics.PixelFormat.TRANSLUCENT);
-    params.dimAmount = .12f;
+            0,
+            android.graphics.PixelFormat.OPAQUE);
+    params.setFitInsetsTypes(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
     params.gravity = Gravity.CENTER;
     params.setTitle("Ceventic recap");
     root = backdrop;
@@ -137,66 +133,83 @@ final class RecapOverlay {
     }
   }
 
-  // Also exercised as an Android view tree in JVM UI tests, without an overlay permission bypass.
+  /** Fixed header/footer and a separately scrollable body, including on small/landscape phones. */
   View buildCard(
       JSONArray incoming, boolean sample, boolean unlock, String message, Runnable dismiss)
       throws JSONException {
     final JSONArray periods = new JSONArray();
-    for (String kind : new String[] {"day", "week", "month"}) {
+    for (String kind : new String[] {"day", "week", "month"})
       for (int i = 0; i < incoming.length(); i++) {
-        JSONObject item = incoming.optJSONObject(i);
-        if (item != null && kind.equals(item.optString("kind"))) periods.put(item);
+        JSONObject p = incoming.optJSONObject(i);
+        if (p != null && kind.equals(p.optString("kind"))) periods.put(p);
       }
-    }
-    LinearLayout panel = NativeUi.column(context);
-    panel.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-    panel.setPadding(dp(18), dp(14), dp(18), dp(16));
-    panel.setBackground(NativeUi.panel(0xff090d12, 0x26ffffff, 24, context));
-    panel.setOnClickListener(v -> {});
+    FrameLayout surface =
+        new FrameLayout(context) {
+          @Override
+          protected void onMeasure(int widthSpec, int heightSpec) {
+            if (getChildCount() > 0) {
+              getChildAt(0).getLayoutParams().width =
+                  Math.min(View.MeasureSpec.getSize(widthSpec), dp(560));
+            }
+            super.onMeasure(widthSpec, heightSpec);
+          }
+        };
+    surface.setTag("recap_screen");
+    surface.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+    GradientDrawable wash =
+        new GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            new int[] {blend(0xff090d12, NativeUi.accent(store), .075f), 0xff090d12, 0xff070a0f});
+    surface.setBackground(wash);
+    // The background fills the viewport; reading width is bounded on tablets and landscape.
+    LinearLayout page = NativeUi.column(context);
+    FrameLayout.LayoutParams pageBox = new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER);
+    surface.addView(page, pageBox);
     LinearLayout header = new LinearLayout(context);
     header.setGravity(Gravity.CENTER_VERTICAL);
-    LinearLayout brand = new LinearLayout(context);
-    brand.setGravity(Gravity.CENTER_VERTICAL);
-    View dot = new View(context);
-    dot.setBackground(NativeUi.panel(NativeUi.accent(store), 0, 4, context));
-    LinearLayout.LayoutParams dotBox = new LinearLayout.LayoutParams(dp(6), dp(6));
-    dotBox.setMarginEnd(dp(7));
-    brand.addView(dot, dotBox);
-    brand.addView(text("Ceventic", 13, 0xffe5e7eb, true));
-    header.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
+    header.setPadding(dp(20), dp(10), dp(16), dp(8));
+    ImageView logo = new ImageView(context);
+    logo.setImageResource(com.ceventic.android.R.mipmap.ic_launcher);
+    logo.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+    LinearLayout.LayoutParams logoBox = new LinearLayout.LayoutParams(dp(28), dp(28));
+    logoBox.setMarginEnd(dp(9));
+    header.addView(logo, logoBox);
+    header.addView(text("Ceventic", 16, 0xffe5e7eb, true), new LinearLayout.LayoutParams(0, -2, 1));
     Button close = NativeUi.button(context, "×", dismiss);
-    close.setTextSize(23);
-    close.setContentDescription(t("Close"));
-    close.setBackground(NativeUi.panel(0x08ffffff, 0x10ffffff, 12, context));
+    close.setTextSize(24);
     close.setPadding(0, 0, 0, 0);
     close.setMinWidth(0);
     close.setMinimumWidth(0);
+    close.setContentDescription(t("Close"));
+    close.setBackground(NativeUi.panel(0x06ffffff, 0x10ffffff, 14, context));
     header.addView(close, new LinearLayout.LayoutParams(dp(44), dp(44)));
-    panel.addView(header);
-    gap(panel, 6);
-    if (sample || unlock) {
-      TextView badge =
-          text(
-              t(sample ? "Sample preview — not your account data" : "Unlock detected"),
-              11,
-              accent(),
-              true);
-      badge.setPadding(dp(9), dp(6), dp(9), dp(6));
-      badge.setBackground(
-          NativeUi.panel(
-              (NativeUi.accent(store) & 0x00ffffff) | 0x14000000,
-              (NativeUi.accent(store) & 0x00ffffff) | 0x30000000,
-              9,
-              context));
-      panel.addView(badge, new LinearLayout.LayoutParams(-2, -2));
-      gap(panel, 14);
+    page.addView(header);
+    ScrollView scroll = new ScrollView(context);
+    scroll.setTag("recap_scroll");
+    scroll.setFillViewport(true);
+    scroll.setClipToPadding(false);
+    scroll.setVerticalScrollBarEnabled(false);
+    scroll.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
+    LinearLayout body = NativeUi.column(context);
+    body.setPadding(dp(22), dp(12), dp(22), dp(12));
+    scroll.addView(body, new ScrollView.LayoutParams(-1, -2));
+    page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+    if (sample) {
+      TextView badge = text(t("Sample preview — not your account data"), 11, accent(), false);
+      badge.setPadding(dp(10), dp(7), dp(10), dp(7));
+      badge.setBackground(NativeUi.panel(tint(18), tint(40), 10, context));
+      body.addView(badge);
+      gap(body, 16);
     }
     LinearLayout details = NativeUi.column(context);
+    ArrayList<Button> buttons = new ArrayList<>();
+    int initial = 0;
+    for (int i = 0; i < periods.length(); i++)
+      if (periods.getJSONObject(i).optString("kind").equals(selectedKind)) initial = i;
     if (periods.length() > 1) {
       LinearLayout tabs = new LinearLayout(context);
-      tabs.setPadding(dp(3), dp(3), dp(3), dp(3));
-      tabs.setBackground(NativeUi.panel(0x05ffffff, 0x13ffffff, 12, context));
-      ArrayList<Button> buttons = new ArrayList<>();
+      tabs.setPadding(dp(4), dp(4), dp(4), dp(4));
+      tabs.setBackground(NativeUi.panel(0x04ffffff, 0x12ffffff, 15, context));
       for (int i = 0; i < periods.length(); i++) {
         final int index = i;
         String kind = periods.getJSONObject(i).optString("kind");
@@ -208,64 +221,131 @@ final class RecapOverlay {
                   try {
                     render(details, periods.getJSONObject(index));
                     selectTab(buttons, index);
-                  } catch (Exception ignored) {
+                    scroll.smoothScrollTo(0, 0);
+                  } catch (JSONException ignored) {
                   }
                 });
         tab.setTextSize(12);
-        tab.setPadding(dp(3), 0, dp(3), 0);
+        tab.setPadding(dp(4), 0, dp(4), 0);
         tabs.addView(tab, new LinearLayout.LayoutParams(0, dp(44), 1));
         buttons.add(tab);
       }
-      selectTab(buttons, 0);
-      panel.addView(tabs);
-      gap(panel, 16);
+      selectTab(buttons, initial);
+      body.addView(tabs);
+      gap(body, 20);
     }
-    if (periods.length() > 0) render(details, periods.getJSONObject(0));
-    else {
-      details.addView(text(t("Your unlock screen is working"), 23, Color.WHITE, true));
-      gap(details, 10);
-      TextView description = text(t(message), 13, 0xffa6adb7, false);
-      description.setLineSpacing(dp(3), 1);
-      details.addView(description);
+    if (periods.length() > 0) {
+      render(details, periods.getJSONObject(initial));
+      body.addView(details, new LinearLayout.LayoutParams(-1, 0, 1));
+      // Debug repetition messages belong in settings. Sync failures still remain visible.
+      if (!message.isEmpty() && !message.equals("Shown on every unlock")) {
+        gap(body, 14);
+        body.addView(text(t(message), 12, 0xff929ba7, false));
+      }
+    } else {
+      body.setGravity(Gravity.CENTER_VERTICAL);
+      TextView title = text(t("Your unlock screen is working"), 29, Color.WHITE, true);
+      title.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+      body.addView(title);
+      gap(body, 24);
+      FrameLayout proof = hero("✓", t("Unlock detected"), -1);
+      body.addView(proof);
+      gap(body, 22);
+      TextView description = text(t(message), 14, 0xffa6adb7, false);
+      description.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+      description.setLineSpacing(dp(4), 1);
+      body.addView(description);
     }
-    panel.addView(details);
-    if (periods.length() > 0 && !message.isEmpty()) {
-      gap(panel, 12);
-      panel.addView(text(t(message), 11, 0xff89929f, false));
-    }
-    gap(panel, 16);
+    LinearLayout footer = NativeUi.column(context);
+    footer.setTag("recap_footer");
+    footer.setPadding(dp(22), dp(12), dp(22), dp(18));
     Button done = NativeUi.button(context, t("Continue"), dismiss);
-    done.setTextSize(13);
-    done.setTextColor(accent());
-    done.setBackground(
-        NativeUi.panel(
-            (NativeUi.accent(store) & 0x00ffffff) | 0x18000000,
-            (NativeUi.accent(store) & 0x00ffffff) | 0x45000000,
-            12,
-            context));
-    panel.addView(done, new LinearLayout.LayoutParams(-1, dp(46)));
-    return panel;
+    done.setTag("recap_continue");
+    done.setTextSize(15);
+    done.setTextColor(Color.luminance(NativeUi.accent(store)) > .179 ? Color.BLACK : Color.WHITE);
+    GradientDrawable gradient =
+        new GradientDrawable(
+            GradientDrawable.Orientation.LEFT_RIGHT,
+            new int[] {NativeUi.lightAccent(store), NativeUi.accent(store)});
+    gradient.setCornerRadius(dp(16));
+    done.setBackground(gradient);
+    footer.addView(done, new LinearLayout.LayoutParams(-1, dp(52)));
+    page.addView(footer);
+    return surface;
   }
 
   private void selectTab(ArrayList<Button> buttons, int index) {
     for (int i = 0; i < buttons.size(); i++) {
       Button b = buttons.get(i);
-      b.setTextColor(i == index ? accent() : 0xff9299a3);
-      b.setBackground(NativeUi.panel(i == index ? 0x16ffffff : Color.TRANSPARENT, 0, 9, context));
+      b.setTextColor(i == index ? accent() : 0xff89929f);
+      b.setBackground(
+          NativeUi.panel(
+              i == index ? tint(22) : Color.TRANSPARENT, i == index ? tint(40) : 0, 11, context));
       b.setSelected(i == index);
     }
+  }
+
+  private boolean hidden(JSONObject p, String page) {
+    JSONArray pages = p.optJSONArray("hiddenPages");
+    if (pages != null)
+      for (int i = 0; i < pages.length(); i++) if (page.equals(pages.optString(i))) return true;
+    return false;
+  }
+
+  private FrameLayout hero(String value, String label, float ratio) {
+    FrameLayout box = new FrameLayout(context);
+    box.setMinimumHeight(dp(168));
+    RecapRing ring = new RecapRing(context, NativeUi.accent(store), ratio);
+    box.addView(ring, new FrameLayout.LayoutParams(dp(168), dp(168), Gravity.CENTER));
+    LinearLayout center = NativeUi.column(context);
+    center.setGravity(Gravity.CENTER);
+    if (ratio >= 0 && value.contains(" / ")) {
+      String[] parts = value.split(" / ", 2);
+      LinearLayout countRow = new LinearLayout(context);
+      countRow.setGravity(Gravity.CENTER);
+      countRow.setBaselineAligned(true);
+      countRow.addView(text(parts[0], 44, Color.WHITE, true));
+      TextView denominator = text(" / " + parts[1], 16, 0xff89929f, false);
+      countRow.addView(denominator);
+      center.addView(countRow);
+    } else {
+      TextView count = text(value, 44, Color.WHITE, true);
+      count.setGravity(Gravity.CENTER);
+      center.addView(count);
+    }
+    gap(center, 5);
+    TextView unit = text(label, 11, 0xffa6adb7, false);
+    unit.setGravity(Gravity.CENTER);
+    unit.setMaxWidth(dp(124));
+    center.addView(unit);
+    box.addView(center, new FrameLayout.LayoutParams(dp(138), -2, Gravity.CENTER));
+    box.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(168)));
+    return box;
   }
 
   private void render(LinearLayout details, JSONObject period) {
     details.removeAllViews();
     String kind = period.optString("kind");
+    selectedKind = kind;
+    TextView eyebrow =
+        text(
+            t(
+                kind.equals("week")
+                    ? "Weekly recap"
+                    : kind.equals("month") ? "Monthly recap" : "Daily recap"),
+            10,
+            accent(),
+            true);
+    eyebrow.setLetterSpacing(.12f);
+    details.addView(eyebrow);
+    gap(details, 7);
     details.addView(
         text(
             t(kind.equals("week") ? "Your week" : kind.equals("month") ? "Your month" : "Your day"),
-            25,
+            32,
             Color.WHITE,
             true));
-    gap(details, 5);
+    gap(details, 7);
     String start = period.optString("start"), end = period.optString("end");
     try {
       DateTimeFormatter f =
@@ -275,8 +355,8 @@ final class RecapOverlay {
       end = LocalDate.parse(end).format(f);
     } catch (Exception ignored) {
     }
-    details.addView(text(start.equals(end) ? end : start + " – " + end, 11, 0xff89929f, false));
-    gap(details, 17);
+    details.addView(text(start.equals(end) ? end : start + " – " + end, 12, 0xff89929f, false));
+    flexibleGap(details, 18, .5f);
     ArrayList<String[]> metrics = new ArrayList<>();
     for (String[] m :
         new String[][] {
@@ -285,82 +365,65 @@ final class RecapOverlay {
           {"workouts", "Workouts saved", "workout"},
           {"exercises", "Exercises checked", "workout"},
           {"athkar", "Athkar sessions", "athkar"}
-        }) {
-      boolean hidden = false;
-      JSONArray pages = period.optJSONArray("hiddenPages");
-      if (pages != null)
-        for (int i = 0; i < pages.length(); i++) if (m[2].equals(pages.optString(i))) hidden = true;
-      if (!hidden) metrics.add(m);
-    }
+        }) if (!hidden(period, m[2])) metrics.add(m);
+    boolean consistency = !kind.equals("day") && period.optInt("totalDays") > 0;
+    String featuredLabel = "Recorded activity";
+    int featured = 0;
+    for (String[] m : metrics)
+      if (period.optInt(m[0]) > featured) {
+        featured = period.optInt(m[0]);
+        featuredLabel = m[1];
+      }
+    FrameLayout summary;
+    if (consistency) {
+      int active = Math.max(0, period.optInt("activeDays")),
+          total = Math.max(1, period.optInt("totalDays"));
+      summary =
+          hero(
+              number(active) + " / " + number(total),
+              t("Activity days"),
+              Math.min(1, active / (float) total));
+      // The ring is explicitly active days / calendar days, never a made-up goal score.
+      summary.setContentDescription(
+          t("Activity days") + ": " + number(active) + " / " + number(total));
+    } else summary = hero(number(featured), t(featuredLabel), -1);
+    details.addView(summary);
+    gap(details, 10);
+    TextView recorded = text(t("Recorded activity"), 11, 0xff7f8997, false);
+    recorded.setGravity(Gravity.CENTER);
+    details.addView(recorded);
+    flexibleGap(details, 22, .5f);
+    details.addView(text(t("Your activity"), 14, 0xffe5e7eb, true));
+    gap(details, 12);
     for (int i = 0; i < metrics.size(); i += 2) {
       LinearLayout row = new LinearLayout(context);
-      int remaining = metrics.size() - i;
       for (int j = i; j < Math.min(i + 2, metrics.size()); j++) {
         String[] m = metrics.get(j);
-        LinearLayout tile = NativeUi.column(context);
-        tile.setPadding(dp(12), dp(10), dp(12), dp(10));
-        tile.setBackground(NativeUi.panel(0x07ffffff, 0x16ffffff, 14, context));
-        LinearLayout head = new LinearLayout(context);
-        head.setGravity(Gravity.CENTER_VERTICAL);
-        head.addView(
-            new RecapIcon(context, m[2], accent()), new LinearLayout.LayoutParams(dp(17), dp(17)));
-        TextView number =
-            text(
-                java.text.NumberFormat.getIntegerInstance(
-                        java.util.Locale.forLanguageTag(store.locale()))
-                    .format(period.optInt(m[0])),
-                25,
-                Color.WHITE,
-                true);
-        number.setGravity(Gravity.END);
-        head.addView(number, new LinearLayout.LayoutParams(0, -2, 1));
-        tile.addView(head);
-        gap(tile, 7);
-        TextView label = text(t(m[1]), 11, 0xffa6adb7, false);
+        LinearLayout tile = new LinearLayout(context);
+        tile.setGravity(Gravity.CENTER_VERTICAL);
+        tile.setPadding(dp(12), dp(13), dp(12), dp(13));
+        tile.setBackground(NativeUi.panel(0x06ffffff, 0x0fffffff, 15, context));
+        FrameLayout icon = new FrameLayout(context);
+        icon.setBackground(NativeUi.panel(tint(20), 0, 11, context));
+        icon.addView(
+            new RecapIcon(context, m[2], accent()),
+            new FrameLayout.LayoutParams(dp(17), dp(17), Gravity.CENTER));
+        LinearLayout.LayoutParams iconBox = new LinearLayout.LayoutParams(dp(32), dp(32));
+        iconBox.setMarginEnd(dp(10));
+        tile.addView(icon, iconBox);
+        LinearLayout words = NativeUi.column(context);
+        words.addView(text(number(period.optInt(m[0])), 22, Color.WHITE, true));
+        gap(words, 3);
+        TextView label = text(t(m[1]), 11, 0xff929ba7, false);
         label.setLineSpacing(dp(2), 1);
-        tile.addView(label);
+        words.addView(label);
+        tile.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
         LinearLayout.LayoutParams cell = new LinearLayout.LayoutParams(0, -1, 1);
-        if (j == i && remaining > 1) cell.setMarginEnd(dp(7));
+        if (j == i && j + 1 < metrics.size()) cell.setMarginEnd(dp(8));
         row.addView(tile, cell);
       }
       details.addView(row, new LinearLayout.LayoutParams(-1, -2));
-      if (i + 2 < metrics.size()) gap(details, 7);
-    }
-    if (!kind.equals("day")) {
-      gap(details, 14);
-      details.addView(
-          text(
-              t("Activity days")
-                  + "  "
-                  + period.optInt("activeDays")
-                  + " / "
-                  + period.optInt("totalDays"),
-              11,
-              accent(),
-              true));
-      JSONArray days = period.optJSONArray("days");
-      if (days != null && days.length() > 0) {
-        gap(details, 7);
-        LinearLayout rhythm = new LinearLayout(context);
-        for (int i = 0; i < days.length(); i++) {
-          JSONObject d = days.optJSONObject(i);
-          boolean active =
-              d != null
-                  && (d.optInt("tasks")
-                          + d.optInt("habits")
-                          + d.optInt("workouts")
-                          + d.optInt("exercises")
-                          + d.optInt("athkar")
-                      > 0);
-          View mark = new View(context);
-          mark.setBackground(
-              NativeUi.panel(active ? NativeUi.accent(store) : 0x12ffffff, 0, 3, context));
-          LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(5), 1);
-          lp.setMarginEnd(dp(3));
-          rhythm.addView(mark, lp);
-        }
-        details.addView(rhythm);
-      }
+      if (i + 2 < metrics.size()) gap(details, 8);
     }
   }
 

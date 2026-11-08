@@ -98,32 +98,43 @@ public class RecapAndroidTest {
   }
 
   @Test
-  public void compactNativeCardFitsPhoneAndLargeTextWithoutInventingData() throws Exception {
-    JSONObject day =
+  public void fullScreenRecapFillsPhoneAndKeepsContinueVisibleWithLargeText() throws Exception {
+    app.getSharedPreferences("native_recaps", Context.MODE_PRIVATE)
+        .edit()
+        .putString("accent", "#F43F5E")
+        .commit();
+    JSONObject month =
         new JSONObject()
-            .put("kind", "day")
-            .put("start", "2026-11-08")
-            .put("end", "2026-11-08")
-            .put("tasks", 4)
-            .put("habits", 2)
-            .put("workouts", 1)
-            .put("exercises", 8)
-            .put("athkar", 2);
-    for (int width : new int[] {284, 354}) {
-      View card =
+            .put("kind", "month")
+            .put("start", "2026-10-01")
+            .put("end", "2026-10-31")
+            .put("tasks", 0)
+            .put("habits", 0)
+            .put("workouts", 0)
+            .put("exercises", 6)
+            .put("athkar", 0)
+            .put("activeDays", 2)
+            .put("totalDays", 31);
+    for (int[] size : new int[][] {{320, 640}, {390, 800}, {412, 880}, {720, 360}}) {
+      View screen =
           new RecapOverlay(app, store)
-              .buildCard(new JSONArray().put(day), true, false, "", () -> {});
-      render(card, width, "sample-" + width);
-      assertTrue(
-          "compact card should fit without taking the whole screen",
-          card.getMeasuredHeight() < 610);
+              .buildCard(
+                  new JSONArray().put(month), false, true, "Shown on every unlock", () -> {});
+      render(screen, size[0], size[1], "month-" + size[0] + "x" + size[1]);
+      assertEquals(size[1], screen.getMeasuredHeight());
+      assertFooter(screen, size[1]);
+      assertNull(
+          "debug copy should not dominate a real recap", findText(screen, "Unlock detected"));
+      assertNull(findText(screen, "Shown on every unlock"));
+      assertNotNull(findText(screen, "6"));
     }
     app.getResources().getConfiguration().fontScale = 1.3f;
     app.getResources().getDisplayMetrics().scaledDensity = 1.3f;
-    View largeCard =
-        new RecapOverlay(app, store).buildCard(new JSONArray().put(day), true, false, "", () -> {});
-    render(largeCard, 284, "sample-large-text");
-    assertTrue(largeCard.getMeasuredHeight() < 700);
+    View large =
+        new RecapOverlay(app, store)
+            .buildCard(new JSONArray().put(month), false, true, "Shown on every unlock", () -> {});
+    render(large, 320, 640, "month-large-text");
+    assertFooter(large, 640);
     View status =
         new RecapOverlay(app, store)
             .buildCard(
@@ -132,10 +143,18 @@ public class RecapAndroidTest {
                 true,
                 "Connect your account to see your progress here.",
                 () -> {});
-    render(status, 284, "unlock-status");
-    assertTrue(status.getMeasuredHeight() < 500);
-    assertEquals(
-        "manual layout/preview must not consume automatic unlocks", 0, store.unlockCount());
+    render(status, 390, 800, "unlock-status");
+    assertFooter(status, 800);
+    assertEquals("manual preview does not consume a real unlock", 0, store.unlockCount());
+  }
+
+  private void assertFooter(View screen, int height) {
+    View footer = screen.findViewWithTag("recap_footer");
+    assertEquals("footer must stay at bottom", height, footer.getTop() + footer.getHeight());
+    Button done = screen.findViewWithTag("recap_continue");
+    assertTrue(done.getHeight() >= 48);
+    assertTrue("landscape reading width stays bounded", footer.getWidth() <= 560);
+    assertTrue(footer.getTop() + done.getTop() + done.getHeight() <= height);
   }
 
   @Test
@@ -152,18 +171,51 @@ public class RecapAndroidTest {
             .put("start", "2026-11-02")
             .put("totalDays", 7)
             .put("activeDays", 3);
+    RecapOverlay overlay = new RecapOverlay(app, store);
     View card =
-        new RecapOverlay(app, store)
-            .buildCard(
-                new JSONArray().put(week).put(day), false, true, "Shown on every unlock", () -> {});
-    render(card, 354, "period-tabs");
+        overlay.buildCard(
+            new JSONArray().put(week).put(day), false, true, "Shown on every unlock", () -> {});
+    render(card, 390, 800, "period-tabs");
+    int buttonTop = ((View) card.findViewWithTag("recap_footer")).getTop();
     assertNotNull(findText(card, "Your day"));
     TextView tab = findText(card, "Week");
     assertTrue(tab instanceof Button);
     assertTrue(tab.performClick());
-    render(card, 354, "week-tab");
+    render(card, 390, 800, "week-tab");
+    assertEquals(buttonTop, ((View) card.findViewWithTag("recap_footer")).getTop());
     assertNotNull(findText(card, "Your week"));
     assertTrue(tab.isSelected());
+    View refreshed =
+        overlay.buildCard(
+            new JSONArray().put(week).put(day), false, true, "Shown on every unlock", () -> {});
+    assertNotNull(
+        "in-place sync must retain the selected period", findText(refreshed, "Your week"));
+  }
+
+  @Test
+  public void arabicRecapUsesSavedAccentAndKeepsNavigationLayoutStable() throws Exception {
+    app.getSharedPreferences("native_recaps", Context.MODE_PRIVATE)
+        .edit()
+        .putString("locale", "ar")
+        .putString("accent", "#A855F7")
+        .commit();
+    JSONObject month =
+        new JSONObject()
+            .put("kind", "month")
+            .put("start", "2026-10-01")
+            .put("end", "2026-10-31")
+            .put("activeDays", 2)
+            .put("totalDays", 31)
+            .put("exercises", 6);
+    View screen =
+        new RecapOverlay(app, store)
+            .buildCard(new JSONArray().put(month), false, true, "Shown on every unlock", () -> {});
+    render(screen, 390, 800, "month-arabic");
+    assertEquals(View.LAYOUT_DIRECTION_LTR, screen.getLayoutDirection());
+    assertNotNull(findText(screen, "ملخّص شهرك"));
+    assertNotNull(findText(screen, "متابعة"));
+    assertFooter(screen, 800);
+    assertEquals(Color.parseColor("#A855F7"), NativeUi.accent(store));
   }
 
   @Test
@@ -194,11 +246,16 @@ public class RecapAndroidTest {
     return null;
   }
 
-  private void render(View card, int width, String name) throws Exception {
+  private void render(View card, int width, int height, String name) throws Exception {
     card.measure(
         View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY));
     card.layout(0, 0, width, card.getMeasuredHeight());
+    // Let the reading-width cap settle just as the real Android view tree does.
+    card.measure(
+        View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+        View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY));
+    card.layout(0, 0, width, height);
     Bitmap image = Bitmap.createBitmap(width, card.getMeasuredHeight(), Bitmap.Config.ARGB_8888);
     card.draw(new Canvas(image));
     File directory = new File("build/outputs/recap-ui");
