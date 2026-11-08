@@ -4,12 +4,12 @@ import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { pageValidator, planValidator, validatePlan, PAGES, STARTERS, isFlexibleRoutine, planItemCount, type Plan } from "./planFormat";
+import { pageValidator, planValidator, validatePlan, PAGES, visibleStartPage, STARTERS, isFlexibleRoutine, planItemCount, type Plan } from "./planFormat";
 import { LIMITS, cleanText, enforceRateLimit, assertCurrentLocalDate } from "./security";
 import { starterTaskValidator, taskKey } from "./supportModel";
 import { EMPTY_DAY } from "./supportModel";
 
-const defaults = { hiddenPages: [], startPage: "today" as const, setupDone: false };
+const defaults = { hiddenPages: [], startPage: "routines" as const, setupDone: false };
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 export const applyStarter = mutation({
   args: { name: v.string(), timeSlot: v.string(), tasks: v.array(starterTaskValidator), requestId: v.string(), dateKey: v.string() },
@@ -45,7 +45,9 @@ export const getPreferences = query({ args: {}, handler: async ctx => {
   const saved = await ctx.db.query("workspacePreferences").withIndex("by_user", q => q.eq("userId", userId)).first();
   const { quiet: _retired, ...preferences } = saved ?? {};
   const home = normalizeHomeLayout(saved?.homeOrder, saved?.homeHidden);
-  return { ...defaults, ...preferences, homeOrder: home.order, homeHidden: home.hidden, userId };
+  const hiddenPages = (saved?.hiddenPages ?? []).filter(page => page !== "today");
+  const startPage = visibleStartPage(hiddenPages, saved?.startPage ?? "routines") ?? "routines";
+  return { ...defaults, ...preferences, hiddenPages, startPage, homeOrder: home.order, homeHidden: home.hidden, userId };
 } });
 
 export const savePreferences = mutation({
@@ -54,8 +56,8 @@ export const savePreferences = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx); if (!userId) throw new Error("Not authenticated");
     await enforceRateLimit(ctx, userId, "workspace:preferences", 30, 60000);
-    if (args.hiddenPages.length > PAGES.length || new Set(args.hiddenPages).size >= PAGES.length) throw new Error("Keep at least one section visible.");
-    if (args.hiddenPages.includes(args.startPage)) throw new Error("Your starting page must be visible.");
+    if (args.hiddenPages.length > PAGES.length + 1 || !visibleStartPage(args.hiddenPages, args.startPage)) throw new Error("Keep at least one section visible.");
+    if (args.startPage === "today" || args.hiddenPages.includes(args.startPage)) throw new Error("Your starting page must be visible.");
     const existing = await ctx.db.query("workspacePreferences").withIndex("by_user", q => q.eq("userId", userId)).first();
     const changes = { startPage: args.startPage, hiddenPages: [...new Set(args.hiddenPages)] };
     if (existing) await ctx.db.patch(existing._id, { ...changes, quiet: undefined });

@@ -1,4 +1,4 @@
-import { visibleStartPage } from "../convex/planFormat";
+import { PAGES, visibleStartPage } from "../convex/planFormat";
 import { pageMotion, pageSwipe, type PageMotion } from "./lib/navigation";
 
 import { t as tr, useLocale } from "./i18n";
@@ -14,7 +14,6 @@ import { RoutineCard } from "./components/RoutineCard";
 import { StatsPanel } from "./components/StatsPanel";
 import { CompleteButton } from "./components/CompleteButton";
 import { WorkoutPage } from "./components/WorkoutPage";
-import { HomePage } from "./components/HomePage";
 import { WorkspacePage } from "./components/WorkspacePage";
 import { ConnectionNotice, ScreenBoundary } from "./components/ScreenBoundary";
 import { HabitsPage } from "./components/HabitsPage";
@@ -472,7 +471,7 @@ export default function App() {
 }
 
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<Page>("today");
+  const [currentPage, setCurrentPage] = useState<Page>("routines");
   const [swapKey, setSwapKey] = useState(0);
   const [swapDir, setSwapDir] = useState<"left" | "right">("left");
   const [athkarFocus, setAthkarFocus] = useState(false);
@@ -481,15 +480,15 @@ function AppContent() {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const preferences = useQuery(api.workspace.getPreferences, isAuthenticated ? {} : "skip");
   const initialAccount = useRef<string | null>(null);
-  const landingPage: Page = preferences ? visibleStartPage(preferences.hiddenPages, preferences.startPage) ?? "workspace" : "today";
-  const activePage = preferences && (initialAccount.current !== preferences.userId || (currentPage !== "workspace" && preferences.hiddenPages.includes(currentPage))) ? landingPage : currentPage;
+  const landingPage: Page = preferences ? visibleStartPage(preferences.hiddenPages, preferences.startPage) ?? "workspace" : "routines";
+  const activePage = preferences && (initialAccount.current !== preferences.userId || currentPage === "today" || (currentPage !== "workspace" && preferences.hiddenPages.some(hidden => hidden === currentPage))) ? landingPage : currentPage;
   useEffect(() => {
     if (!isAuthenticated) { initialAccount.current = null; return; }
     if (!preferences) return;
     if (initialAccount.current !== preferences.userId) {
       initialAccount.current = preferences.userId;
       setCurrentPage(visibleStartPage(preferences.hiddenPages, preferences.startPage) ?? "workspace");
-    } else if (currentPage !== "workspace" && preferences.hiddenPages.includes(currentPage)) setCurrentPage(visibleStartPage(preferences.hiddenPages, preferences.startPage) ?? "workspace");
+    } else if (currentPage !== "workspace" && preferences.hiddenPages.some(hidden => hidden === currentPage)) setCurrentPage(visibleStartPage(preferences.hiddenPages, preferences.startPage) ?? "workspace");
   }, [isAuthenticated, preferences, currentPage]);
 
 
@@ -500,10 +499,10 @@ function AppContent() {
     if (activePage !== "athkar") setAthkarFocus(false);
   }, [activePage]);
 
-  const PAGE_ORDER: Page[] = (["today", "routines", "workout", "habits", "progress", "athkar", "macros"] as const).filter(page => !preferences?.hiddenPages.includes(page));
+  const PAGE_ORDER: Page[] = PAGES.map(page => page.id).filter(page => !preferences?.hiddenPages.some(hidden => hidden === page));
 
   const navigateToPage = (page: Page, direction?: "left" | "right") => {
-    if (page !== "workspace" && preferences?.hiddenPages.includes(page)) return;
+    if (page === "today" || (page !== "workspace" && preferences?.hiddenPages.some(hidden => hidden === page))) return;
     if (page === activePage) {
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
       return;
@@ -608,13 +607,13 @@ function AppContent() {
             className={`relative z-10 container mx-auto pb-safe ${athkarFocus ? "px-0 py-0 sm:px-4 sm:py-8" : "px-3 py-4 sm:px-4 sm:py-8"}`}
           >
             <div key={swapKey} className={swapDir === "left" ? "sw-page-swap-left" : "sw-page-swap-right"}>
-              <ScreenBoundary key={activePage}><Content currentPage={activePage} onNavigate={navigateToPage} onAthkarFocusChange={setAthkarFocus} onWorkspaceBack={() => navigateToPage(preferences ? visibleStartPage(preferences.hiddenPages, preferences.startPage) ?? "workspace" : "today")} /></ScreenBoundary>
+              <ScreenBoundary key={activePage}><Content currentPage={activePage} onNavigate={navigateToPage} onAthkarFocusChange={setAthkarFocus} onWorkspaceBack={() => navigateToPage(preferences ? visibleStartPage(preferences.hiddenPages, preferences.startPage) ?? "workspace" : "routines")} /></ScreenBoundary>
             </div>
           </main>
         </TrustedDeviceGate>
       ) : (
         <main className="relative z-10 min-h-screen">
-          <Content currentPage={activePage} onNavigate={navigateToPage} onAthkarFocusChange={setAthkarFocus} onWorkspaceBack={() => navigateToPage(preferences ? visibleStartPage(preferences.hiddenPages, preferences.startPage) ?? "workspace" : "today")} />
+          <Content currentPage={activePage} onNavigate={navigateToPage} onAthkarFocusChange={setAthkarFocus} onWorkspaceBack={() => navigateToPage(preferences ? visibleStartPage(preferences.hiddenPages, preferences.startPage) ?? "workspace" : "routines")} />
         </main>
       )}
 
@@ -687,7 +686,6 @@ function Content({ currentPage, onNavigate, onAthkarFocusChange, onWorkspaceBack
         {loggedInUser && needsRealName && !applyingPendingName && (
           <NameSetupModal onSaved={(savedName) => setConfirmedNameThisSession(savedName)} />
         )}
-        {currentPage === "today" && <HomePage displayName={needsRealName ? "" : displayName} onNavigate={onNavigate} />}
         {currentPage === "workspace" && <WorkspacePage onBack={onWorkspaceBack} />}
         {currentPage === "routines" && (
           <RoutinesContent

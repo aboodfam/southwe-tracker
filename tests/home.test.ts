@@ -11,7 +11,7 @@ import type { ProgressDay } from "../convex/progressMath";
 const modules = import.meta.glob("../convex/**/*.{ts,js}");
 
 test("Home retains old routes and normalizes missing or partial layouts", () => {
-  expect(PAGES[0]).toEqual({ id: "today", name: "Home" });
+  expect(PAGES[0]).toEqual({ id: "routines", name: "Routines" });
   expect(visibleStartPage(["today"], "today")).toBe("routines");
   const defaults = HOME_SECTIONS.map((row) => row.id);
   expect(normalizeHomeLayout()).toEqual({ order: defaults, hidden: [] });
@@ -30,7 +30,7 @@ test("Home order and visibility persist per account without overwriting navigati
   const user = t.withIdentity({ subject: `${userId}|one` });
   const other = t.withIdentity({ subject: `${otherId}|two` });
   await user.mutation(api.workspace.savePreferences, {
-    hiddenPages: ["today"],
+    hiddenPages: ["athkar"],
     startPage: "workout",
   });
   const order = HOME_SECTIONS.map((row) => row.id).reverse();
@@ -41,7 +41,7 @@ test("Home order and visibility persist per account without overwriting navigati
   expect(await user.query(api.workspace.getPreferences)).toMatchObject({
     homeOrder: order,
     homeHidden: ["focus", "athkar"],
-    hiddenPages: ["today"],
+    hiddenPages: ["athkar"],
     startPage: "workout",
   });
   expect(await other.query(api.workspace.getPreferences)).toMatchObject({
@@ -50,7 +50,7 @@ test("Home order and visibility persist per account without overwriting navigati
   });
   await user.mutation(api.workspace.savePreferences, {
     hiddenPages: [],
-    startPage: "today",
+    startPage: "routines",
   });
   expect(await user.query(api.workspace.getPreferences)).toMatchObject({
     homeOrder: order,
@@ -156,4 +156,14 @@ test("weekly consistency counts actual activity and respects hidden modules", ()
   expect(hasHomeActivity({ ...day, tasksDone: 1 }, ["routines"])).toBe(false);
   expect(hasHomeActivity({ ...day, exercisesDone: 1 }, [])).toBe(true);
   expect(hasHomeActivity({ ...day, habitsDone: 1 }, ["habits"])).toBe(false);
+});
+
+
+test("an old Home start page falls back to a visible app section without losing preferences", async () => {
+  const t = convexTest(schema, modules);
+  const userId = await t.run(ctx => ctx.db.insert("users", {name: "Legacy"}));
+  const id = await t.run(ctx => ctx.db.insert("workspacePreferences", {userId, startPage: "today", hiddenPages: ["today", "routines"], setupDone: true, homeOrder: ["athkar"], homeHidden: ["focus"]}));
+  const user = t.withIdentity({subject: `${userId}|legacy`});
+  expect(await user.query(api.workspace.getPreferences)).toMatchObject({startPage: "workout", hiddenPages: ["routines"], homeHidden: ["focus"]});
+  expect(await t.run(ctx => ctx.db.get(id))).toMatchObject({startPage: "today", setupDone: true, homeOrder: ["athkar"]});
 });

@@ -26,7 +26,6 @@ export function Navigation({ currentPage, onPageChange, hiddenPages }: Navigatio
   }, [currentPage, visibleKey, locale]);
 
   const pages: { id: NavigationProps["currentPage"]; name: string; icon: IconName }[] = [
-    { id: "today", name: tr("Home"), icon: "home" },
     { id: "routines", name: tr("Routines"), icon: "routines" },
     { id: "workout", name: tr("Workout"), icon: "workout" },
     { id: "habits", name: tr("Habits"), icon: "habits" },

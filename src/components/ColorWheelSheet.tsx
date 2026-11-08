@@ -140,7 +140,7 @@ export function ColorWheelSheet({
     <div
       ref={layer}
       data-no-swipe
-      className="fixed inset-x-0 top-0 z-[22000] flex items-end justify-center sm:items-center sm:p-4"
+      className="fixed inset-x-0 top-0 z-[22000] flex items-end justify-center p-3 sm:items-center sm:p-4"
     >
       <button
         tabIndex={-1}
@@ -154,23 +154,17 @@ export function ColorWheelSheet({
         aria-modal="true"
         aria-labelledby={title}
         tabIndex={-1}
-        className="relative flex max-h-full w-full max-w-sm flex-col overflow-hidden rounded-t-3xl border border-white/15 bg-surface shadow-2xl outline-none sm:rounded-3xl"
+        className="relative flex max-h-full w-full max-w-xs flex-col overflow-hidden rounded-3xl border border-white/15 bg-surface shadow-2xl outline-none sm:rounded-3xl"
       >
-        <div className="shrink-0 px-4 pb-3 pt-2">
-          <div
-            aria-hidden="true"
-            className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20 sm:hidden"
-          />
+        <div className="shrink-0 px-4 pb-2 pt-3">
           <h2 id={title} className="text-base font-semibold text-white">
             {tr("Choose accent color")}
           </h2>
           <p className="mt-1 text-xs text-white/50">
-            {tr(
-              "Preview your color. Set to save, or Cancel to keep your current theme.",
-            )}
+            {tr("Preview your color before saving.")}
           </p>
         </div>
-        <div className="min-h-0 overflow-y-auto overscroll-contain border-y border-white/10 px-4 py-3">
+        <div className="min-h-0 overflow-y-auto overscroll-contain px-4 py-2">
           <p id={help} className="sr-only">
             {tr(
               "Drag around the wheel for hue and toward the center for less saturation. Arrow keys change hue.",
@@ -188,9 +182,9 @@ export function ColorWheelSheet({
               0: Math.round(hsv.h),
               1: Math.round(hsv.s * 100),
             })}
-            className="relative mx-auto touch-none select-none rounded-full border border-white/15 outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            className="relative mx-auto touch-none select-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             style={{
-              width: "min(64vw, 230px, 32dvh)",
+              width: "min(54vw, 190px, 28dvh)",
               aspectRatio: "1",
               background:
                 "radial-gradient(closest-side, white, transparent), conic-gradient(from 90deg, red, yellow, lime, cyan, blue, magenta, red)",
@@ -248,7 +242,7 @@ export function ColorWheelSheet({
               }}
             />
           </div>
-          <div className="mt-4 space-y-2">
+          <div className="mt-3 space-y-1">
             <label className="block text-xs text-white/65">
               <span className="flex justify-between gap-3">
                 <span>{tr("Saturation")}</span>
@@ -326,7 +320,7 @@ export function ColorWheelSheet({
             </p>
           )}
           <div
-            className="mt-3 flex flex-wrap gap-2"
+            className="mt-2 grid grid-cols-6 gap-1"
             aria-label={tr("Color presets")}
           >
             {presets.map((preset) => (
@@ -335,10 +329,10 @@ export function ColorWheelSheet({
                 aria-label={preset.label}
                 aria-pressed={normalizeColorHex(preset.hex) === hex}
                 onClick={() => pickHex(preset.hex)}
-                className="grid h-11 w-11 place-items-center rounded-xl border border-white/15 bg-white/[0.03] focus-visible:outline-white"
+                className="grid h-11 min-w-0 place-items-center rounded-xl border border-white/15 bg-white/[0.03] focus-visible:outline-white"
               >
                 <span
-                  className="h-7 w-7 rounded-full border border-white/15"
+                  className="h-6 w-6 rounded-full border border-white/15"
                   style={{ background: preset.hex }}
                 />
               </button>
@@ -346,7 +340,7 @@ export function ColorWheelSheet({
           </div>
           <div
             aria-label={tr("Live preview")}
-            className="mt-3 flex min-h-14 items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2"
+            className="mt-2 flex min-h-11 items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2"
           >
             <Icon
               name="checkCircle"
@@ -363,7 +357,7 @@ export function ColorWheelSheet({
             </span>
           </div>
         </div>
-        <div className="grid shrink-0 grid-cols-2 gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="grid shrink-0 grid-cols-2 gap-2 p-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
           <button
             className="min-h-11 rounded-xl border border-white/15 px-3 text-sm font-semibold text-white/70"
             onClick={onCancel}

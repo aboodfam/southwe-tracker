@@ -51,8 +51,6 @@ export const planValidator = v.object({
 export type Plan = Infer<typeof planValidator>;
 export type Page = Infer<typeof pageValidator>;
 export const PAGES: { id: Page; name: string }[] = [
-  // Keep the stored route key so existing start-page and hidden-page preferences carry over.
-  { id: "today", name: "Home" },
   { id: "routines", name: "Routines" },
   { id: "workout", name: "Workout" },
   { id: "habits", name: "Habits" },
@@ -66,7 +64,7 @@ export function visibleStartPage(
   hiddenPages: readonly string[],
   preferred: Page,
 ): Page | null {
-  return !hiddenPages.includes(preferred)
+  return PAGES.some(page => page.id === preferred) && !hiddenPages.includes(preferred)
     ? preferred
     : (PAGES.find((page) => !hiddenPages.includes(page.id))?.id ?? null);
 }

@@ -588,7 +588,7 @@ export function WorkspacePage({ onBack }: { onBack?: () => void }) {
   const prefs = useQuery(api.workspace.getPreferences);
   const save = useMutation(api.workspace.savePreferences);
   const [hidden, setHidden] = useState<Page[]>(() => prefs?.hiddenPages ?? []);
-  const [start, setStart] = useState<Page>(() => prefs?.startPage ?? "today");
+  const [start, setStart] = useState<Page>(() => prefs?.startPage ?? "routines");
   const action = useSaveAction();
   const navigationKey = prefs
     ? `${prefs.userId}:${prefs.startPage}:${prefs.hiddenPages.join("|")}`

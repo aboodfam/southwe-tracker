@@ -415,13 +415,13 @@ test("account deletion includes all new support records", async () => {
   expect(remaining).toEqual([0, 0, 0]);
 });
 
-test("Today can be hidden, with a visible starting page and at least one section left", async () => {
+test("Legacy Today preferences are ignored while a visible starting section remains required", async () => {
   const { user } = await setup();
   await user.mutation(api.workspace.savePreferences, {hiddenPages: ["today"], startPage: "workout", quiet: false});
-  expect(await user.query(api.workspace.getPreferences)).toMatchObject({hiddenPages: ["today"], startPage: "workout"});
+  expect(await user.query(api.workspace.getPreferences)).toMatchObject({hiddenPages: [], startPage: "workout"});
   await expect(user.mutation(api.workspace.savePreferences, {hiddenPages: ["today"], startPage: "today", quiet: false})).rejects.toThrow(/starting page/);
   await expect(user.mutation(api.workspace.savePreferences, {hiddenPages: ["today", "routines", "workout", "habits", "progress", "athkar", "macros"], startPage: "workout", quiet: false})).rejects.toThrow(/one section/);
-  expect(await user.query(api.workspace.getPreferences)).toMatchObject({hiddenPages: ["today"], startPage: "workout"});
+  expect(await user.query(api.workspace.getPreferences)).toMatchObject({hiddenPages: [], startPage: "workout"});
 });
 
 test("retired quiet-mode flags no longer reach the app or survive a preference save", async () => {
@@ -431,5 +431,5 @@ test("retired quiet-mode flags no longer reach the app or survive a preference s
   // An older browser can still save navigation; its obsolete flag is ignored.
   await user.mutation(api.workspace.savePreferences, {hiddenPages: ["today"], startPage: "workout", quiet: true});
   expect(await t.run(ctx => ctx.db.get(id))).not.toHaveProperty("quiet");
-  expect(await user.query(api.workspace.getPreferences)).toMatchObject({hiddenPages: ["today"], startPage: "workout"});
+  expect(await user.query(api.workspace.getPreferences)).toMatchObject({hiddenPages: [], startPage: "workout"});
 });
