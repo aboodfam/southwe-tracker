@@ -19,6 +19,7 @@ final class RecapOverlay {
   private FrameLayout holder;
   private WindowManager manager;
   private String selectedKind;
+  private boolean dismissing;
 
   RecapOverlay(Context context, RecapStore store) {
     this.context = context;
@@ -80,6 +81,7 @@ final class RecapOverlay {
   void present(
       JSONArray periods, boolean sample, boolean unlock, String message, Runnable dismissed)
       throws Exception {
+    if (dismissing) return;
     View screen =
         buildCard(
             periods,
@@ -87,18 +89,21 @@ final class RecapOverlay {
             unlock,
             message,
             () -> {
-              hide();
-              dismissed.run();
+              dismissAnimated(dismissed);
             });
     if (showing()) {
+      ScrollView previous = holder.findViewWithTag("recap_scroll");
+      int previousY = previous == null ? 0 : previous.getScrollY();
       holder.removeAllViews();
       holder.addView(screen, new FrameLayout.LayoutParams(-1, -1));
+      ScrollView updated = screen.findViewWithTag("recap_scroll");
+      updated.post(() -> updated.scrollTo(0, previousY));
       return;
     }
     manager = context.getSystemService(WindowManager.class);
     FrameLayout backdrop = new FrameLayout(context);
     backdrop.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-    backdrop.setBackgroundColor(0xff06090d);
+    backdrop.setBackgroundColor(0xb0080b10);
     holder = new FrameLayout(context);
     holder.addView(screen, new FrameLayout.LayoutParams(-1, -1));
     backdrop.addView(holder, new FrameLayout.LayoutParams(-1, -1));
@@ -106,8 +111,7 @@ final class RecapOverlay {
     backdrop.setOnKeyListener(
         (v, key, event) -> {
           if (key == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
-            hide();
-            dismissed.run();
+            dismissAnimated(dismissed);
             return true;
           }
           return false;
@@ -117,8 +121,8 @@ final class RecapOverlay {
             -1,
             -1,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            0,
-            android.graphics.PixelFormat.OPAQUE);
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            android.graphics.PixelFormat.TRANSLUCENT);
     params.setFitInsetsTypes(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
     params.gravity = Gravity.CENTER;
     params.setTitle("Ceventic recap");
@@ -126,6 +130,7 @@ final class RecapOverlay {
     try {
       manager.addView(root, params);
       root.requestFocus();
+      animateEntry();
     } catch (Exception e) {
       root = null;
       holder = null;
@@ -168,13 +173,15 @@ final class RecapOverlay {
     LinearLayout header = new LinearLayout(context);
     header.setGravity(Gravity.CENTER_VERTICAL);
     header.setPadding(dp(20), dp(10), dp(16), dp(8));
-    ImageView logo = new ImageView(context);
-    logo.setImageResource(com.ceventic.android.R.mipmap.ic_launcher);
-    logo.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-    LinearLayout.LayoutParams logoBox = new LinearLayout.LayoutParams(dp(28), dp(28));
-    logoBox.setMarginEnd(dp(9));
-    header.addView(logo, logoBox);
-    header.addView(text("Ceventic", 16, 0xffe5e7eb, true), new LinearLayout.LayoutParams(0, -2, 1));
+    LinearLayout heading = NativeUi.column(context);
+    TextView title = text(t("Your overview"), 25, Color.WHITE, true);
+    TextView date = text("", 11, 0xff929ba7, false);
+    heading.addView(title);
+    gap(heading, 5);
+    heading.addView(date);
+    LinearLayout.LayoutParams headingBox = new LinearLayout.LayoutParams(0, -2, 1);
+    headingBox.setMarginEnd(dp(12));
+    header.addView(heading, headingBox);
     Button close = NativeUi.button(context, "×", dismiss);
     close.setTextSize(24);
     close.setPadding(0, 0, 0, 0);
@@ -191,7 +198,7 @@ final class RecapOverlay {
     scroll.setVerticalScrollBarEnabled(false);
     scroll.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
     LinearLayout body = NativeUi.column(context);
-    body.setPadding(dp(22), dp(12), dp(22), dp(12));
+    body.setPadding(dp(18), dp(6), dp(18), dp(12));
     scroll.addView(body, new ScrollView.LayoutParams(-1, -2));
     page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
     if (sample) {
@@ -219,7 +226,7 @@ final class RecapOverlay {
                 t(kind.equals("week") ? "Week" : kind.equals("month") ? "Month" : "Day"),
                 () -> {
                   try {
-                    render(details, periods.getJSONObject(index));
+                    render(details, periods.getJSONObject(index), title, date);
                     selectTab(buttons, index);
                     scroll.smoothScrollTo(0, 0);
                   } catch (JSONException ignored) {
@@ -232,10 +239,10 @@ final class RecapOverlay {
       }
       selectTab(buttons, initial);
       body.addView(tabs);
-      gap(body, 20);
+      gap(body, 12);
     }
     if (periods.length() > 0) {
-      render(details, periods.getJSONObject(initial));
+      render(details, periods.getJSONObject(initial), title, date);
       body.addView(details, new LinearLayout.LayoutParams(-1, 0, 1));
       // Debug repetition messages belong in settings. Sync failures still remain visible.
       if (!message.isEmpty() && !message.equals("Shown on every unlock")) {
@@ -244,11 +251,16 @@ final class RecapOverlay {
       }
     } else {
       body.setGravity(Gravity.CENTER_VERTICAL);
-      TextView title = text(t("Your unlock screen is working"), 29, Color.WHITE, true);
-      title.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
-      body.addView(title);
+      TextView emptyTitle = text(t("Your unlock screen is working"), 29, Color.WHITE, true);
+      emptyTitle.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+      body.addView(emptyTitle);
       gap(body, 24);
-      FrameLayout proof = hero("✓", t("Unlock detected"), -1);
+      FrameLayout proof = new FrameLayout(context);
+      proof.setBackground(NativeUi.panel(tint(18), tint(32), 24, context));
+      TextView check = text("✓", 42, accent(), true);
+      check.setGravity(Gravity.CENTER);
+      proof.addView(check, new FrameLayout.LayoutParams(-1, dp(110)));
+      proof.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(110)));
       body.addView(proof);
       gap(body, 22);
       TextView description = text(t(message), 14, 0xffa6adb7, false);
@@ -292,60 +304,44 @@ final class RecapOverlay {
     return false;
   }
 
-  private FrameLayout hero(String value, String label, float ratio) {
-    FrameLayout box = new FrameLayout(context);
-    box.setMinimumHeight(dp(168));
-    RecapRing ring = new RecapRing(context, NativeUi.accent(store), ratio);
-    box.addView(ring, new FrameLayout.LayoutParams(dp(168), dp(168), Gravity.CENTER));
-    LinearLayout center = NativeUi.column(context);
-    center.setGravity(Gravity.CENTER);
-    if (ratio >= 0 && value.contains(" / ")) {
-      String[] parts = value.split(" / ", 2);
-      LinearLayout countRow = new LinearLayout(context);
-      countRow.setGravity(Gravity.CENTER);
-      countRow.setBaselineAligned(true);
-      countRow.addView(text(parts[0], 44, Color.WHITE, true));
-      TextView denominator = text(" / " + parts[1], 16, 0xff89929f, false);
-      countRow.addView(denominator);
-      center.addView(countRow);
-    } else {
-      TextView count = text(value, 44, Color.WHITE, true);
-      count.setGravity(Gravity.CENTER);
-      center.addView(count);
-    }
-    gap(center, 5);
-    TextView unit = text(label, 11, 0xffa6adb7, false);
-    unit.setGravity(Gravity.CENTER);
-    unit.setMaxWidth(dp(124));
-    center.addView(unit);
-    box.addView(center, new FrameLayout.LayoutParams(dp(138), -2, Gravity.CENTER));
-    box.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(168)));
+  private LinearLayout card() {
+    LinearLayout box = NativeUi.column(context);
+    box.setPadding(dp(16), dp(15), dp(16), dp(15));
+    box.setBackground(NativeUi.panel(0xff11161e, 0x0cffffff, 22, context));
     return box;
   }
 
-  private void render(LinearLayout details, JSONObject period) {
+  private void cardHeading(LinearLayout box, String label, String iconName) {
+    LinearLayout row = new LinearLayout(context);
+    row.setGravity(Gravity.CENTER_VERTICAL);
+    row.addView(text(t(label), 13, 0xffdce1e8, true), new LinearLayout.LayoutParams(0, -2, 1));
+    if (iconName != null) {
+      LinearLayout.LayoutParams iconBox = new LinearLayout.LayoutParams(dp(20), dp(20));
+      iconBox.setMarginStart(dp(9));
+      row.addView(new RecapIcon(context, iconName, accent()), iconBox);
+    }
+    box.addView(row);
+  }
+
+  private RecapChart chart(JSONObject period, String field) {
+    RecapChart v =
+        new RecapChart(context, NativeUi.accent(store), period.optJSONArray("days"), field);
+    v.setContentDescription(
+        t("Recorded activity")
+            + " · "
+            + t(
+                field.equals("exercises")
+                    ? "Exercises checked"
+                    : field.equals("athkar") ? "Athkar sessions" : "Activity days"));
+    return v;
+  }
+
+  private void render(LinearLayout details, JSONObject period, TextView title, TextView date) {
     details.removeAllViews();
     String kind = period.optString("kind");
     selectedKind = kind;
-    TextView eyebrow =
-        text(
-            t(
-                kind.equals("week")
-                    ? "Weekly recap"
-                    : kind.equals("month") ? "Monthly recap" : "Daily recap"),
-            10,
-            accent(),
-            true);
-    eyebrow.setLetterSpacing(.12f);
-    details.addView(eyebrow);
-    gap(details, 7);
-    details.addView(
-        text(
-            t(kind.equals("week") ? "Your week" : kind.equals("month") ? "Your month" : "Your day"),
-            32,
-            Color.WHITE,
-            true));
-    gap(details, 7);
+    title.setText(
+        t(kind.equals("week") ? "Your week" : kind.equals("month") ? "Your month" : "Your day"));
     String start = period.optString("start"), end = period.optString("end");
     try {
       DateTimeFormatter f =
@@ -355,80 +351,175 @@ final class RecapOverlay {
       end = LocalDate.parse(end).format(f);
     } catch (Exception ignored) {
     }
-    details.addView(text(start.equals(end) ? end : start + " – " + end, 12, 0xff89929f, false));
-    flexibleGap(details, 18, .5f);
-    ArrayList<String[]> metrics = new ArrayList<>();
-    for (String[] m :
-        new String[][] {
-          {"tasks", "Tasks done", "routines"},
-          {"habits", "Habit check-ins", "habits"},
-          {"workouts", "Workouts saved", "workout"},
-          {"exercises", "Exercises checked", "workout"},
-          {"athkar", "Athkar sessions", "athkar"}
-        }) if (!hidden(period, m[2])) metrics.add(m);
-    boolean consistency = !kind.equals("day") && period.optInt("totalDays") > 0;
-    String featuredLabel = "Recorded activity";
-    int featured = 0;
-    for (String[] m : metrics)
-      if (period.optInt(m[0]) > featured) {
-        featured = period.optInt(m[0]);
-        featuredLabel = m[1];
-      }
-    FrameLayout summary;
-    if (consistency) {
-      int active = Math.max(0, period.optInt("activeDays")),
-          total = Math.max(1, period.optInt("totalDays"));
-      summary =
-          hero(
-              number(active) + " / " + number(total),
-              t("Activity days"),
-              Math.min(1, active / (float) total));
-      // The ring is explicitly active days / calendar days, never a made-up goal score.
-      summary.setContentDescription(
-          t("Activity days") + ": " + number(active) + " / " + number(total));
-    } else summary = hero(number(featured), t(featuredLabel), -1);
+    date.setText(start.equals(end) ? end : start + " – " + end);
+    LinearLayout summary = card();
+    GradientDrawable glow =
+        new GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            new int[] {
+              blend(0xff11161e, NativeUi.accent(store), .14f),
+              blend(0xff11161e, NativeUi.accent(store), .035f)
+            });
+    glow.setCornerRadius(dp(22));
+    summary.setBackground(glow);
+    TextView eyebrow =
+        text(
+            t(
+                kind.equals("week")
+                    ? "Weekly recap"
+                    : kind.equals("month") ? "Monthly recap" : "Daily recap"),
+            10,
+            accent(),
+            true);
+    eyebrow.setLetterSpacing(.05f);
+    summary.addView(eyebrow);
+    gap(summary, 9);
+    summary.addView(text(t("Your rhythm"), 19, Color.WHITE, true));
+    gap(summary, 12);
+    LinearLayout rhythm = new LinearLayout(context);
+    rhythm.setGravity(Gravity.CENTER_VERTICAL);
+    LinearLayout stats = NativeUi.column(context);
+    LinearLayout values = new LinearLayout(context);
+    values.setGravity(Gravity.BOTTOM);
+    values.addView(text(number(Math.max(0, period.optInt("activeDays"))), 34, Color.WHITE, true));
+    int total = period.optInt("totalDays");
+    if (total > 0) values.addView(text(" / " + number(total), 15, 0xffa6adb7, false));
+    stats.addView(values);
+    gap(stats, 3);
+    stats.addView(text(t("Activity days"), 11, 0xffa6adb7, false));
+    rhythm.addView(stats, new LinearLayout.LayoutParams(0, -2, 1));
+    rhythm.addView(chart(period, "activity"), new LinearLayout.LayoutParams(dp(110), dp(52)));
+    summary.addView(rhythm);
     details.addView(summary);
-    gap(details, 10);
-    TextView recorded = text(t("Recorded activity"), 11, 0xff7f8997, false);
-    recorded.setGravity(Gravity.CENTER);
-    details.addView(recorded);
-    flexibleGap(details, 22, .5f);
-    details.addView(text(t("Your activity"), 14, 0xffe5e7eb, true));
-    gap(details, 12);
-    for (int i = 0; i < metrics.size(); i += 2) {
+    flexibleGap(details, 12, 1);
+    if (!hidden(period, "workout")) {
+      LinearLayout training = card();
+      cardHeading(training, "Training", "workout");
+      gap(training, 12);
       LinearLayout row = new LinearLayout(context);
-      for (int j = i; j < Math.min(i + 2, metrics.size()); j++) {
-        String[] m = metrics.get(j);
-        LinearLayout tile = new LinearLayout(context);
-        tile.setGravity(Gravity.CENTER_VERTICAL);
-        tile.setPadding(dp(12), dp(13), dp(12), dp(13));
-        tile.setBackground(NativeUi.panel(0x06ffffff, 0x0fffffff, 15, context));
-        FrameLayout icon = new FrameLayout(context);
-        icon.setBackground(NativeUi.panel(tint(20), 0, 11, context));
-        icon.addView(
-            new RecapIcon(context, m[2], accent()),
-            new FrameLayout.LayoutParams(dp(17), dp(17), Gravity.CENTER));
-        LinearLayout.LayoutParams iconBox = new LinearLayout.LayoutParams(dp(32), dp(32));
-        iconBox.setMarginEnd(dp(10));
-        tile.addView(icon, iconBox);
-        LinearLayout words = NativeUi.column(context);
-        words.addView(text(number(period.optInt(m[0])), 22, Color.WHITE, true));
-        gap(words, 3);
-        TextView label = text(t(m[1]), 11, 0xff929ba7, false);
-        label.setLineSpacing(dp(2), 1);
-        words.addView(label);
-        tile.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
-        LinearLayout.LayoutParams cell = new LinearLayout.LayoutParams(0, -1, 1);
-        if (j == i && j + 1 < metrics.size()) cell.setMarginEnd(dp(8));
-        row.addView(tile, cell);
-      }
-      details.addView(row, new LinearLayout.LayoutParams(-1, -2));
-      if (i + 2 < metrics.size()) gap(details, 8);
+      row.setGravity(Gravity.CENTER_VERTICAL);
+      LinearLayout statsTraining = NativeUi.column(context);
+      statsTraining.addView(text(number(period.optInt("exercises")), 30, Color.WHITE, true));
+      gap(statsTraining, 3);
+      statsTraining.addView(text(t("Exercises checked"), 11, 0xffa6adb7, false));
+      row.addView(statsTraining, new LinearLayout.LayoutParams(0, -2, 1));
+      row.addView(chart(period, "exercises"), new LinearLayout.LayoutParams(dp(128), dp(56)));
+      training.addView(row);
+      gap(training, 10);
+      TextView saved =
+          text(
+              number(period.optInt("workouts")) + " · " + t("Workouts saved"),
+              11,
+              0xff929ba7,
+              false);
+      training.addView(saved);
+      details.addView(training);
+      flexibleGap(details, 12, 1);
     }
+    LinearLayout small = new LinearLayout(context);
+    ArrayList<LinearLayout> tiles = new ArrayList<>();
+    if (!hidden(period, "routines"))
+      tiles.add(metricCard(period, "tasks", "Tasks done", "routines"));
+    if (!hidden(period, "habits"))
+      tiles.add(metricCard(period, "habits", "Habit check-ins", "habits"));
+    for (int i = 0; i < tiles.size(); i++) {
+      LinearLayout.LayoutParams cell = new LinearLayout.LayoutParams(0, -1, 1);
+      if (i + 1 < tiles.size()) cell.setMarginEnd(dp(10));
+      small.addView(tiles.get(i), cell);
+    }
+    if (!tiles.isEmpty()) {
+      details.addView(small);
+      flexibleGap(details, 12, 1);
+    }
+    if (!hidden(period, "athkar")) {
+      LinearLayout athkar = card();
+      cardHeading(athkar, "Athkar sessions", "athkar");
+      gap(athkar, 10);
+      LinearLayout row = new LinearLayout(context);
+      row.setGravity(Gravity.CENTER_VERTICAL);
+      LinearLayout statsAthkar = NativeUi.column(context);
+      statsAthkar.addView(text(number(period.optInt("athkar")), 28, Color.WHITE, true));
+      gap(statsAthkar, 3);
+      statsAthkar.addView(text(t("Completed sessions"), 11, 0xff929ba7, false));
+      row.addView(statsAthkar, new LinearLayout.LayoutParams(0, -2, 1));
+      row.addView(chart(period, "athkar"), new LinearLayout.LayoutParams(dp(128), dp(42)));
+      athkar.addView(row);
+      details.addView(athkar);
+    }
+  }
+
+  private LinearLayout metricCard(JSONObject period, String field, String label, String icon) {
+    LinearLayout tile = card();
+    cardHeading(tile, label, icon);
+    gap(tile, 13);
+    tile.addView(text(number(period.optInt(field)), 28, Color.WHITE, true));
+    gap(tile, 9);
+    RecapChart strip = chart(period, field);
+    tile.addView(strip, new LinearLayout.LayoutParams(-1, dp(17)));
+    return tile;
+  }
+
+  private void animateEntry() {
+    if (!android.animation.ValueAnimator.areAnimatorsEnabled() || holder == null) return;
+    root.setAlpha(0);
+    root.animate()
+        .alpha(1)
+        .setDuration(180)
+        .setInterpolator(new android.view.animation.DecelerateInterpolator())
+        .start();
+    holder.setAlpha(0);
+    holder.setScaleX(.94f);
+    holder.setScaleY(.94f);
+    holder.setTranslationY(dp(22));
+    holder
+        .animate()
+        .alpha(1)
+        .scaleX(1)
+        .scaleY(1)
+        .translationY(0)
+        .setDuration(360)
+        .setInterpolator(new android.view.animation.OvershootInterpolator(.65f))
+        .start();
+  }
+
+  private void dismissAnimated(Runnable dismissed) {
+    if (root == null || dismissing) return;
+    if (!android.animation.ValueAnimator.areAnimatorsEnabled()) {
+      hide();
+      dismissed.run();
+      return;
+    }
+    dismissing = true;
+    View closing = root;
+    if (holder != null) holder.animate().cancel();
+    root.animate().cancel();
+    if (holder != null)
+      holder
+          .animate()
+          .alpha(0)
+          .scaleX(.98f)
+          .scaleY(.98f)
+          .translationY(dp(10))
+          .setDuration(130)
+          .start();
+    root.animate()
+        .alpha(0)
+        .setDuration(140)
+        .withEndAction(
+            () -> {
+              if (root == closing) {
+                hide();
+                dismissed.run();
+              }
+            })
+        .start();
   }
 
   void hide() {
     if (root != null) {
+      root.animate().cancel();
+      if (holder != null) holder.animate().cancel();
+      dismissing = false;
       try {
         manager.removeView(root);
       } catch (Exception ignored) {

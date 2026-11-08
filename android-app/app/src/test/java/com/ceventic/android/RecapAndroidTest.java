@@ -115,6 +115,7 @@ public class RecapAndroidTest {
             .put("athkar", 0)
             .put("activeDays", 2)
             .put("totalDays", 31);
+    month.put("days", monthDays());
     for (int[] size : new int[][] {{320, 640}, {390, 800}, {412, 880}, {720, 360}}) {
       View screen =
           new RecapOverlay(app, store)
@@ -126,6 +127,9 @@ public class RecapAndroidTest {
       assertNull(
           "debug copy should not dominate a real recap", findText(screen, "Unlock detected"));
       assertNull(findText(screen, "Shown on every unlock"));
+      assertNull("no recap logo or wordmark", findText(screen, "Ceventic"));
+      assertEquals(0, countImages(screen));
+      assertNotNull(findText(screen, "Training"));
       assertNotNull(findText(screen, "6"));
     }
     app.getResources().getConfiguration().fontScale = 1.3f;
@@ -207,6 +211,7 @@ public class RecapAndroidTest {
             .put("activeDays", 2)
             .put("totalDays", 31)
             .put("exercises", 6);
+    month.put("days", monthDays());
     View screen =
         new RecapOverlay(app, store)
             .buildCard(new JSONArray().put(month), false, true, "Shown on every unlock", () -> {});
@@ -231,6 +236,105 @@ public class RecapAndroidTest {
     } finally {
       controller.destroy();
     }
+  }
+
+  @Test
+  public void entryPopsOnceDismissAnimatesAndLockHideIsImmediate() throws Exception {
+    org.robolectric.util.ReflectionHelpers.callStaticMethod(
+        android.animation.ValueAnimator.class,
+        "setDurationScale",
+        org.robolectric.util.ReflectionHelpers.ClassParameter.from(float.class, 1f));
+    RecapOverlay overlay = new RecapOverlay(app, store);
+    try {
+      overlay.present(
+          new JSONArray(),
+          false,
+          true,
+          "Connect your account to see your progress here.",
+          () -> {});
+      View root = ReflectionHelpers.getField(overlay, "root"),
+          holder = ReflectionHelpers.getField(overlay, "holder");
+      assertEquals(.94f, holder.getScaleX(), .001f);
+      assertEquals(0, holder.getAlpha(), .001f);
+      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(600));
+      assertEquals(1, holder.getScaleX(), .001f);
+      assertEquals(1, holder.getAlpha(), .001f);
+      overlay.present(
+          new JSONArray(),
+          false,
+          true,
+          "Connect your account to see your progress here.",
+          () -> {});
+      assertEquals("sync updates do not replay the popup", 1, holder.getScaleX(), .001f);
+      findText(root, "Continue").performClick();
+      assertTrue(overlay.showing());
+      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(300));
+      assertFalse(overlay.showing());
+      overlay.present(
+          new JSONArray(),
+          false,
+          true,
+          "Connect your account to see your progress here.",
+          () -> {});
+      overlay.hide();
+      assertFalse(overlay.showing());
+      shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(600));
+      assertFalse(overlay.showing());
+    } finally {
+      overlay.hide();
+    }
+  }
+
+  @Test
+  public void disabledSystemAnimationsSkipThePopupMotion() throws Exception {
+    org.robolectric.util.ReflectionHelpers.callStaticMethod(
+        android.animation.ValueAnimator.class,
+        "setDurationScale",
+        org.robolectric.util.ReflectionHelpers.ClassParameter.from(float.class, 0f));
+    RecapOverlay overlay = new RecapOverlay(app, store);
+    try {
+      overlay.present(new JSONArray(), false, true, "", () -> {});
+      View holder = ReflectionHelpers.getField(overlay, "holder");
+      assertEquals(1, holder.getScaleX(), .001f);
+      assertEquals(1, holder.getAlpha(), .001f);
+    } finally {
+      overlay.hide();
+    }
+  }
+
+  @Test
+  public void tinyChartsUseActualDailyCountsAndNeverInventMissingDetail() throws Exception {
+    RecapChart exercises = new RecapChart(app, Color.RED, monthDays(), "exercises");
+    int[] values = exercises.valuesForTesting();
+    assertEquals(31, values.length);
+    int sum = 0;
+    for (int n : values) sum += n;
+    assertEquals(6, sum);
+    assertEquals(3, values[2]);
+    assertEquals(3, values[25]);
+    assertEquals(0, new RecapChart(app, Color.RED, null, "exercises").valuesForTesting().length);
+  }
+
+  private JSONArray monthDays() throws Exception {
+    JSONArray days = new JSONArray();
+    for (int i = 1; i <= 31; i++)
+      days.put(
+          new JSONObject()
+              .put("date", String.format(java.util.Locale.ROOT, "2026-10-%02d", i))
+              .put("tasks", 0)
+              .put("habits", 0)
+              .put("workouts", 0)
+              .put("exercises", i == 3 || i == 26 ? 3 : 0)
+              .put("athkar", 0));
+    return days;
+  }
+
+  private int countImages(View v) {
+    int count = v instanceof ImageView ? 1 : 0;
+    if (v instanceof ViewGroup)
+      for (int i = 0; i < ((ViewGroup) v).getChildCount(); i++)
+        count += countImages(((ViewGroup) v).getChildAt(i));
+    return count;
   }
 
   private TextView findText(View view, String value) {

@@ -6,6 +6,15 @@ final class NativeStrings {
   private static final Map<String, String[]> TEXT =
       Map.ofEntries(
           Map.entry(
+              "Your overview", new String[] {"لمحتك العامة", "Tu resumen", "Votre aperçu", "你的概览"}),
+          Map.entry("Your rhythm", new String[] {"إيقاعك", "Tu ritmo", "Votre rythme", "你的节奏"}),
+          Map.entry("Training", new String[] {"التدريب", "Entrenamiento", "Entraînement", "训练"}),
+          Map.entry(
+              "Completed sessions",
+              new String[] {
+                "الجلسات المكتملة", "Sesiones completadas", "Séances terminées", "已完成时段"
+              }),
+          Map.entry(
               "Daily recap",
               new String[] {"ملخّص يومي", "Resumen diario", "Bilan quotidien", "每日总结"}),
           Map.entry(

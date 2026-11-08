@@ -345,6 +345,17 @@ public final class RecapSettingsActivity extends Activity {
               .put("athkar", 2)
               .put("totalDays", 1)
               .put("activeDays", 1);
+      demo.put(
+          "days",
+          new JSONArray()
+              .put(
+                  new JSONObject()
+                      .put("date", LocalDate.now().minusDays(1).toString())
+                      .put("tasks", 4)
+                      .put("habits", 2)
+                      .put("exercises", 8)
+                      .put("workouts", 1)
+                      .put("athkar", 2)));
       preview.show(new JSONArray().put(demo), true, () -> {});
     } catch (Exception e) {
       store.error("Could not display the preview.");
