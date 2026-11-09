@@ -955,7 +955,7 @@ function ExerciseRow({
         disabled={disabled}
         aria-pressed={checked}
         aria-label={`${checked ? tr("Uncheck") : tr("Complete")} ${ex.name}`}
-        className="mt-0.5 sm:mt-1 w-5 h-5 sm:w-6 sm:h-6 rounded-md border flex items-center justify-center flex-shrink-0"
+        className="mt-0.5 sm:mt-1 w-7 h-7 rounded-lg border flex items-center justify-center flex-shrink-0"
         style={{
           borderColor: checked ? rgbaFromRgb(accent, 0.8) : "rgba(255,255,255,0.18)",
           background: checked ? rgbaFromRgb(accent, 0.18) : "transparent",

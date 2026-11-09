@@ -384,6 +384,19 @@ public class RecapAndroidTest {
     icon.setBackgroundColor(Color.BLACK);
     render(icon, 108, 108, "launcher-white-c");
     assertTrue(icon.getDrawable() instanceof android.graphics.drawable.AdaptiveIconDrawable);
+    Bitmap mark = Bitmap.createBitmap(108, 108, Bitmap.Config.ARGB_8888);
+    icon.draw(new Canvas(mark));
+    int left = 108, right = -1, top = 108, bottom = -1;
+    for (int y = 0; y < 108; y++) for (int x = 0; x < 108; x++) {
+      int color = mark.getPixel(x, y);
+      if (Color.red(color) > 210 && Color.green(color) > 210 && Color.blue(color) > 210) {
+        left = Math.min(left, x); right = Math.max(right, x);
+        top = Math.min(top, y); bottom = Math.max(bottom, y);
+      }
+    }
+    assertTrue("mark stays visible", right - left >= 20);
+    assertTrue("mark has padding inside the adaptive launcher mask", right - left <= 54);
+    assertTrue("mark stays centered with clear top/bottom padding", top >= 20 && bottom <= 88);
     JSONObject period =
         comparedPeriod(6, 4)
             .put("tasks", 3)

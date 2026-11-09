@@ -153,7 +153,9 @@ export const toggleTask = mutation({
       .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", today))
       .first();
     if (savedDay?.countedInStats === true) {
-      throw new Error("Today is already completed.");
+      // A stale client may tap just as another tab completes the day. Keep the
+      // checkmarks locked without turning an expected no-op into a server error.
+      return { locked: true };
     }
 
     const taskId = assertShortId(args.taskId, "Task id", 100);
@@ -169,6 +171,7 @@ export const toggleTask = mutation({
     // Update today's routine progress (used by Progress & Achievements).
     const stats = await computeRoutineStats(ctx, userId, args.dateKey);
     await upsertDailyProgress(ctx, userId, stats);
+    return { locked: false };
   },
 });
 

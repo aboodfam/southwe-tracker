@@ -289,6 +289,53 @@ textarea:focus-visible {
   }
 }
 
+/* Fixed-size icon/check controls stay square. A separate invisible hit area
+   keeps a 44px touch target without stretching the visible box on phones. */
+button:is(
+  [class~="w-5"][class~="h-5"],
+  [class~="w-6"][class~="h-6"],
+  [class~="w-7"][class~="h-7"],
+  [class~="w-8"][class~="h-8"],
+  [class~="w-9"][class~="h-9"],
+  [class~="w-10"][class~="h-10"],
+  [class~="w-11"][class~="h-11"],
+  [class~="w-12"][class~="h-12"]
+) {
+  min-height: 0;
+  min-width: 0;
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  padding: 0;
+}
+button:is(
+  [class~="w-5"][class~="h-5"],
+  [class~="w-6"][class~="h-6"],
+  [class~="w-7"][class~="h-7"],
+  [class~="w-8"][class~="h-8"],
+  [class~="w-9"][class~="h-9"],
+  [class~="w-10"][class~="h-10"],
+  [class~="w-11"][class~="h-11"],
+  [class~="w-12"][class~="h-12"]
+):not(.absolute):not(.fixed) { position: relative; }
+button:is(
+  [class~="w-5"][class~="h-5"],
+  [class~="w-6"][class~="h-6"],
+  [class~="w-7"][class~="h-7"],
+  [class~="w-8"][class~="h-8"],
+  [class~="w-9"][class~="h-9"],
+  [class~="w-10"][class~="h-10"],
+  [class~="w-11"][class~="h-11"],
+  [class~="w-12"][class~="h-12"]
+)::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+
 /* Prevent text selection on buttons and interactive elements */
 button,
 .no-select {

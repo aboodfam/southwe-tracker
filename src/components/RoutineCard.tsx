@@ -1,6 +1,6 @@
 import { t as tr, useLocale } from "../i18n";
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { useTheme } from "../contexts/ThemeContext";
@@ -35,6 +35,10 @@ export function RoutineCard({ routine, appear }: RoutineCardProps) {
   const colors = getThemeColors();
   const { play } = useSound();
   const dateKey = useLocalDateKey();
+  const todayProgress = useQuery(api.routines.getTodayProgress, { dateKey });
+  const dayLocked = todayProgress === undefined || todayProgress?.countedInStats === true;
+  const taskToggleLock = useRef(false);
+  const [taskToggleBusy, setTaskToggleBusy] = useState(false);
 
   // Animations: smooth add/delete without extra libs
   const [isRemovingBlock, setIsRemovingBlock] = useState(false);
@@ -117,14 +121,20 @@ const tasksToRender = useMemo(() => {
 
 
   const handleTaskToggle = async (taskId: string) => {
+    if (dayLocked || taskToggleLock.current) return;
+    taskToggleLock.current = true;
+    setTaskToggleBusy(true);
     const task = routine.tasks.find((t) => t.id === taskId);
     const willComplete = task ? !task.completed : true;
 
     try {
-      await toggleTask({ routineId: routine._id, taskId, dateKey });
-      if (willComplete) play("success", 0.9);
-    } catch (error: any) {
-      toast.error(error?.message ?? tr("Could not save task progress"));
+      const result = await toggleTask({ routineId: routine._id, taskId, dateKey });
+      if (!result?.locked && willComplete) play("success", 0.9);
+    } catch {
+      toast.error(tr("Could not save task progress"), { id: "routine-task-save" });
+    } finally {
+      taskToggleLock.current = false;
+      setTaskToggleBusy(false);
     }
   };
 
@@ -625,6 +635,8 @@ const startHoldDrag = (
                   >
                     <TaskItem
                       task={task}
+                      disabled={dayLocked || taskToggleBusy}
+                      completionLocked={todayProgress?.countedInStats === true}
                       index={index}
                       editingTask={editingTask}
                       editValue={editValue}
@@ -696,6 +708,8 @@ const startHoldDrag = (
 
 function TaskItem(props: {
   task: Task;
+  disabled: boolean;
+  completionLocked: boolean;
   index: number;
   editingTask: string | null;
   editValue: string;
@@ -712,7 +726,7 @@ function TaskItem(props: {
   onDragHandlePointerDown: (e: React.PointerEvent<HTMLButtonElement>) => void;
 }) {
   useLocale();
-  const { task, index, editingTask, editValue, onToggle, onEditStart, onEditSave, onEditCancel, onDelete, setEditValue, isNew, isRemoving, isDragging, dragActive, onDragHandlePointerDown } = props;
+  const { task, disabled, completionLocked, index, editingTask, editValue, onToggle, onEditStart, onEditSave, onEditCancel, onDelete, setEditValue, isNew, isRemoving, isDragging, dragActive, onDragHandlePointerDown } = props;
 
   const { getThemeColors } = useTheme();
   const colors = getThemeColors();
@@ -743,7 +757,12 @@ function TaskItem(props: {
         </svg>
       </button>
       <button
+        type="button"
         onClick={() => onToggle(task.id)}
+        disabled={disabled}
+        aria-pressed={task.completed}
+        aria-label={`${task.completed ? tr("Uncheck") : tr("Complete")} ${task.name}`}
+        title={completionLocked ? `${tr("Day Completed")}. ${tr("Tasks reset automatically tomorrow.")}` : undefined}
         className={`w-6 h-6 sm:w-7 sm:h-7 shrink-0 rounded-lg border-2 flex items-center justify-center transition-all duration-200 ${
           task.completed
             ? `bg-[image:var(--sw-gradient)] border-transparent text-black shadow-lg ${colors.shadow}`
